@@ -14,4 +14,4 @@ the asset's license permits your use, and credit the original artist here.
 
 ## Code
 
-nom itself is licensed under TBD. See LICENSE (when added).
+nom itself is licensed under **MIT**. See [LICENSE](./LICENSE).
