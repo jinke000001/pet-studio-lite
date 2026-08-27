@@ -33,6 +33,13 @@
 - 自动测试 64/64、lint、npm audit、单宠 ASAR 隔离、来源/包内图集哈希和 20 个最终关键产物重新哈希通过。
 - Windows 真实安装、卸载、重装和 100%/125%/150% DPI 验收仍需另行授权，Mac 侧结果不能替代该结论。
 
+## Phase 4 当前状态
+
+- 2026-08-27 用户确认 Phase 4 PRD，实施分支为 `feature/xiaofuxing-v2`。
+- 五张小福猩素材已登记；无服装、无道具的正面完整全身图锁定为唯一身份基准，其余图片只提供姿势、情绪和侧面结构参考。
+- 当前正在准备版本化 v2 制作运行目录；授权状态暂记 `internal-test`，不写入或覆盖用户 Codex/Petdex 宠物目录。
+- Windows 正式验收顺延到 Phase 4 完成后统一执行，候选与正式验收状态继续分开。
+
 ## 文件索引
 
 - `决策点.md`：已确认的产品、架构和阶段决策。
@@ -42,5 +49,6 @@
 - `../Resources/phase-1-macos-evidence.md`：Phase 1 自动化、真实窗口和证据边界。
 - `../Resources/phase-2-import-evidence.md`：Phase 2 导入安全、三样本哈希、视觉与运行证据。
 - `../Resources/phase-3-package-evidence.md`：Phase 3 四产品候选、安装包哈希、ASAR 隔离、Mac 运行与 Windows 边界证据。
+- `../Resources/xiaofuxing-source-manifest.md`：Phase 4 小福猩五张原始素材、哈希、身份基准与使用边界。
 - `../tasks/plan.md`：正式 PRD 与实施计划。
 - `../tasks/todo.md`：可执行任务清单。

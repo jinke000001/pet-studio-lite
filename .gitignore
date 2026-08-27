@@ -18,3 +18,6 @@ settings.json
 
 # Local test pets are copied from read-only sources and are not committed.
 local-pets/
+
+# User-provided immutable Phase 4 references; tracked evidence records hashes only.
+/小福猩素材/
