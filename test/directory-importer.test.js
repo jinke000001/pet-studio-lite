@@ -64,6 +64,12 @@ test('imports a directory into immutable source and normalized package snapshots
   assert.equal(sha256(path.join(result.sourceSnapshotPath, 'spritesheet.webp')), sourceHashBefore);
   assert.equal(sha256(path.join(result.packagePath, 'spritesheet.webp')), sourceHashBefore);
   assert.ok(fs.existsSync(result.reportPath));
+  assert.ok(fs.existsSync(result.humanReportPath));
+  assert.ok(fs.existsSync(result.contactSheetPath));
+  assert.ok(fs.existsSync(result.actionPreviewPath));
+  assert.match(fs.readFileSync(result.humanReportPath, 'utf8'), /Sample Pet/);
+  assert.equal((fs.readFileSync(result.contactSheetPath, 'utf8').match(/class="frame"/g) || []).length, 72);
+  assert.doesNotMatch(fs.readFileSync(result.actionPreviewPath, 'utf8'), /innerHTML/);
 
   const repeated = importPetDirectory({
     sourceDirectory: source,
@@ -99,4 +105,21 @@ test('rejects packages that exceed configured limits', () => {
     sourceIdentity: 'too-large',
     limits: { maxFileBytes: 8 },
   }), (error) => error.code === 'FILE_TOO_LARGE');
+});
+
+test('rejects a declared version that conflicts with the atlas without leaving output', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-directory-import-'));
+  const source = makeSource(root, { version: 1 });
+  const manifestPath = path.join(source, 'pet.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  manifest.spriteVersionNumber = 2;
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+  const outputRoot = path.join(root, 'imports');
+
+  assert.throws(() => importPetDirectory({
+    sourceDirectory: source,
+    outputRoot,
+    sourceIdentity: 'version-conflict',
+  }), /dimensions/);
+  assert.deepEqual(fs.existsSync(outputRoot) ? fs.readdirSync(outputRoot) : [], []);
 });

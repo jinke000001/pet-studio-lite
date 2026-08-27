@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const { normalizePetPackage } = require('../core/pet-package');
 const { inspectWebp } = require('../core/webp-inspector');
+const { writeImportArtifacts } = require('./artifact-generator');
 const {
   ImportError,
   normalizeImportOptions,
@@ -114,6 +115,9 @@ function existingResult(importDirectory) {
     sourceSnapshotPath: path.join(importDirectory, 'source'),
     packagePath: path.join(importDirectory, 'package'),
     reportPath,
+    humanReportPath: path.join(importDirectory, 'import-report.md'),
+    contactSheetPath: path.join(importDirectory, 'preview', 'contact-sheet.svg'),
+    actionPreviewPath: path.join(importDirectory, 'preview', 'actions.html'),
     report,
   };
 }
@@ -195,7 +199,13 @@ function importPetDirectory({
       sourceDigest: digest,
       files: files.map(({ relativePath, bytes, sha256 }) => ({ path: relativePath, bytes, sha256 })),
       pet,
+      artifacts: {
+        humanReport: 'import-report.md',
+        contactSheet: 'preview/contact-sheet.svg',
+        actionPreview: 'preview/actions.html',
+      },
     };
+    writeImportArtifacts(temporaryDirectory, report);
     const temporaryReportPath = path.join(temporaryDirectory, 'import-report.json');
     fs.writeFileSync(temporaryReportPath, `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx' });
     fs.renameSync(temporaryDirectory, importDirectory);
@@ -205,6 +215,9 @@ function importPetDirectory({
       sourceSnapshotPath: path.join(importDirectory, 'source'),
       packagePath: path.join(importDirectory, 'package'),
       reportPath: path.join(importDirectory, 'import-report.json'),
+      humanReportPath: path.join(importDirectory, 'import-report.md'),
+      contactSheetPath: path.join(importDirectory, 'preview', 'contact-sheet.svg'),
+      actionPreviewPath: path.join(importDirectory, 'preview', 'actions.html'),
       report,
     };
   } catch (error) {
