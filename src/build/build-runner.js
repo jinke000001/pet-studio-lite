@@ -2,6 +2,7 @@ const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { inspectPackagedAsar } = require('./asar-inspector');
 const {
   createBuilderConfiguration,
   createCandidateManifest,
@@ -124,6 +125,12 @@ function runProductBuild({ projectRoot, argv, spawn = childProcess.spawnSync, no
 
   const artifactPaths = discoverCandidateArtifacts(runDirectory);
   if (artifactPaths.length === 0) throw new Error(`builder produced no candidate artifacts in ${runDirectory}`);
+  const packagedResources = artifactPaths
+    .filter((artifactPath) => path.basename(artifactPath) === 'app.asar')
+    .map((asarPath) => ({
+      path: path.relative(runDirectory, asarPath).replaceAll(path.sep, '/'),
+      ...inspectPackagedAsar({ asarPath, selector: request.selector }),
+    }));
   const manifest = createCandidateManifest({
     runDirectory,
     profile,
@@ -131,6 +138,7 @@ function runProductBuild({ projectRoot, argv, spawn = childProcess.spawnSync, no
     targets: request.targets,
     sourceAtlasPath: runtime.atlasPath,
     artifactPaths,
+    packagedResources,
     toolVersions: {
       node: process.versions.node,
       electron: require(path.join(projectRoot, 'node_modules', 'electron', 'package.json')).version,

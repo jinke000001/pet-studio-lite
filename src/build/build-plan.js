@@ -105,6 +105,7 @@ function createCandidateManifest({
   sourceAtlasPath,
   artifactPaths,
   toolVersions,
+  packagedResources,
 }) {
   const profile = normalizeProductProfile(inputProfile);
   const normalizedTargets = normalizeTargets(targets);
@@ -117,6 +118,19 @@ function createCandidateManifest({
     }
     return { path: relativePath.replaceAll(path.sep, '/'), ...hashFile(resolved) };
   });
+  if (!Array.isArray(packagedResources) || packagedResources.length === 0) {
+    throw new Error('at least one packaged ASAR inspection is required');
+  }
+  const sourceAtlas = { path: path.resolve(sourceAtlasPath), ...hashFile(sourceAtlasPath) };
+  if (packagedResources.some((resource) => resource.embeddedSelector !== selector)) {
+    throw new Error('packaged product selector does not match the build request');
+  }
+  if (packagedResources.some((resource) => resource.atlas?.sha256 !== sourceAtlas.sha256)) {
+    throw new Error('packaged atlas does not match the selected source atlas');
+  }
+  if (new Set(packagedResources.map((resource) => resource.asar?.sha256)).size !== 1) {
+    throw new Error('packaged ASAR bytes differ between platform candidates');
+  }
   return {
     schemaVersion: 1,
     status: 'internal-candidate',
@@ -132,7 +146,8 @@ function createCandidateManifest({
     },
     targets: normalizedTargets,
     tools: { ...toolVersions },
-    sourceAtlas: { path: path.resolve(sourceAtlasPath), ...hashFile(sourceAtlasPath) },
+    sourceAtlas,
+    packagedResources,
     artifacts,
     acceptance: {
       macOS: normalizedTargets.includes('mac') ? { packagedApp: 'candidate-built-not-yet-runtime-verified' } : { packagedApp: 'not-built' },

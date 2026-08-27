@@ -80,6 +80,7 @@ test('records candidate hashes and explicit Windows acceptance boundaries', () =
   fs.mkdirSync(path.dirname(installer), { recursive: true });
   fs.writeFileSync(installer, 'installer-candidate');
   fs.writeFileSync(atlas, 'approved-atlas');
+  const atlasHash = require('node:crypto').createHash('sha256').update('approved-atlas').digest('hex');
 
   const manifest = createCandidateManifest({
     runDirectory: root,
@@ -89,6 +90,7 @@ test('records candidate hashes and explicit Windows acceptance boundaries', () =
     sourceAtlasPath: atlas,
     artifactPaths: [installer],
     toolVersions: { node: '22.12.0', electron: '43.4.1', electronBuilder: '26.15.3' },
+    packagedResources: [{ embeddedSelector: 'sample', atlas: { sha256: atlasHash }, asar: { sha256: 'c'.repeat(64) } }],
   });
 
   assert.equal(manifest.status, 'internal-candidate');
@@ -97,4 +99,38 @@ test('records candidate hashes and explicit Windows acceptance boundaries', () =
   assert.equal(manifest.artifacts[0].size, 19);
   assert.match(manifest.artifacts[0].sha256, /^[a-f0-9]{64}$/);
   assert.match(manifest.sourceAtlas.sha256, /^[a-f0-9]{64}$/);
+  assert.equal(manifest.packagedResources[0].embeddedSelector, 'sample');
+});
+
+test('rejects packaged resources whose selector, atlas or ASAR bytes disagree', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-build-integrity-'));
+  const artifact = path.join(root, 'artifact.exe');
+  const atlas = path.join(root, 'atlas.webp');
+  fs.writeFileSync(artifact, 'artifact');
+  fs.writeFileSync(atlas, 'atlas');
+  const base = {
+    runDirectory: root,
+    profile: sampleProfile(),
+    selector: 'sample',
+    targets: ['win'],
+    sourceAtlasPath: atlas,
+    artifactPaths: [artifact],
+    toolVersions: {},
+  };
+  const atlasHash = require('node:crypto').createHash('sha256').update('atlas').digest('hex');
+  assert.throws(() => createCandidateManifest({
+    ...base,
+    packagedResources: [{ embeddedSelector: 'other', atlas: { sha256: atlasHash }, asar: { sha256: 'c'.repeat(64) } }],
+  }), /selector/);
+  assert.throws(() => createCandidateManifest({
+    ...base,
+    packagedResources: [{ embeddedSelector: 'sample', atlas: { sha256: 'b'.repeat(64) }, asar: { sha256: 'c'.repeat(64) } }],
+  }), /atlas/);
+  assert.throws(() => createCandidateManifest({
+    ...base,
+    packagedResources: [
+      { embeddedSelector: 'sample', atlas: { sha256: atlasHash }, asar: { sha256: 'c'.repeat(64) } },
+      { embeddedSelector: 'sample', atlas: { sha256: atlasHash }, asar: { sha256: 'd'.repeat(64) } },
+    ],
+  }), /ASAR/);
 });

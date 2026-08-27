@@ -16,6 +16,7 @@
     "lint": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/core/*.js && node --check src/import/*.js && node --check src/build/*.js && node --check scripts/*.js"
   },
   "devDependencies": {
+    "@electron/asar": "^3.4.1",
     "electron": "43.4.1",
     "electron-builder": "26.15.3"
   },
