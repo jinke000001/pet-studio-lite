@@ -6,6 +6,8 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { importPetDirectory } = require('../src/import/directory-importer');
+const { loadRuntimeInputs } = require('../src/core/package-loader');
+const { inspectWebp } = require('../src/core/webp-inspector');
 
 function makeLosslessWebp(width, height, hasAlpha) {
   const dimensions = (width - 1) | ((height - 1) << 14) | ((hasAlpha ? 1 : 0) << 28);
@@ -72,6 +74,17 @@ test('imports a directory into immutable source and normalized package snapshots
   const actionPreview = fs.readFileSync(result.actionPreviewPath, 'utf8');
   assert.doesNotMatch(actionPreview, /innerHTML/);
   assert.match(actionPreview, /rel="icon" href="data:,"/);
+
+  const profilePath = path.join(root, 'config', 'imported.json');
+  fs.mkdirSync(path.dirname(profilePath), { recursive: true });
+  fs.writeFileSync(profilePath, JSON.stringify({
+    productId: 'imported-sample',
+    productName: 'Imported Sample',
+    petPackagePath: path.relative(root, result.packagePath),
+  }));
+  const runtimeInputs = loadRuntimeInputs({ projectRoot: root, profilePath, inspectAtlas: inspectWebp });
+  assert.equal(runtimeInputs.pet.id, 'sample');
+  assert.equal(runtimeInputs.atlasPath, path.join(result.packagePath, 'spritesheet.webp'));
 
   const repeated = importPetDirectory({
     sourceDirectory: source,
