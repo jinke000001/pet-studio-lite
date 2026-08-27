@@ -25,8 +25,8 @@ function validateSafeIdentifier(value, field = 'identifier') {
 
 function normalizeLimit(value, fallback, field) {
   const normalized = value ?? fallback;
-  if (!Number.isSafeInteger(normalized) || normalized < 1 || normalized > 1024 * 1024 * 1024) {
-    throw new ImportError('INVALID_LIMIT', `${field} must be a positive safe integer within the supported range`);
+  if (!Number.isSafeInteger(normalized) || normalized < 1 || normalized > fallback) {
+    throw new ImportError('INVALID_LIMIT', `${field} must be a positive integer no greater than the safe default`);
   }
   return normalized;
 }

@@ -138,3 +138,62 @@ test('rejects a declared version that conflicts with the atlas without leaving o
   }), /dimensions/);
   assert.deepEqual(fs.existsSync(outputRoot) ? fs.readdirSync(outputRoot) : [], []);
 });
+
+test('rejects oversized manifests before JSON parsing', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-directory-import-'));
+  const source = makeSource(root);
+  fs.writeFileSync(path.join(source, 'pet.json'), JSON.stringify({
+    id: 'large-manifest',
+    displayName: 'x'.repeat(1024 * 1024),
+    spritesheetPath: 'spritesheet.webp',
+  }));
+
+  assert.throws(() => importPetDirectory({
+    sourceDirectory: source,
+    outputRoot: path.join(root, 'imports'),
+    sourceIdentity: 'large-manifest',
+  }), (error) => error.code === 'MANIFEST_TOO_LARGE');
+});
+
+test('does not trust an existing import whose report was modified', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-directory-import-'));
+  const source = makeSource(root);
+  const options = {
+    sourceDirectory: source,
+    outputRoot: path.join(root, 'imports'),
+    sourceIdentity: 'tamper-check',
+  };
+  const imported = importPetDirectory(options);
+  fs.writeFileSync(imported.reportPath, JSON.stringify({ schemaVersion: 1 }));
+
+  assert.throws(() => importPetDirectory(options), (error) => error.code === 'DESTINATION_CONFLICT');
+});
+
+test('rejects a source root that is itself a symbolic link', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-directory-import-'));
+  const source = makeSource(root);
+  const linkedSource = path.join(root, 'linked-source');
+  fs.symlinkSync(source, linkedSource);
+
+  assert.throws(() => importPetDirectory({
+    sourceDirectory: linkedSource,
+    outputRoot: path.join(root, 'imports'),
+    sourceIdentity: 'linked-root',
+  }), (error) => error.code === 'SYMLINK_NOT_ALLOWED');
+});
+
+test('rejects an output symlink that resolves inside the source directory', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-directory-import-'));
+  const source = makeSource(root);
+  const nested = path.join(source, 'nested-output');
+  fs.mkdirSync(nested);
+  const linkedOutput = path.join(root, 'linked-output');
+  fs.symlinkSync(nested, linkedOutput);
+
+  assert.throws(() => importPetDirectory({
+    sourceDirectory: source,
+    outputRoot: linkedOutput,
+    sourceIdentity: 'linked-output',
+  }), (error) => error.code === 'OUTPUT_INSIDE_SOURCE');
+  assert.deepEqual(fs.readdirSync(nested), []);
+});

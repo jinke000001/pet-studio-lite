@@ -34,4 +34,10 @@ test('rejects unsafe identifiers and limits outside the supported range', () => 
     sourceIdentity: 'sample',
     limits: { maxFiles: 0 },
   }), /maxFiles/);
+
+  assert.throws(() => normalizeImportOptions({
+    sourceType: 'directory',
+    sourceIdentity: 'sample',
+    limits: { maxFiles: 65 },
+  }), /maxFiles/);
 });

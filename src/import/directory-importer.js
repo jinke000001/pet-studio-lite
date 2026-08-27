@@ -15,6 +15,18 @@ function isInside(root, candidate) {
   return candidate === root || candidate.startsWith(`${root}${path.sep}`);
 }
 
+function resolveThroughExistingAncestor(candidate) {
+  let cursor = path.resolve(candidate);
+  const missingSegments = [];
+  while (!fs.existsSync(cursor)) {
+    const parent = path.dirname(cursor);
+    if (parent === cursor) break;
+    missingSegments.unshift(path.basename(cursor));
+    cursor = parent;
+  }
+  return path.join(fs.realpathSync(cursor), ...missingSegments);
+}
+
 function sha256File(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
@@ -81,6 +93,9 @@ function importDigest({ digest, sourceType, sourceIdentity, sourceOriginalSha256
 function readManifest(sourceRoot, files) {
   const manifestFile = files.find((file) => file.relativePath === 'pet.json');
   if (!manifestFile) throw new ImportError('MISSING_MANIFEST', 'Package must contain pet.json at its root');
+  if (manifestFile.bytes > 1024 * 1024) {
+    throw new ImportError('MANIFEST_TOO_LARGE', 'pet.json exceeds the 1 MB limit');
+  }
   try {
     const manifest = JSON.parse(fs.readFileSync(manifestFile.absolutePath, 'utf8'));
     if (!manifest || Array.isArray(manifest) || typeof manifest !== 'object') throw new Error('expected an object');
@@ -103,23 +118,65 @@ function copyVerifiedFile(file, sourceRoot, destinationRoot) {
   }
 }
 
-function existingResult(importDirectory) {
+function existingResult(importDirectory, expected) {
   const reportPath = path.join(importDirectory, 'import-report.json');
-  if (!fs.existsSync(reportPath)) {
-    throw new ImportError('DESTINATION_CONFLICT', `Import destination already exists: ${importDirectory}`);
+  try {
+    const sourceSnapshotPath = path.join(importDirectory, 'source');
+    const packagePath = path.join(importDirectory, 'package');
+    const humanReportPath = path.join(importDirectory, 'import-report.md');
+    const contactSheetPath = path.join(importDirectory, 'preview', 'contact-sheet.svg');
+    const actionPreviewPath = path.join(importDirectory, 'preview', 'actions.html');
+    const requiredPaths = [reportPath, sourceSnapshotPath, packagePath, humanReportPath, contactSheetPath, actionPreviewPath];
+    if (requiredPaths.some((requiredPath) => !fs.existsSync(requiredPath))) throw new Error('required artifact is missing');
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    if (report.schemaVersion !== 1 || report.sourceDigest !== expected.digest
+      || report.source?.type !== expected.options.sourceType
+      || report.source?.identity !== expected.options.sourceIdentity
+      || (expected.sourceOriginalSha256 && report.source.originalSha256 !== expected.sourceOriginalSha256)) {
+      throw new Error('report identity does not match the requested import');
+    }
+    const snapshotFiles = scanSource(sourceSnapshotPath, expected.options.limits);
+    const snapshotRecords = snapshotFiles.map(({ relativePath, bytes, sha256 }) => ({
+      path: relativePath,
+      bytes,
+      sha256,
+    }));
+    if (sourceDigest(snapshotFiles) !== expected.digest
+      || JSON.stringify(snapshotRecords) !== JSON.stringify(report.files)) {
+      throw new Error('source snapshot does not match its report');
+    }
+    const packageFiles = scanSource(packagePath, expected.options.limits);
+    const packageManifest = readManifest(packagePath, packageFiles);
+    const packageAtlas = packageFiles.find((file) => file.relativePath === packageManifest.spritesheetPath);
+    if (!packageAtlas) throw new Error('standard package atlas is missing');
+    const normalizedPackage = normalizePetPackage({
+      manifest: packageManifest,
+      atlas: inspectWebp(packageAtlas.absolutePath),
+    });
+    const sourceAtlas = snapshotRecords.find((file) => file.path === expected.pet.spritesheetPath);
+    if (normalizedPackage.id !== expected.pet.id
+      || normalizedPackage.spriteVersionNumber !== expected.pet.spriteVersionNumber
+      || packageAtlas.sha256 !== sourceAtlas?.sha256) {
+      throw new Error('standard package does not match the source snapshot');
+    }
+    return {
+      alreadyImported: true,
+      importDirectory,
+      sourceSnapshotPath,
+      packagePath,
+      reportPath,
+      humanReportPath,
+      contactSheetPath,
+      actionPreviewPath,
+      report,
+    };
+  } catch (error) {
+    throw new ImportError(
+      'DESTINATION_CONFLICT',
+      `Import destination exists but failed integrity verification: ${importDirectory}`,
+      { cause: error },
+    );
   }
-  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-  return {
-    alreadyImported: true,
-    importDirectory,
-    sourceSnapshotPath: path.join(importDirectory, 'source'),
-    packagePath: path.join(importDirectory, 'package'),
-    reportPath,
-    humanReportPath: path.join(importDirectory, 'import-report.md'),
-    contactSheetPath: path.join(importDirectory, 'preview', 'contact-sheet.svg'),
-    actionPreviewPath: path.join(importDirectory, 'preview', 'actions.html'),
-    report,
-  };
 }
 
 function importPetDirectory({
@@ -139,12 +196,18 @@ function importPetDirectory({
     authorizationStatus,
     limits,
   });
-  const sourceRoot = fs.realpathSync(sourceDirectory);
-  if (!fs.lstatSync(sourceRoot).isDirectory()) {
+  const sourceInput = path.resolve(sourceDirectory);
+  const sourceInputStat = fs.lstatSync(sourceInput);
+  if (sourceInputStat.isSymbolicLink()) {
+    throw new ImportError('SYMLINK_NOT_ALLOWED', 'sourceDirectory must not be a symbolic link');
+  }
+  if (!sourceInputStat.isDirectory()) {
     throw new ImportError('INVALID_SOURCE', 'sourceDirectory must be a directory');
   }
+  const sourceRoot = fs.realpathSync(sourceInput);
   const resolvedOutputRoot = path.resolve(outputRoot);
-  if (isInside(sourceRoot, resolvedOutputRoot)) {
+  const canonicalOutputRoot = resolveThroughExistingAncestor(resolvedOutputRoot);
+  if (isInside(sourceRoot, canonicalOutputRoot)) {
     throw new ImportError('OUTPUT_INSIDE_SOURCE', 'outputRoot must not be inside sourceDirectory');
   }
 
@@ -163,7 +226,8 @@ function importPetDirectory({
     sourceOriginalSha256,
   });
   const importDirectory = path.join(resolvedOutputRoot, `${packageId}-${uniqueDigest.slice(0, 12)}`);
-  if (fs.existsSync(importDirectory)) return existingResult(importDirectory);
+  const expectedExisting = { digest, options, pet, sourceOriginalSha256 };
+  if (fs.existsSync(importDirectory)) return existingResult(importDirectory, expectedExisting);
 
   fs.mkdirSync(resolvedOutputRoot, { recursive: true });
   const temporaryDirectory = fs.mkdtempSync(path.join(resolvedOutputRoot, '.tmp-import-'));
@@ -222,7 +286,7 @@ function importPetDirectory({
     };
   } catch (error) {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
-    if (fs.existsSync(importDirectory)) return existingResult(importDirectory);
+    if (fs.existsSync(importDirectory)) return existingResult(importDirectory, expectedExisting);
     throw error;
   }
 }
