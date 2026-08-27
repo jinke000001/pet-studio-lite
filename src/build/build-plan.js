@@ -72,10 +72,13 @@ function createBuilderConfiguration({ selector, profile: inputProfile, outputDir
   return config;
 }
 
-function reserveBuildDirectory(outputRoot, inputProfile) {
+function reserveBuildDirectory(outputRoot, inputProfile, runId) {
   const profile = normalizeProductProfile(inputProfile);
-  const productDirectory = path.join(path.resolve(outputRoot), profile.productId);
-  const runDirectory = path.join(productDirectory, profile.version);
+  if (typeof runId !== 'string' || !/^candidate-[a-z0-9-]+$/.test(runId)) {
+    throw new Error('runId must be a safe candidate identifier');
+  }
+  const productDirectory = path.join(path.resolve(outputRoot), profile.productId, profile.version);
+  const runDirectory = path.join(productDirectory, runId);
   fs.mkdirSync(productDirectory, { recursive: true });
   try {
     fs.mkdirSync(runDirectory);

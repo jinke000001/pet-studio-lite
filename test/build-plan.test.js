@@ -66,10 +66,11 @@ test('rejects unsupported or duplicate targets', () => {
 
 test('reserves a versioned output directory without overwriting it', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-build-plan-'));
-  const reserved = reserveBuildDirectory(root, sampleProfile());
-  assert.equal(reserved, path.join(root, 'sample-desktop-pet', '0.1.0'));
+  const reserved = reserveBuildDirectory(root, sampleProfile(), 'candidate-test');
+  assert.equal(reserved, path.join(root, 'sample-desktop-pet', '0.1.0', 'candidate-test'));
   assert.ok(fs.statSync(reserved).isDirectory());
-  assert.throws(() => reserveBuildDirectory(root, sampleProfile()), /already exists/);
+  assert.throws(() => reserveBuildDirectory(root, sampleProfile(), 'candidate-test'), /already exists/);
+  assert.throws(() => reserveBuildDirectory(root, sampleProfile(), '../unsafe'), /runId/);
 });
 
 test('records candidate hashes and explicit Windows acceptance boundaries', () => {
