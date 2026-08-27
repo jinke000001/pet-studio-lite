@@ -8,6 +8,7 @@ const {
   createBuilderCommand,
   discoverCandidateArtifacts,
   parseBuildArguments,
+  resolveBuildOutputRoot,
 } = require('../src/build/build-runner');
 
 test('parses an explicit safe product build request', () => {
@@ -27,7 +28,19 @@ test('rejects incomplete, duplicate, unknown and unsafe build arguments', () => 
   assert.throws(() => parseBuildArguments(['--product', 'dai', '--targets', 'win,win']), /target/);
   assert.throws(() => parseBuildArguments(['--product', '../dai']), /product/);
   assert.throws(() => parseBuildArguments(['--product', 'dai', '--output', '../release']), /output/);
+  assert.throws(() => parseBuildArguments(['--product', 'dai', '--output', 'config/candidates']), /output/);
   assert.throws(() => parseBuildArguments(['--product', 'dai', '--unknown', 'x']), /Unknown/);
+});
+
+test('keeps build outputs under the real project release directory', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-build-output-'));
+  assert.equal(
+    resolveBuildOutputRoot(projectRoot, 'release/candidates'),
+    fs.realpathSync(path.join(projectRoot, 'release', 'candidates')),
+  );
+  const external = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-build-external-'));
+  fs.symlinkSync(external, path.join(projectRoot, 'release', 'linked'));
+  assert.throws(() => resolveBuildOutputRoot(projectRoot, 'release/linked'), /inside the project/);
 });
 
 test('creates a no-publish builder command for requested platforms', () => {

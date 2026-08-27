@@ -1,7 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { containsRuntimeEvidence, parseVerifyArguments } = require('../src/build/mac-verifier');
+const path = require('node:path');
+
+const { containsRuntimeEvidence, parseVerifyArguments, resolveCandidateArtifact } = require('../src/build/mac-verifier');
 
 test('requires both packaged renderer and runtime readiness for the selected identities', () => {
   const complete = [
@@ -19,5 +21,12 @@ test('accepts only one safe project-relative candidate run path', () => {
   });
   assert.throws(() => parseVerifyArguments([]), /run/);
   assert.throws(() => parseVerifyArguments(['--run', '../candidate']), /run/);
+  assert.throws(() => parseVerifyArguments(['--run', 'tasks/candidate']), /run/);
   assert.throws(() => parseVerifyArguments(['--other', 'candidate']), /Unknown/);
+});
+
+test('refuses candidate manifest paths that escape the selected run', () => {
+  assert.equal(resolveCandidateArtifact('/project/release/run', 'artifacts/app.exe'), path.join('/project/release/run', 'artifacts/app.exe'));
+  assert.throws(() => resolveCandidateArtifact('/project/release/run', '../app.exe'), /inside/);
+  assert.throws(() => resolveCandidateArtifact('/project/release/run', '/tmp/app.exe'), /inside/);
 });

@@ -7,10 +7,34 @@ function parseVerifyArguments(argv) {
   if (argv.length !== 2) throw new Error('run requires one --run value');
   if (argv[0] !== '--run') throw new Error(`Unknown argument: ${argv[0]}`);
   const runPath = argv[1]?.replaceAll('\\', '/');
-  if (!runPath || path.isAbsolute(runPath) || runPath.split('/').some((part) => !part || part === '.' || part === '..')) {
+  if (!runPath || !runPath.startsWith('release/candidates/') || path.isAbsolute(runPath)
+    || runPath.split('/').some((part) => !part || part === '.' || part === '..')) {
     throw new Error('run must be a safe project-relative path');
   }
   return { runPath };
+}
+
+function resolveCandidateArtifact(runDirectory, artifactPath) {
+  if (typeof artifactPath !== 'string' || path.isAbsolute(artifactPath)) {
+    throw new Error('candidate artifact must resolve inside the selected run');
+  }
+  const root = path.resolve(runDirectory);
+  const resolved = path.resolve(root, artifactPath);
+  const relativePath = path.relative(root, resolved);
+  if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    throw new Error('candidate artifact must resolve inside the selected run');
+  }
+  return resolved;
+}
+
+function resolveCandidateRun(projectRoot, runPath) {
+  const resolvedProjectRoot = fs.realpathSync(projectRoot);
+  const resolvedRun = fs.realpathSync(path.resolve(projectRoot, runPath));
+  const relativePath = path.relative(resolvedProjectRoot, resolvedRun);
+  if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    throw new Error('candidate run must resolve inside the project');
+  }
+  return resolvedRun;
 }
 
 function containsRuntimeEvidence(logText, productId, petId) {
@@ -31,14 +55,14 @@ function readNewLog(logPath, initialSize) {
 async function verifyMacCandidate({ projectRoot, argv, timeoutMs = 15000, spawn = childProcess.spawn }) {
   if (process.platform !== 'darwin') throw new Error('macOS candidate verification must run on macOS');
   const request = parseVerifyArguments(argv);
-  const runDirectory = path.resolve(projectRoot, request.runPath);
+  const runDirectory = resolveCandidateRun(projectRoot, request.runPath);
   const manifestPath = path.join(runDirectory, 'candidate-manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const executableArtifact = manifest.artifacts.find((artifact) => /\.app\/Contents\/MacOS\/[^/]+$/.test(artifact.path));
   if (!executableArtifact) throw new Error('candidate manifest has no macOS application executable');
   const petId = manifest.packagedResources?.[0]?.petId;
   if (!petId) throw new Error('candidate manifest has no packaged pet identity');
-  const executablePath = path.join(runDirectory, executableArtifact.path);
+  const executablePath = resolveCandidateArtifact(runDirectory, executableArtifact.path);
   const logPath = path.join(
     os.homedir(),
     'Library',
@@ -87,4 +111,4 @@ async function verifyMacCandidate({ projectRoot, argv, timeoutMs = 15000, spawn 
   return { runDirectory, evidence };
 }
 
-module.exports = { containsRuntimeEvidence, parseVerifyArguments, verifyMacCandidate };
+module.exports = { containsRuntimeEvidence, parseVerifyArguments, resolveCandidateArtifact, verifyMacCandidate };

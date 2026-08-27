@@ -16,10 +16,23 @@ const { inspectWebp } = require('../core/webp-inspector');
 
 function safeRelativeOutput(value) {
   const candidate = value.replaceAll('\\', '/');
-  if (path.isAbsolute(candidate) || candidate.split('/').some((part) => !part || part === '.' || part === '..')) {
-    throw new Error('output must be a safe project-relative path');
+  if (!candidate.startsWith('release/') || path.isAbsolute(candidate)
+    || candidate.split('/').some((part) => !part || part === '.' || part === '..')) {
+    throw new Error('output must be a safe project-relative release path');
   }
   return candidate;
+}
+
+function resolveBuildOutputRoot(projectRoot, outputPath) {
+  const resolvedProjectRoot = fs.realpathSync(projectRoot);
+  const lexicalOutputRoot = path.resolve(projectRoot, outputPath);
+  fs.mkdirSync(lexicalOutputRoot, { recursive: true });
+  const resolvedOutputRoot = fs.realpathSync(lexicalOutputRoot);
+  const relativePath = path.relative(resolvedProjectRoot, resolvedOutputRoot);
+  if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    throw new Error('build output must resolve inside the project');
+  }
+  return resolvedOutputRoot;
 }
 
 function parseBuildArguments(argv) {
@@ -95,7 +108,7 @@ function runProductBuild({ projectRoot, argv, spawn = childProcess.spawnSync, no
   const profilePath = resolveProductProfile(projectRoot, request.selector);
   const profile = normalizeProductProfile(JSON.parse(fs.readFileSync(profilePath, 'utf8')));
   const runtime = loadRuntimeInputs({ projectRoot, profilePath, inspectAtlas: inspectWebp });
-  const outputRoot = path.resolve(projectRoot, request.outputPath);
+  const outputRoot = resolveBuildOutputRoot(projectRoot, request.outputPath);
   const runDirectory = reserveBuildDirectory(outputRoot, profile, candidateRunId(now));
   const config = createBuilderConfiguration({
     selector: request.selector,
@@ -156,5 +169,6 @@ module.exports = {
   discoverCandidateArtifacts,
   parseBuildArguments,
   renderDeliveryReadme,
+  resolveBuildOutputRoot,
   runProductBuild,
 };
