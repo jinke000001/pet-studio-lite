@@ -20,6 +20,11 @@
 - Wukong、Doraemon、Dai、JokeBear 已用同一核心在 macOS source-mode 真实启动；自动测试 20/20、lint 和 npm audit 通过。
 - 2026-08-27 用户完成真实效果测试并反馈比较满意，Checkpoint 1 已关闭；Windows 与安装包仍不在本阶段证明范围内。
 
+## Phase 2 当前状态
+
+- 2026-08-27 用户已确认开始 Petdex v1/v2 导入与校验阶段。
+- 当前实施分支为 `feature/pet-importer`；优先建立安全导入契约、本地目录快照和危险输入拒绝，再接入预览、slug 与三样本验收。
+
 ## 文件索引
 
 - `决策点.md`：已确认的产品、架构和阶段决策。
