@@ -2,6 +2,13 @@
   "productId": "jokebear-desktop-pet",
   "productName": "JokeBear Desktop Pet",
   "petPackagePath": "local-pets/jokebear-codexpet",
+  "version": "0.1.0",
+  "build": {
+    "appId": "com.jinke.desktop-pet.jokebear",
+    "executableName": "JokeBearDesktopPet",
+    "artifactName": "jokebear-desktop-pet",
+    "iconStrategy": "electron-default-test"
+  },
   "defaultScale": 0.75,
   "messages": {
     "singleClick": "休息一下？",

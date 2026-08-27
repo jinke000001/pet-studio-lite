@@ -2,6 +2,13 @@
   "productId": "wukong-desktop-pet",
   "productName": "Wukong Desktop Pet",
   "petPackagePath": "local-pets/wukong",
+  "version": "0.1.0",
+  "build": {
+    "appId": "com.jinke.desktop-pet.wukong",
+    "executableName": "WukongDesktopPet",
+    "artifactName": "wukong-desktop-pet",
+    "iconStrategy": "electron-default-test"
+  },
   "defaultScale": 0.75,
   "messages": {
     "singleClick": "你好，我是悟空！",

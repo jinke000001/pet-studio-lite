@@ -2,6 +2,13 @@
   "productId": "dai-desktop-pet",
   "productName": "阿岱桌宠",
   "petPackagePath": "local-pets/dai",
+  "version": "0.1.0",
+  "build": {
+    "appId": "com.jinke.desktop-pet.dai",
+    "executableName": "DaiDesktopPet",
+    "artifactName": "dai-desktop-pet",
+    "iconStrategy": "electron-default-test"
+  },
   "defaultScale": 0.75,
   "messages": {
     "singleClick": "任务收到。",

@@ -30,6 +30,8 @@ function makeProfile() {
     productId: 'desktop-pet-dev',
     productName: '通用桌宠开发版',
     petPackagePath: 'local-pets/test',
+    version: '0.1.0',
+    build: { appId: 'com.jinke.desktop-pet.dev', executableName: 'DesktopPetDev', artifactName: 'desktop-pet-dev', iconStrategy: 'electron-default-test' },
     defaultScale: 0.75,
   });
 }

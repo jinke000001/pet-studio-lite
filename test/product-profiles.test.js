@@ -26,5 +26,9 @@ test('tracked product profiles are valid and use unique product and pet identiti
 
   assert.equal(new Set(profiles.map((profile) => profile.productId)).size, profiles.length);
   assert.equal(new Set(profiles.map((profile) => profile.petPackagePath)).size, profiles.length);
+  assert.equal(new Set(profiles.map((profile) => profile.build.appId)).size, profiles.length);
+  assert.equal(new Set(profiles.map((profile) => profile.build.executableName.toLowerCase())).size, profiles.length);
+  assert.equal(new Set(profiles.map((profile) => profile.build.artifactName.toLowerCase())).size, profiles.length);
   assert.ok(profiles.every((profile) => profile.petPackagePath.startsWith('local-pets/')));
+  assert.ok(profiles.every((profile) => profile.version === '0.1.0'));
 });

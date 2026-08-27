@@ -16,6 +16,8 @@ test('loads a project-relative product profile and normalizes its pet package', 
     productId: 'sample-pet',
     productName: 'Sample Pet',
     petPackagePath: 'local-pets/sample',
+    version: '0.1.0',
+    build: { appId: 'com.jinke.sample', executableName: 'SamplePet', artifactName: 'sample-pet', iconStrategy: 'electron-default-test' },
   }));
   fs.writeFileSync(path.join(petDir, 'pet.json'), JSON.stringify({
     id: 'sample',
@@ -46,6 +48,8 @@ test('reports a missing pet package without falling back to another character', 
     productId: 'missing-pet',
     productName: 'Missing Pet',
     petPackagePath: 'local-pets/missing',
+    version: '0.1.0',
+    build: { appId: 'com.jinke.missing', executableName: 'MissingPet', artifactName: 'missing-pet', iconStrategy: 'electron-default-test' },
   }));
 
   assert.throws(() => loadRuntimeInputs({

@@ -2,6 +2,13 @@
   "productId": "doraemon-desktop-pet",
   "productName": "Doraemon Desktop Pet",
   "petPackagePath": "local-pets/doraemon",
+  "version": "0.1.0",
+  "build": {
+    "appId": "com.jinke.desktop-pet.doraemon",
+    "executableName": "DoraemonDesktopPet",
+    "artifactName": "doraemon-desktop-pet",
+    "iconStrategy": "electron-default-test"
+  },
   "defaultScale": 0.75,
   "messages": {
     "singleClick": "你好！",

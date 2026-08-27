@@ -81,6 +81,8 @@ test('imports a directory into immutable source and normalized package snapshots
     productId: 'imported-sample',
     productName: 'Imported Sample',
     petPackagePath: path.relative(root, result.packagePath),
+    version: '0.1.0',
+    build: { appId: 'com.jinke.imported-sample', executableName: 'ImportedSample', artifactName: 'imported-sample', iconStrategy: 'electron-default-test' },
   }));
   const runtimeInputs = loadRuntimeInputs({ projectRoot: root, profilePath, inspectAtlas: inspectWebp });
   assert.equal(runtimeInputs.pet.id, 'sample');
