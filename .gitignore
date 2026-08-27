@@ -1,0 +1,16 @@
+node_modules/
+release/
+runs/
+coverage/
+.env
+.env.*
+*.pem
+.DS_Store
+._*
+
+# Read-only historical handoff and release evidence.
+Wukong-Windows-Desktop-Pet-Handoff-20260731/
+
+# Runtime logs and user-specific settings.
+*.log
+settings.json
