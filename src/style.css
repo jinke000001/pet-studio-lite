@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+}
+
+#pet {
+  display: block;
+  width: 100%;
+  height: 100%;
+  contain: strict;
+  background: transparent;
+  cursor: grab;
+  image-rendering: pixelated;
+}
+
+#pet:active {
+  cursor: grabbing;
+}
+
+#bubble {
+  position: fixed;
+  top: 2px;
+  left: 50%;
+  max-width: calc(100% - 12px);
+  padding: 3px 7px;
+  overflow: hidden;
+  color: #fff;
+  font: 12px/1.25 system-ui, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  background: rgb(20 20 24 / 82%);
+  border-radius: 8px;
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
+#bubble.show {
+  opacity: 1;
+}
