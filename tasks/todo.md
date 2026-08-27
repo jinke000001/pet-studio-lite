@@ -8,6 +8,7 @@
 - [x] PRD、项目规则和 MEMORY 已建立。
 - [x] 用户确认开始 Phase 1。
 - [x] 用户于 2026-08-27 确认开始 Phase 2。
+- [x] 用户于 2026-08-27 确认 Phase 3 PRD 与默认构建方案。
 
 ## Phase 1：共享运行内核
 
@@ -30,10 +31,12 @@
 
 ## Phase 3：单宠导出
 
-- [ ] 独立产品配置和冲突检查。
-- [ ] Windows x64 候选构建。
-- [ ] macOS Apple Silicon 候选构建。
-- [ ] 版本化清单、SHA-256和交付说明。
+- [ ] 3.1 独立产品配置、应用身份和跨产品冲突检查。（进行中）
+- [ ] 3.2 版本化、非覆盖的单宠资源装配与构建工厂。
+- [ ] 3.3 Windows x64 win-unpacked 与未签名 NSIS 候选构建。
+- [ ] 3.4 macOS Apple Silicon 未签名 `.app` 候选构建。
+- [ ] 3.5 Wukong、Doraemon、阿岱三个主样本和 JokeBear 额外样本隔离验证。
+- [ ] 3.6 版本化清单、SHA-256 和交付说明。
 - [ ] 获得授权后执行真实 Windows 安装、卸载和DPI验收。
 
 ## Phase 4：客户素材制作

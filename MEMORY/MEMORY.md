@@ -26,6 +26,12 @@
 - 自动测试 47/47、lint、npm audit、三样本原始哈希复核、Chromium 动作预览和 Electron source-mode 启动通过；Checkpoint 2 已关闭。
 - 实施分支为 `feature/pet-importer`；下一阶段为 Phase 3 单宠安装包工厂，尚未开始，也没有新的 Windows 验收或安装包结论。
 
+## Phase 3 当前状态
+
+- 2026-08-27 用户已确认 Phase 3 PRD 与默认构建方案，实施分支为 `feature/package-factory`。
+- 目标产物为 Windows x64 `win-unpacked`、未签名 NSIS 候选安装包和 macOS Apple Silicon 未签名 `.app`；首轮使用通用测试图标。
+- Windows 真实安装、卸载、重装和 100%/125%/150% DPI 验收需要另行授权，Mac 侧构建不能替代该结论。
+
 ## 文件索引
 
 - `决策点.md`：已确认的产品、架构和阶段决策。
