@@ -13,11 +13,19 @@
 - Wukong 0.1.9 自动测试 15/15、lint 和四个关键交付哈希已在 macOS 只读复核通过；历史 Windows 报告记录 source、win-unpacked、installed mode 通过，但只有 100% DPI。
 - Wukong 代码仍把名称、图集路径、托盘文案和部分动作写死，不能直接作为通用运行器。
 
+## Phase 1 当前状态
+
+- 已建立独立 Git 项目和 `feature/shared-runtime` 分支，共享内核使用 Electron 43.4.1。
+- 已实现统一 v1/v2 宠物包、产品配置、安全产品选择、WebP 尺寸/alpha 检查、透明窗口、动画、点击、拖动、托盘、缩放和长待机。
+- Wukong、Doraemon、Dai、JokeBear 已用同一核心在 macOS source-mode 真实启动；自动测试 20/20、lint 和 npm audit 通过。
+- Checkpoint 1 尚需用户手动确认真实拖动、托盘缩放、显示/隐藏和小尺寸视觉效果；Windows 与安装包不在本阶段证明范围内。
+
 ## 文件索引
 
 - `决策点.md`：已确认的产品、架构和阶段决策。
 - `事实.md`：基线、测试样本、哈希和验证事实。
 - `待办.md`：当前未完成事项和阶段检查点。
 - `../Resources/phase-0-baseline.md`：Phase 0 只读盘点证据。
+- `../Resources/phase-1-macos-evidence.md`：Phase 1 自动化、真实窗口和证据边界。
 - `../tasks/plan.md`：正式 PRD 与实施计划。
 - `../tasks/todo.md`：可执行任务清单。
