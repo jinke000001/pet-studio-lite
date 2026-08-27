@@ -10,7 +10,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
-    "lint": "node --check src/core/pet-package.js && node --check src/core/product-profile.js && node --check src/core/runtime-core.js"
+    "lint": "node --check src/core/pet-package.js && node --check src/core/product-profile.js && node --check src/core/runtime-core.js && node --check src/core/package-loader.js"
   },
   "devDependencies": {
     "electron": "43.4.1",
