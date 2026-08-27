@@ -1,0 +1,10 @@
+{
+  "productId": "doraemon-desktop-pet",
+  "productName": "Doraemon Desktop Pet",
+  "petPackagePath": "local-pets/doraemon",
+  "defaultScale": 0.75,
+  "messages": {
+    "singleClick": "你好！",
+    "doubleClick": "今天也一起加油吧！"
+  }
+}

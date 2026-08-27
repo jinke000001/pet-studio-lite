@@ -1,0 +1,10 @@
+{
+  "productId": "dai-desktop-pet",
+  "productName": "阿岱桌宠",
+  "petPackagePath": "local-pets/dai",
+  "defaultScale": 0.75,
+  "messages": {
+    "singleClick": "任务收到。",
+    "doubleClick": "继续推进，完成验收。"
+  }
+}

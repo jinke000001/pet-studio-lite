@@ -1,0 +1,10 @@
+{
+  "productId": "wukong-desktop-pet",
+  "productName": "Wukong Desktop Pet",
+  "petPackagePath": "local-pets/wukong",
+  "defaultScale": 0.75,
+  "messages": {
+    "singleClick": "你好，我是悟空！",
+    "doubleClick": "发现问题，准备战斗！"
+  }
+}

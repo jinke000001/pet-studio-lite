@@ -1,0 +1,10 @@
+{
+  "productId": "jokebear-desktop-pet",
+  "productName": "JokeBear Desktop Pet",
+  "petPackagePath": "local-pets/jokebear-codexpet",
+  "defaultScale": 0.75,
+  "messages": {
+    "singleClick": "休息一下？",
+    "doubleClick": "咖啡时间到了。"
+  }
+}
