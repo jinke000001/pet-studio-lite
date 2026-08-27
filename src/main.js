@@ -12,7 +12,7 @@ const {
 
 const { loadRuntimeInputs } = require('./core/package-loader');
 const { normalizeProductProfile } = require('./core/product-profile');
-const { resolveProductProfile } = require('./core/profile-selector');
+const { resolveProductProfile, selectProductSelector } = require('./core/profile-selector');
 const { inspectWebp } = require('./core/webp-inspector');
 const {
   clampBounds,
@@ -23,7 +23,12 @@ const {
 } = require('./core/runtime-core');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const profilePath = resolveProductProfile(PROJECT_ROOT, process.env.PET_PRODUCT || 'wukong');
+const packageMetadata = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8'));
+const productSelector = selectProductSelector({
+  embeddedSelector: packageMetadata.desktopPetProduct,
+  environmentSelector: process.env.PET_PRODUCT,
+});
+const profilePath = resolveProductProfile(PROJECT_ROOT, productSelector);
 const selectedProfile = normalizeProductProfile(JSON.parse(fs.readFileSync(profilePath, 'utf8')));
 
 app.setName(selectedProfile.productName);

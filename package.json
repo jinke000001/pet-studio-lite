@@ -12,7 +12,7 @@
     "pet": "node scripts/start-pet.js",
     "import-pet": "node scripts/import-pet.js",
     "test": "node --test test/*.test.js",
-    "lint": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/core/*.js && node --check src/import/*.js && node --check scripts/*.js"
+    "lint": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/core/*.js && node --check src/import/*.js && node --check src/build/*.js && node --check scripts/*.js"
   },
   "devDependencies": {
     "electron": "43.4.1",

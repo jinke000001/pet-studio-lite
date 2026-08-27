@@ -10,4 +10,8 @@ function resolveProductProfile(projectRoot, selector = 'wukong') {
   return profilePath;
 }
 
-module.exports = { resolveProductProfile };
+function selectProductSelector({ embeddedSelector, environmentSelector } = {}) {
+  return embeddedSelector || environmentSelector || 'wukong';
+}
+
+module.exports = { resolveProductProfile, selectProductSelector };
