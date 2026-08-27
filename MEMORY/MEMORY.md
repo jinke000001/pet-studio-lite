@@ -18,7 +18,7 @@
 - 已建立独立 Git 项目和 `feature/shared-runtime` 分支，共享内核使用 Electron 43.4.1。
 - 已实现统一 v1/v2 宠物包、产品配置、安全产品选择、WebP 尺寸/alpha 检查、透明窗口、动画、点击、拖动、托盘、缩放和长待机。
 - Wukong、Doraemon、Dai、JokeBear 已用同一核心在 macOS source-mode 真实启动；自动测试 20/20、lint 和 npm audit 通过。
-- Checkpoint 1 尚需用户手动确认真实拖动、托盘缩放、显示/隐藏和小尺寸视觉效果；Windows 与安装包不在本阶段证明范围内。
+- 2026-08-27 用户完成真实效果测试并反馈比较满意，Checkpoint 1 已关闭；Windows 与安装包仍不在本阶段证明范围内。
 
 ## 文件索引
 

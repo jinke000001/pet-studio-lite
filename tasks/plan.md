@@ -72,9 +72,9 @@ Petdex Desktop 可以脱离 Codex 运行，但下载和社区依赖网络环境�
 ### Checkpoint 1
 
 - [x] 自动测试和 lint 通过。
-- [ ] Wukong source-mode 行为与参考基线一致。
+- [x] Wukong source-mode 行为与参考基线一致。
 - [x] 替换测试宠物不需要改核心代码。
-- [ ] 用户审查真实 macOS 演示和小尺寸截图/GIF。
+- [x] 用户审查真实 macOS 演示和小尺寸截图/GIF。
 
 ### Phase 2：Petdex 导入与校验
 
