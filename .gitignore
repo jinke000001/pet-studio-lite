@@ -14,3 +14,6 @@ Wukong-Windows-Desktop-Pet-Handoff-20260731/
 # Runtime logs and user-specific settings.
 *.log
 settings.json
+
+# Local test pets are copied from read-only sources and are not committed.
+local-pets/

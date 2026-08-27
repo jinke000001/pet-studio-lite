@@ -1,0 +1,19 @@
+{
+  "name": "desktop-pet-workflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline, package-driven desktop pet runtime",
+  "main": "src/main.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "lint": "node --check src/core/pet-package.js && node --check src/core/product-profile.js"
+  },
+  "devDependencies": {
+    "electron": "43.4.1",
+    "electron-builder": "26.15.3"
+  }
+}
