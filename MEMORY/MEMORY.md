@@ -22,8 +22,9 @@
 
 ## Phase 2 当前状态
 
-- 2026-08-27 用户已确认开始 Petdex v1/v2 导入与校验阶段。
-- 当前实施分支为 `feature/pet-importer`；优先建立安全导入契约、本地目录快照和危险输入拒绝，再接入预览、slug 与三样本验收。
+- 2026-08-27 Phase 2 已完成：目录、ZIP、Petdex slug 导入与安全校验、来源快照、标准包、哈希报告、联系表和动作预览均已实现。
+- 自动测试 47/47、lint、npm audit、三样本原始哈希复核、Chromium 动作预览和 Electron source-mode 启动通过；Checkpoint 2 已关闭。
+- 实施分支为 `feature/pet-importer`；下一阶段为 Phase 3 单宠安装包工厂，尚未开始，也没有新的 Windows 验收或安装包结论。
 
 ## 文件索引
 
@@ -32,5 +33,6 @@
 - `待办.md`：当前未完成事项和阶段检查点。
 - `../Resources/phase-0-baseline.md`：Phase 0 只读盘点证据。
 - `../Resources/phase-1-macos-evidence.md`：Phase 1 自动化、真实窗口和证据边界。
+- `../Resources/phase-2-import-evidence.md`：Phase 2 导入安全、三样本哈希、视觉与运行证据。
 - `../tasks/plan.md`：正式 PRD 与实施计划。
 - `../tasks/todo.md`：可执行任务清单。
