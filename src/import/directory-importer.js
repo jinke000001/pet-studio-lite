@@ -71,6 +71,12 @@ function sourceDigest(files) {
   return hash.digest('hex');
 }
 
+function importDigest({ digest, sourceType, sourceIdentity, sourceOriginalSha256 }) {
+  return crypto.createHash('sha256')
+    .update([digest, sourceType, sourceIdentity, sourceOriginalSha256 || ''].join('\0'))
+    .digest('hex');
+}
+
 function readManifest(sourceRoot, files) {
   const manifestFile = files.find((file) => file.relativePath === 'pet.json');
   if (!manifestFile) throw new ImportError('MISSING_MANIFEST', 'Package must contain pet.json at its root');
@@ -116,12 +122,15 @@ function importPetDirectory({
   sourceDirectory,
   outputRoot,
   sourceIdentity,
+  sourceType = 'directory',
+  sourceOriginalPath,
+  sourceOriginalSha256,
   authorizationStatus = 'unknown',
   limits,
   now = () => new Date(),
 }) {
   const options = normalizeImportOptions({
-    sourceType: 'directory',
+    sourceType,
     sourceIdentity,
     authorizationStatus,
     limits,
@@ -143,7 +152,13 @@ function importPetDirectory({
   if (!atlasFile) throw new ImportError('MISSING_SPRITESHEET', 'pet.json spritesheetPath does not exist');
   const pet = normalizePetPackage({ manifest, atlas: inspectWebp(atlasFile.absolutePath) });
   const digest = sourceDigest(files);
-  const importDirectory = path.join(resolvedOutputRoot, `${packageId}-${digest.slice(0, 12)}`);
+  const uniqueDigest = importDigest({
+    digest,
+    sourceType: options.sourceType,
+    sourceIdentity: options.sourceIdentity,
+    sourceOriginalSha256,
+  });
+  const importDirectory = path.join(resolvedOutputRoot, `${packageId}-${uniqueDigest.slice(0, 12)}`);
   if (fs.existsSync(importDirectory)) return existingResult(importDirectory);
 
   fs.mkdirSync(resolvedOutputRoot, { recursive: true });
@@ -171,7 +186,12 @@ function importPetDirectory({
       schemaVersion: 1,
       importedAt: now().toISOString(),
       authorizationStatus: options.authorizationStatus,
-      source: { type: options.sourceType, identity: options.sourceIdentity, originalPath: sourceRoot },
+      source: {
+        type: options.sourceType,
+        identity: options.sourceIdentity,
+        originalPath: sourceOriginalPath || sourceRoot,
+        ...(sourceOriginalSha256 ? { originalSha256: sourceOriginalSha256 } : {}),
+      },
       sourceDigest: digest,
       files: files.map(({ relativePath, bytes, sha256 }) => ({ path: relativePath, bytes, sha256 })),
       pet,
