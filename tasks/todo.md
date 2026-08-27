@@ -32,12 +32,14 @@
 ## Phase 3：单宠导出
 
 - [x] 3.1 独立产品配置、应用身份和跨产品冲突检查。
-- [ ] 3.2 版本化、非覆盖的单宠资源装配与构建工厂。（进行中）
-- [ ] 3.3 Windows x64 win-unpacked 与未签名 NSIS 候选构建。
-- [ ] 3.4 macOS Apple Silicon 未签名 `.app` 候选构建。
-- [ ] 3.5 Wukong、Doraemon、阿岱三个主样本和 JokeBear 额外样本隔离验证。
-- [ ] 3.6 版本化清单、SHA-256 和交付说明。
+- [x] 3.2 版本化、非覆盖的单宠资源装配与构建工厂。
+- [x] 3.3 Windows x64 win-unpacked 与未签名 NSIS 候选构建。
+- [x] 3.4 macOS Apple Silicon 未签名 `.app` 候选构建。
+- [x] 3.5 Wukong、Doraemon、阿岱三个主样本和 JokeBear 额外样本隔离验证。
+- [x] 3.6 版本化清单、SHA-256 和交付说明。
 - [ ] 获得授权后执行真实 Windows 安装、卸载和DPI验收。
+
+Checkpoint 3 候选构建与 Mac 侧验证已通过；Windows 正式验收保持待办。
 
 ## Phase 4：客户素材制作
 

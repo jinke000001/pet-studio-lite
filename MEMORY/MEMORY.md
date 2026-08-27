@@ -28,9 +28,10 @@
 
 ## Phase 3 当前状态
 
-- 2026-08-27 用户已确认 Phase 3 PRD 与默认构建方案，实施分支为 `feature/package-factory`。
-- 目标产物为 Windows x64 `win-unpacked`、未签名 NSIS 候选安装包和 macOS Apple Silicon 未签名 `.app`；首轮使用通用测试图标。
-- Windows 真实安装、卸载、重装和 100%/125%/150% DPI 验收需要另行授权，Mac 侧构建不能替代该结论。
+- 2026-08-27 Phase 3 候选构建与 Mac 侧验证完成，实施分支为 `feature/package-factory`，Checkpoint 3 已通过。
+- Wukong、Doraemon、阿岱和 JokeBear 均生成 Windows x64 `win-unpacked`、未签名 NSIS 候选安装包和 macOS Apple Silicon 未签名 `.app`；四个 macOS 应用真实启动通过。
+- 自动测试 64/64、lint、npm audit、单宠 ASAR 隔离、来源/包内图集哈希和 20 个最终关键产物重新哈希通过。
+- Windows 真实安装、卸载、重装和 100%/125%/150% DPI 验收仍需另行授权，Mac 侧结果不能替代该结论。
 
 ## 文件索引
 
@@ -40,5 +41,6 @@
 - `../Resources/phase-0-baseline.md`：Phase 0 只读盘点证据。
 - `../Resources/phase-1-macos-evidence.md`：Phase 1 自动化、真实窗口和证据边界。
 - `../Resources/phase-2-import-evidence.md`：Phase 2 导入安全、三样本哈希、视觉与运行证据。
+- `../Resources/phase-3-package-evidence.md`：Phase 3 四产品候选、安装包哈希、ASAR 隔离、Mac 运行与 Windows 边界证据。
 - `../tasks/plan.md`：正式 PRD 与实施计划。
 - `../tasks/todo.md`：可执行任务清单。
