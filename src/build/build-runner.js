@@ -70,7 +70,7 @@ function discoverCandidateArtifacts(runDirectory) {
     if (parts.length === 2 && relativePath.endsWith('.exe')) return true;
     if (/^artifacts\/win-unpacked\/[^/]+\.exe$/.test(relativePath)) return true;
     if (relativePath.endsWith('/resources/app.asar') || relativePath.endsWith('/Resources/app.asar')) return true;
-    return relativePath.includes('.app/Contents/MacOS/');
+    return /^artifacts\/[^/]+\/[^/]+\.app\/Contents\/MacOS\/[^/]+$/.test(relativePath);
   });
 }
 

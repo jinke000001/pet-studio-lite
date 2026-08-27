@@ -50,6 +50,7 @@ test('discovers only key candidate deliverables in a build directory', () => {
     'artifacts/win-unpacked/resources/app.asar',
     'artifacts/mac-arm64/Sample.app/Contents/MacOS/Sample',
     'artifacts/mac-arm64/Sample.app/Contents/Resources/app.asar',
+    'artifacts/mac-arm64/Sample.app/Contents/Frameworks/Sample Helper.app/Contents/MacOS/Sample Helper',
     'artifacts/builder-debug.yml',
   ];
   for (const relativePath of paths) {
