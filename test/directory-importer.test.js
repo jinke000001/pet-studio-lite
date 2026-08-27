@@ -69,7 +69,9 @@ test('imports a directory into immutable source and normalized package snapshots
   assert.ok(fs.existsSync(result.actionPreviewPath));
   assert.match(fs.readFileSync(result.humanReportPath, 'utf8'), /Sample Pet/);
   assert.equal((fs.readFileSync(result.contactSheetPath, 'utf8').match(/class="frame"/g) || []).length, 72);
-  assert.doesNotMatch(fs.readFileSync(result.actionPreviewPath, 'utf8'), /innerHTML/);
+  const actionPreview = fs.readFileSync(result.actionPreviewPath, 'utf8');
+  assert.doesNotMatch(actionPreview, /innerHTML/);
+  assert.match(actionPreview, /rel="icon" href="data:,"/);
 
   const repeated = importPetDirectory({
     sourceDirectory: source,
