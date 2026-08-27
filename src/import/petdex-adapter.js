@@ -72,6 +72,41 @@ async function safeFetch(fetchImpl, url, { maxBytes, label, referer }) {
   return readBoundedResponse(response, maxBytes, label);
 }
 
+function validateManifestRedirect(rawUrl) {
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new ImportError('UNTRUSTED_MANIFEST_REDIRECT', 'Petdex manifest redirected to an invalid URL');
+  }
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'assets.petdex.dev'
+    || parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash
+    || !/^\/manifests\/petdex-v\d+\.json$/.test(parsed.pathname)) {
+    throw new ImportError('UNTRUSTED_MANIFEST_REDIRECT', 'Petdex manifest redirected outside the trusted manifest path');
+  }
+  return parsed.href;
+}
+
+async function fetchManifestBuffer(fetchImpl) {
+  let response;
+  try {
+    response = await fetchImpl(PETDEX_MANIFEST_URL, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (error) {
+    throw new ImportError('DOWNLOAD_FAILED', 'Petdex manifest download failed', { cause: error });
+  }
+  if ([301, 302, 307, 308].includes(response.status)) {
+    const redirectUrl = validateManifestRedirect(response.headers.get('location'));
+    return safeFetch(fetchImpl, redirectUrl, {
+      maxBytes: MAX_MANIFEST_BYTES,
+      label: 'Petdex manifest',
+    });
+  }
+  return readBoundedResponse(response, MAX_MANIFEST_BYTES, 'Petdex manifest');
+}
+
 function parseManifest(buffer) {
   let data;
   try {
@@ -100,10 +135,7 @@ async function downloadPetdexSlug({
     authorizationStatus,
     limits,
   });
-  const manifestBuffer = await safeFetch(fetchImpl, PETDEX_MANIFEST_URL, {
-    maxBytes: MAX_MANIFEST_BYTES,
-    label: 'Petdex manifest',
-  });
+  const manifestBuffer = await fetchManifestBuffer(fetchImpl);
   const entry = parseManifest(manifestBuffer).find((pet) => pet && pet.slug === options.sourceIdentity);
   if (!entry) throw new ImportError('PETDEX_SLUG_NOT_FOUND', `Petdex slug was not found: ${slug}`);
   const petJsonUrl = validateAssetUrl(entry.petJsonUrl, '.json');
@@ -146,4 +178,5 @@ module.exports = {
   parseManifest,
   readBoundedResponse,
   validateAssetUrl,
+  validateManifestRedirect,
 };
