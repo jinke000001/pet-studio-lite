@@ -8,6 +8,7 @@
 - `doraemon`：Petdex v1 兼容样本，仅供内部测试。
 - `dai`：Petdex v2 测试样本。
 - `jokebear-codexpet`：Petdex v2 额外兼容样本，仅供内部测试。
+- `xiaofuxing`：由客户素材流程生成并经用户确认的 Petdex v1 内部测试桌宠。
 
 Doraemon、JokeBear 等第三方角色素材不代表已取得商业分发授权，不应随产品对外发布。
 
@@ -31,6 +32,7 @@ npm start
 npm run pet -- doraemon
 npm run pet -- dai
 npm run pet -- jokebear-codexpet
+npm run pet -- xiaofuxing
 ```
 
 产品配置位于 `config/products/`。角色工作副本位于被 Git 忽略的 `local-pets/`，原始 Wukong 交付目录和 `~/.codex/pets/` 不会被运行器修改。
@@ -56,7 +58,7 @@ npm run import-pet -- slug --slug dai --authorization internal-test
 
 已实现透明置顶窗口、像素图集动画、单击/双击文案、拖动方向动作、托盘显示隐藏、50%–150% 缩放、短动作、长待机、独立设置与日志目录、v1/v2 识别和状态回退。
 
-Phase 2 已完成目录/ZIP/slug 导入、不可变来源快照、安全校验、哈希清单和预览报告。Phase 3 才生成 Windows/macOS 单宠候选安装包；当前没有安装包或 Windows 验收结论。
+Phase 2 已完成目录/ZIP/slug 导入、不可变来源快照、安全校验、哈希清单和预览报告。Phase 3 已实现 Windows/macOS 单宠候选构建；候选状态不能替代 Windows 真实安装、卸载、重装和 DPI 正式验收。
 
 ## 验证
 

@@ -18,6 +18,7 @@ test('tracked product profiles are valid and use unique product and pet identiti
     'doraemon.json',
     'jokebear-codexpet.json',
     'wukong.json',
+    'xiaofuxing.json',
   ]);
 
   const profiles = profileFiles.map((name) => normalizeProductProfile(
