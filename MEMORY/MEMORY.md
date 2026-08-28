@@ -37,7 +37,7 @@
 
 - 2026-08-27 用户确认 Phase 4 PRD，实施分支为 `feature/xiaofuxing-v2`。
 - 五张小福猩素材已登记；无服装、无道具的正面完整全身图锁定为唯一身份基准，其余图片只提供姿势、情绪和侧面结构参考。
-- 版本化 v2 制作运行目录已准备完成；主视觉已获用户确认。九种标准动作候选完成逐行结构检查、8×9 联系表和 192×208 GIF 隔离视觉审查，当前等待用户视觉确认后再制作方向。授权状态暂记 `internal-test`，不写入或覆盖用户 Codex/Petdex 宠物目录。
+- Codex 主视觉曾获确认，九种标准动作候选完成结构和视觉审查，但用户认为整体效果一般，未确认动作，也未进入方向制作。当前保留 Codex 候选作为对照，并准备 Kimi Code 独立候选交接与项目 Skill。授权状态暂记 `internal-test`，不写入或覆盖用户 Codex/Petdex 宠物目录。
 - Windows 正式验收顺延到 Phase 4 完成后统一执行，候选与正式验收状态继续分开。
 
 ## 文件索引
@@ -50,5 +50,7 @@
 - `../Resources/phase-2-import-evidence.md`：Phase 2 导入安全、三样本哈希、视觉与运行证据。
 - `../Resources/phase-3-package-evidence.md`：Phase 3 四产品候选、安装包哈希、ASAR 隔离、Mac 运行与 Windows 边界证据。
 - `../Resources/xiaofuxing-source-manifest.md`：Phase 4 小福猩五张原始素材、哈希、身份基准与使用边界。
+- `../Resources/kimi-phase-4-handoff.md`：Kimi Code 独立候选目标、现状、隔离边界和首个动作。
+- `../.kimi-code/skills/xiaofuxing-phase4/SKILL.md`：Kimi Code 项目级 Phase 4 Skill。
 - `../tasks/plan.md`：正式 PRD 与实施计划。
 - `../tasks/todo.md`：可执行任务清单。
