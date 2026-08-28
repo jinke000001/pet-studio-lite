@@ -39,6 +39,7 @@
 - 五张小福猩素材已登记；无服装、无道具的正面完整全身图锁定为唯一身份基准，其余图片只提供姿势、情绪和侧面结构参考。
 - Codex 主视觉曾获确认；首版九动作因待机手部虚影、左右跑动姿势堆叠、失败动作身份漂移和等待动作手指结构问题未获确认。2026-08-28 完成非覆盖修正版后，用户先确认七个非方向动作，随后以三段跑步 GIF 为参考确认新的 `running-right`。独立左跑因腿部不流畅被保留为历史候选，活动左跑改为八张已确认右跑帧的逐帧水平镜像并获用户确认。九种标准动作现已全部通过用户确认；批准清单位于 `runs/phase-4-xiaofuxing-v2-codex-running-ref-20260828-01/qa/standard-actions-approval.json`。用户随后确认只对齐 Petdex 网站宠物核心九状态功能，小福猩按 8×9、1536×1872 的 v1 标准包收尾，不制作四基准方向和 16 注视方向；运行器仍保留 v2 兼容。Kimi 独立候选仍保持隔离。授权状态暂记 `internal-test`，不写入或覆盖用户 Codex/Petdex 宠物目录。
 - 小福猩 v1 标准包、source-mode、macOS `.app` 和 Windows x64 `win-unpacked`/未签名 NSIS 候选已完成；证据位于 `Resources/xiaofuxing-v1-final-evidence.md`。Windows 正式验收仍未执行，候选与正式验收状态继续分开。
+- Windows 验收交付已整理到 T7 新目录 `小福猩桌宠/xiaofuxing-v1-windows-acceptance-20260828-01/`：包含精确提交 `33bc0f0` 的 source ZIP、完整 `win-unpacked`、原候选安装包、PRD、Windows Codex 提示词、报告模板、精选证据和 95 文件哈希清单。source ZIP 隔离解压后 64/64 测试与 lint 通过，交付目录递归零 `._*`/`.DS_Store`；当前只等待真实 Windows 执行并将 `RETURN/` 传回。
 
 ## 文件索引
 
@@ -53,6 +54,7 @@
 - `../Resources/kimi-phase-4-handoff.md`：Kimi Code 独立候选目标、现状、隔离边界和首个动作。
 - `../Resources/xiaofuxing-standard-actions-repair-evidence.md`：Codex 九动作修正版范围、验证、哈希和用户确认门。
 - `../Resources/xiaofuxing-v1-final-evidence.md`：Phase 4 v1 标准包、运行器、双平台候选、Mac 真实窗口和 Windows 验收边界。
+- `/Volumes/T7 Shield/小福猩桌宠/xiaofuxing-v1-windows-acceptance-20260828-01/`：小福猩 v1 精确 Windows 验收输入、PRD、提示词、报告模板、证据与回传目录。
 - `../.kimi-code/skills/xiaofuxing-phase4/SKILL.md`：Kimi Code 项目级 Phase 4 Skill。
 - `../tasks/plan.md`：正式 PRD 与实施计划。
 - `../tasks/todo.md`：可执行任务清单。

@@ -169,6 +169,7 @@ Petdex Desktop 可以脱离 Codex 运行，但下载和社区依赖网络环境�
 - [ ] Task 4.9：Phase 4 完成后执行 Windows 正式验收。
   - 验收：source、win-unpacked、installed mode、卸载/重装和 100%/125%/150% DPI 分开验证。
   - 验证：使用返回的精确候选和 SHA-256，不以 macOS 结果代替。
+  - 准备状态：T7 非覆盖交付、PRD、Windows Codex 提示词、报告模板、精选证据和 95 文件校验清单已完成；source ZIP 隔离解压后 64/64 测试和 lint 通过，等待 Windows 执行与 `RETURN/` 回传。
 
 ### Checkpoint 4
 
