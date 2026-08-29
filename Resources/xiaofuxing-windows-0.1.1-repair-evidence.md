@@ -39,3 +39,16 @@
 - 依次验证 source、win-unpacked、installed mode 的 100%/125%/150% 冷启动和真实 100% -> 125% -> 150% -> 100% 动态 DPI。
 - 使用 0.1.1 同身份安装程序修复现存 0.1.0；禁止手工删目录、注册表或绕过 NSIS 完整性检查。
 - 官方卸载成功、无残留进程和干净重装完成前，不声明生命周期通过。
+
+## 2026-08-29 第二次回传与路径修复
+
+- T7 新目录 `xiaofuxing-v1-windows-recheck-0.1.1-20260829-03/RETURN/` 含四次递进复验。前三次分别停在 Electron 下载停滞、`fetch failed` 和代理未启用 `@electron/get`；第四次在临时设置 `ELECTRON_GET_USE_PROXY=true` 后通过 `npm ci` 与 Electron 预检。
+- 第四次 source 测试为 73/75；两个失败计数来自同一个 ASAR 父/子测试。叶子错误为 `config/products/sample.json was not found in this archive`，GUI、DPI、安装、卸载和重装均未执行。
+- 根因：`@electron/asar` 在 Windows 使用原生反斜杠定位嵌套条目。检查器将列表条目规范化为 `/` 后，又把规范化路径直接传给 `extractFile()`。
+- 修复提交：`634ed4e093d00f89f1b5a37d8f3914c415dd8ce5`。列表比较继续使用 `/`，提取前统一转换为当前平台分隔符，并新增 Windows 嵌套路径回归测试。
+- 本机修复后：定向测试 5/5、完整测试 76/76、lint、`git diff --check`、`npm audit --omit=optional` 均通过。
+- 新非覆盖候选：`release/candidates/xiaofuxing-desktop-pet/0.1.1/candidate-20260829124859907/`；macOS packaged runtime 出现 `renderer-ready` 与 `runtime-ready`，macOS/Windows ASAR 均只包含小福猩产品与宠物包。
+- 新安装包 SHA-256：`f51539fc072a8287ff8f1e0b7cdf8c2776ec45b6ef031703aba12f68bceff6f1`。
+- 新 Windows 主程序 SHA-256：`a3a8fe46ead2abd113804f816c8c5b672efe656de3752072b9b876d73fd3a961`。
+- 新双平台 ASAR SHA-256：`e2af12bf6febffbce401469d03b8852baae634ccd250cf588eacb01b740fbc9c`。
+- 批准 `pet.json` 与图集哈希保持不变。Windows 复验门更新为 76/76；新 T7 目录尚未写入，仍需用户确认。
