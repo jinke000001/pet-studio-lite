@@ -15,6 +15,7 @@ test('Electron shell keeps the renderer sandboxed and character-neutral', () => 
   assert.match(main, /contextIsolation:\s*true/);
   assert.match(main, /nodeIntegration:\s*false/);
   assert.match(main, /sandbox:\s*true/);
+  assert.match(main, /app\.setAppUserModelId\(selectedProfile\.build\.appId\)/);
   assert.doesNotMatch(combined, /悟空|Wukong|Doraemon|JokeBear|阿岱/);
   assert.match(preload, /contextBridge\.exposeInMainWorld\('petApi'/);
   assert.match(renderer, /contract\.atlasUrl/);

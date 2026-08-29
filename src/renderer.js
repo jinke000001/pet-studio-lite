@@ -15,6 +15,7 @@ let clickCount = 0;
 let gestureToken = 0;
 let oneShot = false;
 let longIdle;
+let firstFrameNotified = false;
 
 function stateMeta(name) {
   return contract.pet.states[name] || contract.pet.states.idle;
@@ -48,6 +49,10 @@ function render() {
     canvas.width,
     canvas.height,
   );
+  if (!firstFrameNotified) {
+    firstFrameNotified = true;
+    window.petApi.notifyFirstFrameRendered();
+  }
 }
 
 function frameDuration() {

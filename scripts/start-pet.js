@@ -1,7 +1,6 @@
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 
-const electronPath = require('electron');
 const { resolveProductProfile } = require('../src/core/profile-selector');
 
 const projectRoot = path.resolve(__dirname, '..');
@@ -15,6 +14,7 @@ try {
   return;
 }
 
+const electronPath = require('electron');
 const child = spawn(electronPath, ['.'], {
   cwd: projectRoot,
   env: { ...process.env, PET_PRODUCT: product },

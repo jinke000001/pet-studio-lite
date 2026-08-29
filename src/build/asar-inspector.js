@@ -20,6 +20,10 @@ function hashBuffer(buffer) {
   };
 }
 
+function normalizeArchiveEntry(entry) {
+  return entry.replaceAll('\\', '/').replace(/^\/+/, '');
+}
+
 function safePackageFile(baseDirectory, relativePath, field) {
   if (typeof relativePath !== 'string') throw new Error(`${field} is required`);
   const normalized = relativePath.replaceAll('\\', '/');
@@ -30,7 +34,7 @@ function safePackageFile(baseDirectory, relativePath, field) {
 }
 
 function inspectPackagedAsar({ asarPath, selector }) {
-  const entries = asar.listPackage(asarPath).map((entry) => entry.replace(/^\//, ''));
+  const entries = asar.listPackage(asarPath).map(normalizeArchiveEntry);
   const productProfiles = entries.filter((entry) => /^config\/products\/[^/]+\.json$/.test(entry));
   if (productProfiles.length !== 1 || productProfiles[0] !== `config/products/${selector}.json`) {
     throw new Error('packaged ASAR must contain exactly one product profile for the selected product');
@@ -66,4 +70,4 @@ function inspectPackagedAsar({ asarPath, selector }) {
   };
 }
 
-module.exports = { inspectPackagedAsar };
+module.exports = { inspectPackagedAsar, normalizeArchiveEntry };

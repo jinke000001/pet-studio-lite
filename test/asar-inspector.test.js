@@ -5,7 +5,14 @@ const os = require('node:os');
 const path = require('node:path');
 const asar = require('@electron/asar');
 
-const { inspectPackagedAsar } = require('../src/build/asar-inspector');
+const { inspectPackagedAsar, normalizeArchiveEntry } = require('../src/build/asar-inspector');
+
+test('normalizes Windows ASAR entry separators before validating package contents', () => {
+  assert.equal(
+    normalizeArchiveEntry('\\config\\products\\sample.json'),
+    'config/products/sample.json',
+  );
+});
 
 async function makeAsar({ includeOtherProduct = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-asar-inspector-'));

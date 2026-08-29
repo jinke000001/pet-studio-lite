@@ -27,6 +27,7 @@ test('normalizes safe defaults without embedding a character identity in the run
       executableName: 'DesktopPetDev',
       artifactName: 'desktop-pet-dev',
       iconStrategy: 'electron-default-test',
+      installScope: 'user',
     },
     defaultScale: 0.75,
     messages: { singleClick: '你好！', doubleClick: '很高兴见到你！' },
@@ -69,4 +70,5 @@ test('rejects incomplete or unsafe build identities', () => {
   assert.throws(() => normalizeProductProfile({ ...base, build: { ...base.build, executableName: '../pet' } }), /executableName/);
   assert.throws(() => normalizeProductProfile({ ...base, build: { ...base.build, artifactName: 'Pet Setup' } }), /artifactName/);
   assert.throws(() => normalizeProductProfile({ ...base, build: { ...base.build, iconStrategy: 'download' } }), /iconStrategy/);
+  assert.throws(() => normalizeProductProfile({ ...base, build: { ...base.build, installScope: 'portable' } }), /installScope/);
 });

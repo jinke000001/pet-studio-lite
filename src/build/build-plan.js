@@ -61,7 +61,7 @@ function createBuilderConfiguration({ selector, profile: inputProfile, outputDir
     config.nsis = {
       artifactName: `${profile.build.artifactName}-${profile.version}-\${arch}.\${ext}`,
       oneClick: false,
-      perMachine: false,
+      perMachine: profile.build.installScope === 'machine',
       allowToChangeInstallationDirectory: false,
       createDesktopShortcut: false,
       createStartMenuShortcut: true,
@@ -143,6 +143,7 @@ function createCandidateManifest({
       appId: profile.build.appId,
       executableName: profile.build.executableName,
       iconStrategy: profile.build.iconStrategy,
+      installScope: profile.build.installScope,
     },
     targets: normalizedTargets,
     tools: { ...toolVersions },

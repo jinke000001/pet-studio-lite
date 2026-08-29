@@ -21,6 +21,11 @@ const {
   normalizeSettings,
   resizeAroundAnchor,
 } = require('./core/runtime-core');
+const {
+  createDisplayMetricsSynchronizer,
+  forceWindowsTransparentWindowRepaint,
+  synchronizePetWindowFrame,
+} = require('./core/window-frame');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const packageMetadata = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8'));
@@ -32,6 +37,7 @@ const profilePath = resolveProductProfile(PROJECT_ROOT, productSelector);
 const selectedProfile = normalizeProductProfile(JSON.parse(fs.readFileSync(profilePath, 'utf8')));
 
 app.setName(selectedProfile.productName);
+app.setAppUserModelId(selectedProfile.build.appId);
 app.setPath('userData', path.join(app.getPath('appData'), 'DesktopPetWorkflow', selectedProfile.productId));
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock({ productId: selectedProfile.productId });
@@ -43,6 +49,10 @@ let tray;
 let settings;
 let dragSession;
 let dragImmediate;
+let displayMetricsSynchronizer;
+let postShowSyncTimer;
+let windowReadyToShow = false;
+let rendererFirstFrameReady = false;
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 const logPath = path.join(app.getPath('userData'), 'app.log');
@@ -104,6 +114,37 @@ function applyScale(value) {
   updateTrayMenu();
   notifyActivity();
   return settings;
+}
+
+function synchronizeWindowFrame(changedDisplay) {
+  if (!window || window.isDestroyed()) return;
+  const currentDisplay = screen.getDisplayMatching(window.getBounds());
+  const display = changedDisplay?.id === currentDisplay.id ? changedDisplay : currentDisplay;
+  const bounds = synchronizePetWindowFrame({
+    window,
+    grid: runtime.pet.grid,
+    scale: settings.scale,
+    workArea: display.workArea,
+  });
+  log(`window-frame-synchronized display=${display.id} bounds=${JSON.stringify(bounds)}`);
+}
+
+function showAndSynchronizeWindow() {
+  if (!window || window.isDestroyed()) return;
+  synchronizeWindowFrame();
+  if (!window.isVisible()) window.showInactive();
+  clearTimeout(postShowSyncTimer);
+  postShowSyncTimer = setTimeout(() => {
+    if (!window || window.isDestroyed()) return;
+    if (forceWindowsTransparentWindowRepaint(window)) log('windows-transparent-surface-repainted');
+    synchronizeWindowFrame();
+  }, 180);
+  log(`runtime-ready product=${runtime.product.productId} pet=${runtime.pet.id}`);
+}
+
+function tryShowWindow() {
+  if (!windowReadyToShow || !rendererFirstFrameReady) return;
+  showAndSynchronizeWindow();
 }
 
 function dragTick() {
@@ -177,6 +218,8 @@ function initialBounds() {
 
 function createWindow() {
   const bounds = initialBounds();
+  windowReadyToShow = false;
+  rendererFirstFrameReady = false;
   window = new BrowserWindow({
     ...bounds,
     title: runtime.product.productName,
@@ -203,13 +246,17 @@ function createWindow() {
   window.webContents.on('render-process-gone', (_, details) => {
     log(`renderer-gone reason=${details.reason} exitCode=${details.exitCode}`);
   });
-  window.loadFile(path.join(__dirname, 'index.html'));
   window.once('ready-to-show', () => {
-    window.showInactive();
-    log(`runtime-ready product=${runtime.product.productId} pet=${runtime.pet.id}`);
+    windowReadyToShow = true;
+    tryShowWindow();
   });
+  window.loadFile(path.join(__dirname, 'index.html'));
   window.on('closed', () => {
     stopDrag();
+    clearTimeout(postShowSyncTimer);
+    postShowSyncTimer = undefined;
+    windowReadyToShow = false;
+    rendererFirstFrameReady = false;
     window = undefined;
   });
 }
@@ -218,7 +265,7 @@ function toggleWindow() {
   if (!window || window.isDestroyed()) return;
   if (window.isVisible()) window.hide();
   else {
-    window.showInactive();
+    showAndSynchronizeWindow();
     notifyActivity();
   }
 }
@@ -259,6 +306,11 @@ function registerIpc() {
   ipcMain.handle('pet:set-scale', (_, value) => applyScale(value));
   ipcMain.handle('pet:drag-start', startDrag);
   ipcMain.on('pet:drag-stop', stopDrag);
+  ipcMain.on('renderer:first-frame', (event) => {
+    if (!window || window.isDestroyed() || event.sender !== window.webContents) return;
+    rendererFirstFrameReady = true;
+    tryShowWindow();
+  });
   ipcMain.on('pet:hide', () => window?.hide());
   ipcMain.on('pet:quit', () => app.quit());
 }
@@ -275,6 +327,15 @@ if (hasSingleInstanceLock) {
     runtime = loadRuntimeInputs({ projectRoot: PROJECT_ROOT, profilePath, inspectAtlas: inspectWebp });
     loadSettings();
     registerIpc();
+    displayMetricsSynchronizer = createDisplayMetricsSynchronizer({
+      getWindow: () => window,
+      synchronizeWindow: (_window, display) => {
+        synchronizeWindowFrame(display);
+        if (forceWindowsTransparentWindowRepaint(window)) log('windows-dpi-transparent-surface-repainted');
+        synchronizeWindowFrame(display);
+      },
+    });
+    screen.on('display-metrics-changed', displayMetricsSynchronizer.handle);
     createWindow();
     createTray();
   }).catch((error) => {
@@ -283,5 +344,9 @@ if (hasSingleInstanceLock) {
   });
 }
 
-app.on('before-quit', stopDrag);
+app.on('before-quit', () => {
+  stopDrag();
+  displayMetricsSynchronizer?.dispose();
+  clearTimeout(postShowSyncTimer);
+});
 app.on('window-all-closed', (event) => event.preventDefault());

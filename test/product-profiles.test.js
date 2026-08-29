@@ -31,5 +31,20 @@ test('tracked product profiles are valid and use unique product and pet identiti
   assert.equal(new Set(profiles.map((profile) => profile.build.executableName.toLowerCase())).size, profiles.length);
   assert.equal(new Set(profiles.map((profile) => profile.build.artifactName.toLowerCase())).size, profiles.length);
   assert.ok(profiles.every((profile) => profile.petPackagePath.startsWith('local-pets/')));
-  assert.ok(profiles.every((profile) => profile.version === '0.1.0'));
+  const versions = Object.fromEntries(profiles.map((profile) => [profile.productId, profile.version]));
+  assert.deepEqual(versions, {
+    'dai-desktop-pet': '0.1.0',
+    'doraemon-desktop-pet': '0.1.0',
+    'jokebear-desktop-pet': '0.1.0',
+    'wukong-desktop-pet': '0.1.0',
+    'xiaofuxing-desktop-pet': '0.1.1',
+  });
+  const installScopes = Object.fromEntries(profiles.map((profile) => [profile.productId, profile.build.installScope]));
+  assert.deepEqual(installScopes, {
+    'dai-desktop-pet': 'user',
+    'doraemon-desktop-pet': 'user',
+    'jokebear-desktop-pet': 'user',
+    'wukong-desktop-pet': 'user',
+    'xiaofuxing-desktop-pet': 'machine',
+  });
 });

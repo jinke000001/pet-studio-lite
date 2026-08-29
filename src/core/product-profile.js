@@ -30,7 +30,17 @@ function normalizeBuildIdentity(input = {}) {
   if (input.iconStrategy !== 'electron-default-test') {
     throw new Error('build.iconStrategy must be electron-default-test until an approved icon exists');
   }
-  return Object.freeze({ appId, executableName, artifactName, iconStrategy: input.iconStrategy });
+  const installScope = input.installScope || 'user';
+  if (!['user', 'machine'].includes(installScope)) {
+    throw new Error('build.installScope must be user or machine');
+  }
+  return Object.freeze({
+    appId,
+    executableName,
+    artifactName,
+    iconStrategy: input.iconStrategy,
+    installScope,
+  });
 }
 
 function normalizeProductProfile(input = {}) {

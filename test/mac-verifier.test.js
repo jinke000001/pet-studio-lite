@@ -26,7 +26,10 @@ test('accepts only one safe project-relative candidate run path', () => {
 });
 
 test('refuses candidate manifest paths that escape the selected run', () => {
-  assert.equal(resolveCandidateArtifact('/project/release/run', 'artifacts/app.exe'), path.join('/project/release/run', 'artifacts/app.exe'));
+  assert.equal(
+    resolveCandidateArtifact('/project/release/run', 'artifacts/app.exe'),
+    path.resolve('/project/release/run', 'artifacts/app.exe'),
+  );
   assert.throws(() => resolveCandidateArtifact('/project/release/run', '../app.exe'), /inside/);
   assert.throws(() => resolveCandidateArtifact('/project/release/run', '/tmp/app.exe'), /inside/);
 });

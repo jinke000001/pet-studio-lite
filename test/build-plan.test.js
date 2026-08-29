@@ -52,6 +52,22 @@ test('creates a single-product unsigned builder configuration', () => {
   ]);
   assert.equal(config.publish, null);
   assert.match(config.nsis.artifactName, /sample-desktop-pet-0\.1\.0/);
+  assert.equal(config.nsis.oneClick, false);
+  assert.equal(config.nsis.perMachine, false);
+});
+
+test('uses a deterministic per-machine installer only when the product requests it', () => {
+  const profile = sampleProfile();
+  profile.build.installScope = 'machine';
+  const config = createBuilderConfiguration({
+    selector: 'sample',
+    profile,
+    outputDirectory: '/tmp/release/sample',
+    targets: ['win'],
+  });
+
+  assert.equal(config.nsis.oneClick, false);
+  assert.equal(config.nsis.perMachine, true);
 });
 
 test('rejects unsupported or duplicate targets', () => {
@@ -100,6 +116,7 @@ test('records candidate hashes and explicit Windows acceptance boundaries', () =
   assert.match(manifest.artifacts[0].sha256, /^[a-f0-9]{64}$/);
   assert.match(manifest.sourceAtlas.sha256, /^[a-f0-9]{64}$/);
   assert.equal(manifest.packagedResources[0].embeddedSelector, 'sample');
+  assert.equal(manifest.product.installScope, 'user');
 });
 
 test('rejects packaged resources whose selector, atlas or ASAR bytes disagree', () => {

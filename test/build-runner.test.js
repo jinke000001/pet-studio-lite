@@ -73,7 +73,9 @@ test('discovers only key candidate deliverables in a build directory', () => {
   }
 
   assert.deepEqual(
-    discoverCandidateArtifacts(root).map((filePath) => path.relative(root, filePath)).sort(),
+    discoverCandidateArtifacts(root)
+      .map((filePath) => path.relative(root, filePath).replaceAll(path.sep, '/'))
+      .sort(),
     paths.slice(0, 5).sort(),
   );
 });

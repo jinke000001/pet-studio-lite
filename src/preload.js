@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('petApi', {
   setScale: (scale) => ipcRenderer.invoke('pet:set-scale', scale),
   dragStart: () => ipcRenderer.invoke('pet:drag-start'),
   dragStop: () => ipcRenderer.send('pet:drag-stop'),
+  notifyFirstFrameRendered: () => ipcRenderer.send('renderer:first-frame'),
   hide: () => ipcRenderer.send('pet:hide'),
   quit: () => ipcRenderer.send('pet:quit'),
   onUserActivity(callback) {
