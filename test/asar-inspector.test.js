@@ -5,12 +5,23 @@ const os = require('node:os');
 const path = require('node:path');
 const asar = require('@electron/asar');
 
-const { inspectPackagedAsar, normalizeArchiveEntry } = require('../src/build/asar-inspector');
+const {
+  inspectPackagedAsar,
+  normalizeArchiveEntry,
+  toArchiveExtractionPath,
+} = require('../src/build/asar-inspector');
 
 test('normalizes Windows ASAR entry separators before validating package contents', () => {
   assert.equal(
     normalizeArchiveEntry('\\config\\products\\sample.json'),
     'config/products/sample.json',
+  );
+});
+
+test('restores Windows separators before extracting a normalized nested ASAR entry', () => {
+  assert.equal(
+    toArchiveExtractionPath('config/products/sample.json', '\\'),
+    'config\\products\\sample.json',
   );
 });
 

@@ -24,6 +24,10 @@ function normalizeArchiveEntry(entry) {
   return entry.replaceAll('\\', '/').replace(/^\/+/, '');
 }
 
+function toArchiveExtractionPath(entry, separator = path.sep) {
+  return normalizeArchiveEntry(entry).split('/').join(separator);
+}
+
 function safePackageFile(baseDirectory, relativePath, field) {
   if (typeof relativePath !== 'string') throw new Error(`${field} is required`);
   const normalized = relativePath.replaceAll('\\', '/');
@@ -40,9 +44,15 @@ function inspectPackagedAsar({ asarPath, selector }) {
     throw new Error('packaged ASAR must contain exactly one product profile for the selected product');
   }
 
-  const packageMetadata = parseJson(asar.extractFile(asarPath, 'package.json'), 'package.json');
+  const packageMetadata = parseJson(
+    asar.extractFile(asarPath, toArchiveExtractionPath('package.json')),
+    'package.json',
+  );
   if (packageMetadata.desktopPetProduct !== selector) throw new Error('packaged product selector does not match the request');
-  const profile = normalizeProductProfile(parseJson(asar.extractFile(asarPath, productProfiles[0]), productProfiles[0]));
+  const profile = normalizeProductProfile(parseJson(
+    asar.extractFile(asarPath, toArchiveExtractionPath(productProfiles[0])),
+    productProfiles[0],
+  ));
   if (packageMetadata.name !== profile.productId || packageMetadata.version !== profile.version) {
     throw new Error('packaged product metadata does not match its profile');
   }
@@ -53,10 +63,13 @@ function inspectPackagedAsar({ asarPath, selector }) {
   if (petPackages.length !== 1 || petPackages[0] !== profile.petPackagePath) {
     throw new Error('packaged ASAR must contain exactly one selected pet package');
   }
-  const petManifest = parseJson(asar.extractFile(asarPath, petManifestPath), petManifestPath);
+  const petManifest = parseJson(
+    asar.extractFile(asarPath, toArchiveExtractionPath(petManifestPath)),
+    petManifestPath,
+  );
   const atlasPath = safePackageFile(profile.petPackagePath, petManifest.spritesheetPath, 'spritesheetPath');
   if (!entries.includes(atlasPath)) throw new Error('packaged pet atlas is missing');
-  const atlas = asar.extractFile(asarPath, atlasPath);
+  const atlas = asar.extractFile(asarPath, toArchiveExtractionPath(atlasPath));
   const archive = fs.readFileSync(asarPath);
   return {
     embeddedSelector: packageMetadata.desktopPetProduct,
@@ -70,4 +83,4 @@ function inspectPackagedAsar({ asarPath, selector }) {
   };
 }
 
-module.exports = { inspectPackagedAsar, normalizeArchiveEntry };
+module.exports = { inspectPackagedAsar, normalizeArchiveEntry, toArchiveExtractionPath };
