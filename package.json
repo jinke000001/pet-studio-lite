@@ -8,6 +8,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
     "start": "node scripts/source-preflight.js && electron .",
     "pet": "node scripts/source-preflight.js && node scripts/start-pet.js",
     "source:preflight": "node scripts/source-preflight.js",

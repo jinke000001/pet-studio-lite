@@ -6,6 +6,8 @@ const path = require('node:path');
 
 const { inspectElectronInstallation } = require('../scripts/source-preflight');
 
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+
 function makeProject() {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-source-preflight-'));
   const electronRoot = path.join(projectRoot, 'node_modules', 'electron');
@@ -36,4 +38,9 @@ test('source preflight reports a missing Electron binary and skip-download envir
     ok: false,
     reason: 'electron executable is missing',
   });
+});
+
+test('npm ci explicitly installs the Electron runtime before source preflight', () => {
+  const packageMetadata = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8'));
+  assert.equal(packageMetadata.scripts.postinstall, 'node node_modules/electron/install.js');
 });
