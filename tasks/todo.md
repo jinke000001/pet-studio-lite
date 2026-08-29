@@ -54,6 +54,8 @@ Checkpoint 3 候选构建与 Mac 侧验证已通过；Windows 正式验收保持
 - [x] 4.7 通过通用运行器做 source-mode 与 macOS 真实窗口验证。
 - [x] 4.8 通过 Phase 3 工厂生成小福猩双平台未签名候选。
 - [x] 4.9a 生成并验证 T7 Windows 验收交付、PRD、执行提示词、报告模板和全量哈希。
-- [ ] 4.9 Phase 4 完成后执行此前暂缓的 Windows 正式验收。
+- [x] 4.9b 检查 0.1.0 Windows 回传失败并完成 0.1.1 针对性修复、回归和本机候选验证。
+- [ ] 4.9c 经用户确认后，将 0.1.1 非覆盖复验包写入 T7。
+- [ ] 4.9d 在 Windows 先执行 source 前置门，再完成 win-unpacked、installed、覆盖修复/卸载/重装和 DPI 正式复验。
 
 商业发布体系暂缓，不属于当前任务清单。
