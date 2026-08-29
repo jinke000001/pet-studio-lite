@@ -48,18 +48,20 @@ async function makeAsar({ includeOtherProduct = false } = {}) {
   return archive;
 }
 
-test('proves an ASAR contains exactly one selected product and pet atlas', async () => {
-  const archive = await makeAsar();
-  const result = inspectPackagedAsar({ asarPath: archive, selector: 'sample' });
-  assert.equal(result.embeddedSelector, 'sample');
-  assert.deepEqual(result.productProfiles, ['config/products/sample.json']);
-  assert.deepEqual(result.petPackages, ['local-pets/sample']);
-  assert.equal(result.petId, 'sample');
-  assert.match(result.atlas.sha256, /^[a-f0-9]{64}$/);
-  assert.equal(result.atlas.size, 14);
-});
+test('validates one selected ASAR before inspecting another archive', async (context) => {
+  const selectedArchive = await makeAsar();
+  await context.test('proves an ASAR contains exactly one selected product and pet atlas', () => {
+    const result = inspectPackagedAsar({ asarPath: selectedArchive, selector: 'sample' });
+    assert.equal(result.embeddedSelector, 'sample');
+    assert.deepEqual(result.productProfiles, ['config/products/sample.json']);
+    assert.deepEqual(result.petPackages, ['local-pets/sample']);
+    assert.equal(result.petId, 'sample');
+    assert.match(result.atlas.sha256, /^[a-f0-9]{64}$/);
+    assert.equal(result.atlas.size, 14);
+  });
 
-test('rejects an ASAR containing another product profile', async () => {
-  const archive = await makeAsar({ includeOtherProduct: true });
-  assert.throws(() => inspectPackagedAsar({ asarPath: archive, selector: 'sample' }), /exactly one product profile/);
+  const mixedArchive = await makeAsar({ includeOtherProduct: true });
+  await context.test('rejects an ASAR containing another product profile', () => {
+    assert.throws(() => inspectPackagedAsar({ asarPath: mixedArchive, selector: 'sample' }), /exactly one product profile/);
+  });
 });

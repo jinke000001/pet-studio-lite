@@ -24,7 +24,7 @@
 ## 本机验证
 
 - 主修复提交：`37738c3bd557fb580a9c78a284ed68183b493163`；Electron 显式安装补充提交：`a415251995e46c3984457812351fa264cecaf4dd`。
-- 自动测试：74/74 通过；lint 通过；`npm audit --omit=optional` 为 0 vulnerabilities；`git diff --check` 通过。
+- 自动测试：75/75 通过，并连续 5 轮无波动；lint 通过；`npm audit --omit=optional` 为 0 vulnerabilities；`git diff --check` 通过。
 - source-mode 真实窗口：出现 `renderer-ready`、`window-frame-synchronized` 和 `runtime-ready`；角色透明、完整、未裁切。
 - macOS 候选：`release/candidates/xiaofuxing-desktop-pet/0.1.1/candidate-20260829060905840/`，打包运行验证通过。
 - Windows 候选：`release/candidates/xiaofuxing-desktop-pet/0.1.1/candidate-20260829060759846/`。
@@ -35,7 +35,7 @@
 
 ## Windows 复验门
 
-- 先核对复验包全量哈希，再执行 `npm ci`、Electron 二进制预检、74/74 测试和 lint；source 门失败即停止后续额度消耗。
+- 先核对复验包全量哈希，再执行 `npm ci`、Electron 二进制预检、75/75 测试和 lint；source 门失败即停止后续额度消耗。
 - 依次验证 source、win-unpacked、installed mode 的 100%/125%/150% 冷启动和真实 100% -> 125% -> 150% -> 100% 动态 DPI。
 - 使用 0.1.1 同身份安装程序修复现存 0.1.0；禁止手工删目录、注册表或绕过 NSIS 完整性检查。
 - 官方卸载成功、无残留进程和干净重装完成前，不声明生命周期通过。
