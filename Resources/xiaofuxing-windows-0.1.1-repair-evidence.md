@@ -51,4 +51,13 @@
 - 新安装包 SHA-256：`f51539fc072a8287ff8f1e0b7cdf8c2776ec45b6ef031703aba12f68bceff6f1`。
 - 新 Windows 主程序 SHA-256：`a3a8fe46ead2abd113804f816c8c5b672efe656de3752072b9b876d73fd3a961`。
 - 新双平台 ASAR SHA-256：`e2af12bf6febffbce401469d03b8852baae634ccd250cf588eacb01b740fbc9c`。
-- 批准 `pet.json` 与图集哈希保持不变。Windows 复验门更新为 76/76；新 T7 目录尚未写入，仍需用户确认。
+- 批准 `pet.json` 与图集哈希保持不变。Windows 复验门更新为 76/76；随后经用户确认进入新的非覆盖 T7 交付。
+
+## T7 第二轮复验交付
+
+- 用户于 2026-08-29 明确确认继续后，新的非覆盖交付已写入 `/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.1-20260829-04/`；旧 `-03` 输入与四次 RETURN 均未修改。
+- `checksums.sha256` 覆盖 90 个输入文件，T7 端重新校验 90/90 通过；清单 SHA-256 为 `73dc8601442874984d2f663c096c58e19bcfd1db43e14aab1aa35efaf86fd1fa`。
+- source ZIP 为 8,758,607 字节，SHA-256 `ff69ca779fed2a951d01c526cf78420dd1ddb0c70097007504e50431d873130c`；108 个条目、86 个文件、3 个非 ASCII 路径均带 UTF-8 标记，extra fields 与内部元数据均为 0。
+- source ZIP 隔离解压后 `npm ci`、Electron 预检、76/76 测试、lint 和 0 vulnerabilities 通过。
+- T7 端安装包、主程序与 ASAR 哈希分别为 `f51539fc072a8287ff8f1e0b7cdf8c2776ec45b6ef031703aba12f68bceff6f1`、`a3a8fe46ead2abd113804f816c8c5b672efe656de3752072b9b876d73fd3a961`、`e2af12bf6febffbce401469d03b8852baae634ccd250cf588eacb01b740fbc9c`，与新候选清单一致。
+- exFAT 首次复制生成的 99 个 AppleDouble 边车只在本次新目录内清除；最终 91 个文件、递归 `._*`/`.DS_Store` 为 0，`RETURN/` 为空。
