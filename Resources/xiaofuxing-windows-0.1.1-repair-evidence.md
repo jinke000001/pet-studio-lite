@@ -26,11 +26,11 @@
 - 主修复提交：`37738c3bd557fb580a9c78a284ed68183b493163`；Electron 显式安装补充提交：`a415251995e46c3984457812351fa264cecaf4dd`。
 - 自动测试：74/74 通过；lint 通过；`npm audit --omit=optional` 为 0 vulnerabilities；`git diff --check` 通过。
 - source-mode 真实窗口：出现 `renderer-ready`、`window-frame-synchronized` 和 `runtime-ready`；角色透明、完整、未裁切。
-- macOS 候选：`release/candidates/xiaofuxing-desktop-pet/0.1.1/candidate-20260829055225968/`，打包运行验证通过。
-- Windows 候选：`release/candidates/xiaofuxing-desktop-pet/0.1.1/candidate-20260829055235184/`。
+- macOS 候选：`release/candidates/xiaofuxing-desktop-pet/0.1.1/candidate-20260829060905840/`，打包运行验证通过。
+- Windows 候选：`release/candidates/xiaofuxing-desktop-pet/0.1.1/candidate-20260829060759846/`。
 - macOS/Windows `app.asar` 一致，SHA-256：`1f0a83b68206c1de6ffcb88a30582ce05677aeace8da0654b64b0bce3ceebedf`。
 - Windows 主程序 SHA-256：`6b6824c62d248c298408b6d9f31b59e8ba36d2dfc0da4cbe06d657aa93acb387`。
-- NSIS 安装包 SHA-256：`a54feaa19d248c2fa2d979b6becb257ae2c5e7916399925d7a0171574307f87f`。
+- NSIS 安装包 SHA-256：`462b30d3db67e40b73a38fd4aca3bc5749baf83687592fc13d56f3ad6491f18e`。
 - 7-Zip 对完整安装包及其中抽取的官方卸载器均报告 `Everything is Ok`；这只证明静态完整性，不证明 Windows 安装后的卸载成功。
 
 ## Windows 复验门
