@@ -39,7 +39,7 @@
 - 五张小福猩素材已登记；无服装、无道具的正面完整全身图锁定为唯一身份基准，其余图片只提供姿势、情绪和侧面结构参考。
 - Codex 主视觉曾获确认；首版九动作因待机手部虚影、左右跑动姿势堆叠、失败动作身份漂移和等待动作手指结构问题未获确认。2026-08-28 完成非覆盖修正版后，用户先确认七个非方向动作，随后以三段跑步 GIF 为参考确认新的 `running-right`。独立左跑因腿部不流畅被保留为历史候选，活动左跑改为八张已确认右跑帧的逐帧水平镜像并获用户确认。九种标准动作现已全部通过用户确认；批准清单位于 `runs/phase-4-xiaofuxing-v2-codex-running-ref-20260828-01/qa/standard-actions-approval.json`。用户随后确认只对齐 Petdex 网站宠物核心九状态功能，小福猩按 8×9、1536×1872 的 v1 标准包收尾，不制作四基准方向和 16 注视方向；运行器仍保留 v2 兼容。Kimi 独立候选仍保持隔离。授权状态暂记 `internal-test`，不写入或覆盖用户 Codex/Petdex 宠物目录。
 - 小福猩 v1 标准包、source-mode、macOS `.app` 和 Windows x64 `win-unpacked`/未签名 NSIS 候选已完成；证据位于 `Resources/xiaofuxing-v1-final-evidence.md`。Windows 正式验收仍未执行，候选与正式验收状态继续分开。
-- 0.1.0 Windows 回传已检查：输入与回传哈希通过，但 source 路径兼容/lint/Electron 二进制门、150% 冷启动、动态 DPI 和官方卸载失败。首轮 0.1.1 复验在代理启用后推进到 73/75，并暴露 `@electron/asar` 的 Windows 嵌套路径提取问题；提交 `634ed4e` 已修复，完整回归升至 76/76，新双平台候选与 macOS 真实运行验证通过，批准素材哈希不变。第二轮 T7 非覆盖复验包 `xiaofuxing-v1-windows-recheck-0.1.1-20260829-04/` 已完成 90/90 哈希、ZIP UTF-8、隔离解压和零元数据校验，等待 Windows 执行。
+- 0.1.0 Windows 回传已检查：输入与回传哈希通过，但 source 路径兼容/lint/Electron 二进制门、150% 冷启动、动态 DPI 和官方卸载失败。首轮 0.1.1 复验暴露并修复 Windows ASAR 嵌套路径问题。第二轮 0.1.1 在 Windows 通过 76/76 与 150% 冷启动，但 source 真实动态 `100% -> 125% -> 150%` 在 150% 出现白窗和裁切。0.1.2 已移除动态 DPI 路径的临时边界脉冲、增加诊断和防复发测试；完整回归、Mac source/packaged runtime 和新双平台候选通过，批准素材哈希不变。Windows 0.1.2 动态 DPI、win-unpacked、installed、覆盖修复、卸载和重装仍待实机复验。
 
 ## 文件索引
 
@@ -55,6 +55,7 @@
 - `../Resources/xiaofuxing-standard-actions-repair-evidence.md`：Codex 九动作修正版范围、验证、哈希和用户确认门。
 - `../Resources/xiaofuxing-v1-final-evidence.md`：Phase 4 v1 标准包、运行器、双平台候选、Mac 真实窗口和 Windows 验收边界。
 - `../Resources/xiaofuxing-windows-0.1.1-repair-evidence.md`：0.1.0 Windows 失败定位、0.1.1 修复范围、不变项、候选哈希和复验门。
+- `../Resources/xiaofuxing-windows-0.1.2-dpi-repair-evidence.md`：0.1.1 动态 DPI 白窗回传、0.1.2 根因修复、防复发测试、候选哈希和复验门。
 - `/Volumes/T7 Shield/小福猩桌宠/xiaofuxing-v1-windows-acceptance-20260828-01/`：小福猩 v1 精确 Windows 验收输入、PRD、提示词、报告模板、证据与回传目录。
 - `../.kimi-code/skills/xiaofuxing-phase4/SKILL.md`：Kimi Code 项目级 Phase 4 Skill。
 - `../tasks/plan.md`：正式 PRD 与实施计划。

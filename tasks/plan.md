@@ -169,7 +169,7 @@ Petdex Desktop 可以脱离 Codex 运行，但下载和社区依赖网络环境�
 - [ ] Task 4.9：Phase 4 完成后执行 Windows 正式验收。
   - 验收：source、win-unpacked、installed mode、卸载/重装和 100%/125%/150% DPI 分开验证。
   - 验证：使用返回的精确候选和 SHA-256，不以 macOS 结果代替。
-  - 准备状态：T7 非覆盖交付、PRD、Windows Codex 提示词、报告模板、精选证据和 95 文件校验清单已完成；source ZIP 隔离解压后 64/64 测试和 lint 通过，等待 Windows 执行与 `RETURN/` 回传。
+  - 准备状态：0.1.1 第二轮回传已证明 150% 冷启动正常，但 source 动态 150% 白窗/裁切。0.1.2 已移除动态 DPI 临时边界脉冲、通过 76/76 与双平台候选验证；等待新的非覆盖 T7 复验和 Windows 实机结论。
 
 ### Checkpoint 4
 
@@ -191,4 +191,4 @@ Petdex Desktop 可以脱离 Codex 运行，但下载和社区依赖网络环境�
 
 - 通用项目的最终产品名称和品牌名尚未确定，当前使用“通用桌宠工作流”作为工作名。
 - Phase 3 沿用 Electron 43.4.1、electron-builder 26.15.3 和 Node.js 22.12+；首轮使用通用测试图标，正式角色图标以后单独确认。
-- 五张小福猩测试素材及三个跑步参考 GIF 已提供。Codex 九种标准动作、v1 标准包、运行器接入、双平台候选和 Mac 侧验证均已完成；Kimi Code 独立候选保持隔离。当前唯一发布前待办是 Windows source、win-unpacked、installed mode、卸载/重装和 100%/125%/150% DPI 正式验收。
+- 五张小福猩测试素材及三个跑步参考 GIF 已提供。Codex 九种标准动作、v1 标准包、运行器接入和 Mac 侧验证均已完成；Kimi Code 独立候选保持隔离。0.1.2 动态 DPI 修复候选已就绪，当前发布前待办是新的 T7 复验交付及 Windows source、win-unpacked、installed mode、卸载/重装和 100%/125%/150% 正式验收。
