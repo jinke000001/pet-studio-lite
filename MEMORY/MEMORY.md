@@ -40,6 +40,10 @@
 - Codex 主视觉曾获确认；首版九动作因待机手部虚影、左右跑动姿势堆叠、失败动作身份漂移和等待动作手指结构问题未获确认。2026-08-28 完成非覆盖修正版后，用户先确认七个非方向动作，随后以三段跑步 GIF 为参考确认新的 `running-right`。独立左跑因腿部不流畅被保留为历史候选，活动左跑改为八张已确认右跑帧的逐帧水平镜像并获用户确认。九种标准动作现已全部通过用户确认；批准清单位于 `runs/phase-4-xiaofuxing-v2-codex-running-ref-20260828-01/qa/standard-actions-approval.json`。用户随后确认只对齐 Petdex 网站宠物核心九状态功能，小福猩按 8×9、1536×1872 的 v1 标准包收尾，不制作四基准方向和 16 注视方向；运行器仍保留 v2 兼容。Kimi 独立候选仍保持隔离。授权状态暂记 `internal-test`，不写入或覆盖用户 Codex/Petdex 宠物目录。
 - 小福猩 v1 标准包、source-mode、macOS `.app` 和 Windows x64 `win-unpacked`/未签名 NSIS 候选已完成；证据位于 `Resources/xiaofuxing-v1-final-evidence.md`。Windows 正式验收仍未执行，候选与正式验收状态继续分开。
 - 0.1.0 Windows 回传已检查：输入与回传哈希通过，但 source 路径兼容/lint/Electron 二进制门、150% 冷启动、动态 DPI 和官方卸载失败。首轮 0.1.1 复验暴露并修复 Windows ASAR 嵌套路径问题。第二轮 0.1.1 在 Windows 通过 76/76 与 150% 冷启动，但 source 真实动态 `100% -> 125% -> 150%` 在 150% 出现白窗和裁切。0.1.2 已移除动态 DPI 路径的临时边界脉冲、增加诊断和防复发测试；完整回归、Mac source/packaged runtime 和新双平台候选通过，批准素材哈希不变。新 T7 非覆盖复验包 `xiaofuxing-v1-windows-recheck-0.1.2-20260830-01/` 已完成 93/93 哈希、ZIP UTF-8、隔离解压和零元数据校验；Windows 0.1.2 动态 DPI、win-unpacked、installed、覆盖修复、卸载和重装仍待实机复验。
+- 0.1.2 Windows 回传经 Mac 只读复核后不能作为小福猩代码缺陷证据：受控重试窗口标题明确为 `Wukong Desktop Pet`，因为 `npm start` 默认选择 Wukong；回传还存在目标显示器/DPI 不一致、截图未落盘、缺少小福猩产品日志以及进程清理结论冲突。原 Windows 结论仍为“不通过/未完成”，但当前不进入代码修复。已按用户确认建立非覆盖 T7 流程修正版 `xiaofuxing-v1-windows-recheck-0.1.2-20260830-02-docfix/`，强制 `npm run pet -- xiaofuxing`、产品身份日志门、同一显示器缩放证据、截图落盘、精确进程树与全量回传哈希；5/5 文档哈希通过，`checksums.sha256` SHA-256 为 `1b0cbae81f2a5d1bb1375398e33c106eb019707fcee186a658a6474b77a0a3ea`，元数据为 0；旧交付和旧 RETURN 保持不变。
+- 2026-08-30 第三轮 “fixed-140521” 回传经 Mac 只读复核仍判“验收对象错误”：`source.out.log` 明确记录 `npm start`，回传错放 `-01/RETURN/`，`screenshots/` 为空，无 `returned-checksums.sha256`，结束时 `LogPixels=144` 未恢复；其“125% 白区/裁切失败”不能作为小福猩缺陷证据。经用户确认，建立非覆盖 Kimi Code 执行版 `xiaofuxing-v1-windows-recheck-0.1.2-20260830-03-kimi/`：验收门与 docfix 一致，新增执行前五项自检（`logs/00-preflight-selfcheck.log`）和 `capture-screenshot.ps1` 脚本化截图落盘（全屏 + 窗口局部），回传路径改为 `-03-kimi/RETURN/windows-recheck-0.1.2-kimi-<ts>/`；5/5 哈希通过、元数据为 0。
+- 最新正确产品回传中，source 与 win-unpacked 三档冷启动及真实动态 DPI 通过；白色区域确认是透明宠物窗口叠在白色 Codex/设置窗口上的截图背景。`0.1.0 -> 0.1.2` 覆盖安装被“无法关闭”阻断；后续冲突审计在弹窗保持期间记录安装目录匹配进程 0、完整进程 348、安装器树 1、启动项/任务 0，19/19 哈希通过，因此按 NSIS 检测误判处理，不支持旧独立开发版残留冲突。
+- 0.1.3 提交 `0fcc28c` 将机器级 NSIS 检测收窄为已安装主程序完整路径匹配；用户级产品、素材、运行逻辑、appId、安装范围和用户数据身份不变。77/77、lint、0 vulnerabilities、实际 NSIS 编译、双平台候选和 Mac packaged runtime 通过；最终候选为 `release/candidates/xiaofuxing-desktop-pet/0.1.3/candidate-20260830091754928/`，安装包 SHA-256 `768213571b7db9bce30fd50ed20c92582c5405fb97f7fc3227ca5ad0933bdb63`。Windows 仅余覆盖修复、installed mode、官方卸载和同包重装。
 
 ## 文件索引
 
@@ -56,6 +60,8 @@
 - `../Resources/xiaofuxing-v1-final-evidence.md`：Phase 4 v1 标准包、运行器、双平台候选、Mac 真实窗口和 Windows 验收边界。
 - `../Resources/xiaofuxing-windows-0.1.1-repair-evidence.md`：0.1.0 Windows 失败定位、0.1.1 修复范围、不变项、候选哈希和复验门。
 - `../Resources/xiaofuxing-windows-0.1.2-dpi-repair-evidence.md`：0.1.1 动态 DPI 白窗回传、0.1.2 根因修复、防复发测试、候选哈希和复验门。
+- `../Resources/xiaofuxing-windows-0.1.3-nsis-repair-evidence.md`：0.1.2 安装冲突审计、0.1.3 精确进程检测、候选哈希和缩小后的 Windows 复验门。
+- `/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.2-20260830-02-docfix/`：0.1.2 Windows 回传 Mac 审查日志、修正版提示词、报告模板、校验脚本与新 RETURN 路径。
 - `/Volumes/T7 Shield/小福猩桌宠/xiaofuxing-v1-windows-acceptance-20260828-01/`：小福猩 v1 精确 Windows 验收输入、PRD、提示词、报告模板、证据与回传目录。
 - `../.kimi-code/skills/xiaofuxing-phase4/SKILL.md`：Kimi Code 项目级 Phase 4 Skill。
 - `../tasks/plan.md`：正式 PRD 与实施计划。
