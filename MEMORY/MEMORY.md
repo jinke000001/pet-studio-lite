@@ -44,6 +44,7 @@
 - 2026-08-30 第三轮 “fixed-140521” 回传经 Mac 只读复核仍判“验收对象错误”：`source.out.log` 明确记录 `npm start`，回传错放 `-01/RETURN/`，`screenshots/` 为空，无 `returned-checksums.sha256`，结束时 `LogPixels=144` 未恢复；其“125% 白区/裁切失败”不能作为小福猩缺陷证据。经用户确认，建立非覆盖 Kimi Code 执行版 `xiaofuxing-v1-windows-recheck-0.1.2-20260830-03-kimi/`：验收门与 docfix 一致，新增执行前五项自检（`logs/00-preflight-selfcheck.log`）和 `capture-screenshot.ps1` 脚本化截图落盘（全屏 + 窗口局部），回传路径改为 `-03-kimi/RETURN/windows-recheck-0.1.2-kimi-<ts>/`；5/5 哈希通过、元数据为 0。
 - 最新正确产品回传中，source 与 win-unpacked 三档冷启动及真实动态 DPI 通过；白色区域确认是透明宠物窗口叠在白色 Codex/设置窗口上的截图背景。`0.1.0 -> 0.1.2` 覆盖安装被“无法关闭”阻断；后续冲突审计在弹窗保持期间记录安装目录匹配进程 0、完整进程 348、安装器树 1、启动项/任务 0，19/19 哈希通过，因此按 NSIS 检测误判处理，不支持旧独立开发版残留冲突。
 - 0.1.3 提交 `0fcc28c` 将机器级 NSIS 检测收窄为已安装主程序完整路径匹配；用户级产品、素材、运行逻辑、appId、安装范围和用户数据身份不变。77/77、lint、0 vulnerabilities、实际 NSIS 编译、双平台候选和 Mac packaged runtime 通过；最终候选为 `release/candidates/xiaofuxing-desktop-pet/0.1.3/candidate-20260830091754928/`，安装包 SHA-256 `768213571b7db9bce30fd50ed20c92582c5405fb97f7fc3227ca5ad0933bdb63`。Windows 仅余覆盖修复、installed mode、官方卸载和同包重装。
+- 0.1.3 非覆盖 T7 交付已写入 `xiaofuxing-v1-windows-recheck-0.1.3-20260830-01/`：source ZIP 隔离解压与 77/77 通过，`checksums.sha256` 覆盖 108 个输入文件且 108/108 通过、自身 SHA-256 `be6434fff94632e56859d613ac25299e156bd550189e894f5473a3cb86c26135`，递归元数据 0、`RETURN/` 为空。
 
 ## 文件索引
 
@@ -62,6 +63,7 @@
 - `../Resources/xiaofuxing-windows-0.1.2-dpi-repair-evidence.md`：0.1.1 动态 DPI 白窗回传、0.1.2 根因修复、防复发测试、候选哈希和复验门。
 - `../Resources/xiaofuxing-windows-0.1.3-nsis-repair-evidence.md`：0.1.2 安装冲突审计、0.1.3 精确进程检测、候选哈希和缩小后的 Windows 复验门。
 - `/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.2-20260830-02-docfix/`：0.1.2 Windows 回传 Mac 审查日志、修正版提示词、报告模板、校验脚本与新 RETURN 路径。
+- `/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.3-20260830-01/`：0.1.3 source、win-unpacked、NSIS、安装冲突审计、缩小后的安装生命周期提示词和空 RETURN。
 - `/Volumes/T7 Shield/小福猩桌宠/xiaofuxing-v1-windows-acceptance-20260828-01/`：小福猩 v1 精确 Windows 验收输入、PRD、提示词、报告模板、证据与回传目录。
 - `../.kimi-code/skills/xiaofuxing-phase4/SKILL.md`：Kimi Code 项目级 Phase 4 Skill。
 - `../tasks/plan.md`：正式 PRD 与实施计划。

@@ -49,3 +49,11 @@ Windows 审计证据位于：
 4. 使用同一安装包干净重装并复验启动、气泡、拖动、托盘和退出。
 
 已通过的 source 与 `win-unpacked` DPI 不重复执行。未完成以上门禁前，不得宣称 Windows 安装验收或正式发布通过。
+
+## T7 非覆盖复验交付
+
+- 路径：`/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.3-20260830-01/`。
+- source ZIP：8,778,864 字节，SHA-256 `e9e4d014db5f34ae9ea0a41f39aab3c10ef9decb858b155f0ee4ff17ad9f8695`；113 个条目、89 个文件、3 个非 ASCII 路径全部带 UTF-8 标记，内部元数据与不安全路径为 0。
+- source ZIP 隔离解压后 `npm ci`、Electron 预检、77/77、lint 和 0 vulnerabilities 通过。
+- `checksums.sha256` 覆盖 108 个输入文件，T7 端 108/108 通过；清单自身 SHA-256 为 `be6434fff94632e56859d613ac25299e156bd550189e894f5473a3cb86c26135`。
+- 最终 109 个文件、499,777,536 字节，递归 `._*`/`.DS_Store` 为 0，`RETURN/` 为空；旧 0.1.2 交付和历史回传未修改。
