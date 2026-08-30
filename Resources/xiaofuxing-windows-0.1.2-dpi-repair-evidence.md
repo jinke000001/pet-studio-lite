@@ -37,3 +37,11 @@
 - 每档记录实际 DPI、窗口外部边界、`windows-display-metrics-synchronized` 日志和上下文/窗口截图。
 - 只有 source 动态 DPI 通过后，才继续 win-unpacked、installed、覆盖修复、官方卸载和干净重装。
 - macOS 和静态包体结果不代表 Windows 通过；0.1.2 仍是未签名内部候选。
+
+## T7 非覆盖复验交付
+
+- 新目录：`/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.2-20260830-01/`；旧 0.1.1 交付及回传未修改。
+- source ZIP：8,764,829 字节，SHA-256 `f465ab3553823f369f130ba5ade4770b23490fd29c96f46ed5eaddb706ae068a`；109 个条目、3 个非 ASCII UTF-8 路径、0 extra 风险项、0 macOS 元数据。
+- source ZIP 隔离解压后 `npm ci`、Electron 预检、76/76、lint 和 0 vulnerabilities 通过。
+- `checksums.sha256` 覆盖 93 个输入文件，清单 SHA-256 `55315ec8a54120c06b82c910cb2a94e32cb857ed6ee5f05fa8f3e9073d06294a`；T7 端 93/93 重新校验通过。
+- 首次 exFAT 复制生成的 104 个 AppleDouble 边车只在本次新目录内清除；最终 94 个文件、递归 `._*`/`.DS_Store` 为 0，`RETURN/` 为空。
