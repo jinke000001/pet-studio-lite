@@ -38,7 +38,9 @@ test('debounces relevant display metric changes and ignores unrelated metrics', 
   const petWindow = { isDestroyed: () => false };
   const synchronizer = createDisplayMetricsSynchronizer({
     getWindow: () => petWindow,
-    synchronizeWindow: (window, display) => synchronized.push([window, display.id]),
+    synchronizeWindow: (window, display, changedMetrics) => {
+      synchronized.push([window, display.id, changedMetrics]);
+    },
     schedule(callback, delay) {
       const id = nextId;
       nextId += 1;
@@ -60,7 +62,7 @@ test('debounces relevant display metric changes and ignores unrelated metrics', 
   const pending = [...scheduled.values()][0];
   assert.equal(pending.delay, 180);
   pending.callback();
-  assert.deepEqual(synchronized, [[petWindow, 7]]);
+  assert.deepEqual(synchronized, [[petWindow, 7, ['bounds', 'workArea']]]);
 });
 
 test('forces a Windows transparent surface repaint without changing final bounds', () => {
@@ -92,4 +94,8 @@ test('main and renderer require a real renderer frame before showing the pet', (
   assert.match(mainSource, /if \(!windowReadyToShow \|\| !rendererFirstFrameReady\) return/);
   assert.match(preloadSource, /renderer:first-frame/);
   assert.match(rendererSource, /notifyFirstFrameRendered/);
+  const dynamicDpiHandler = mainSource.match(
+    /displayMetricsSynchronizer = createDisplayMetricsSynchronizer\(\{([\s\S]*?)\n    \}\);/,
+  )?.[1] || '';
+  assert.doesNotMatch(dynamicDpiHandler, /forceWindowsTransparentWindowRepaint/);
 });

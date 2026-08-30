@@ -34,12 +34,13 @@ function createDisplayMetricsSynchronizer({
 
   function handle(_event, display, changedMetrics = []) {
     if (!changedMetrics.some((metric) => RELEVANT_DISPLAY_METRICS.has(metric))) return;
+    const relevantChangedMetrics = changedMetrics.filter((metric) => RELEVANT_DISPLAY_METRICS.has(metric));
     if (pendingTimer !== undefined) cancel(pendingTimer);
     pendingTimer = schedule(() => {
       pendingTimer = undefined;
       const window = getWindow();
       if (!window || window.isDestroyed?.()) return;
-      synchronizeWindow(window, display);
+      synchronizeWindow(window, display, relevantChangedMetrics);
     }, delayMs);
   }
 

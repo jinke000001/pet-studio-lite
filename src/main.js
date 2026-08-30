@@ -329,10 +329,15 @@ if (hasSingleInstanceLock) {
     registerIpc();
     displayMetricsSynchronizer = createDisplayMetricsSynchronizer({
       getWindow: () => window,
-      synchronizeWindow: (_window, display) => {
-        synchronizeWindowFrame(display);
-        if (forceWindowsTransparentWindowRepaint(window)) log('windows-dpi-transparent-surface-repainted');
-        synchronizeWindowFrame(display);
+      synchronizeWindow: (_window, display, changedMetrics) => {
+        const previousBounds = window.getBounds();
+        const bounds = synchronizeWindowFrame(display);
+        log(
+          `windows-display-metrics-synchronized metrics=${changedMetrics.join(',')}`
+          + ` scaleFactor=${display.scaleFactor}`
+          + ` before=${JSON.stringify(previousBounds)}`
+          + ` after=${JSON.stringify(bounds)}`,
+        );
       },
     });
     screen.on('display-metrics-changed', displayMetricsSynchronizer.handle);
