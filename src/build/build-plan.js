@@ -68,6 +68,9 @@ function createBuilderConfiguration({ selector, profile: inputProfile, outputDir
       shortcutName: profile.productName,
       uninstallDisplayName: `${profile.productName} ${profile.version}`,
     };
+    if (profile.build.installScope === 'machine') {
+      config.nsis.include = 'build/nsis/exact-app-process-check.nsh';
+    }
   }
   return config;
 }

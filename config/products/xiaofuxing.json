@@ -2,7 +2,7 @@
   "productId": "xiaofuxing-desktop-pet",
   "productName": "小福猩桌宠",
   "petPackagePath": "local-pets/xiaofuxing",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "build": {
     "appId": "com.jinke.desktop-pet.xiaofuxing",
     "executableName": "XiaofuxingDesktopPet",

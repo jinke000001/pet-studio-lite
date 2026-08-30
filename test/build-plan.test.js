@@ -10,6 +10,8 @@ const {
   reserveBuildDirectory,
 } = require('../src/build/build-plan');
 
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+
 function sampleProfile() {
   return {
     productId: 'sample-desktop-pet',
@@ -54,6 +56,19 @@ test('creates a single-product unsigned builder configuration', () => {
   assert.match(config.nsis.artifactName, /sample-desktop-pet-0\.1\.0/);
   assert.equal(config.nsis.oneClick, false);
   assert.equal(config.nsis.perMachine, false);
+  assert.equal(config.nsis.include, undefined);
+});
+
+test('custom NSIS process check matches only the installed application executable', () => {
+  const includePath = path.join(PROJECT_ROOT, 'build', 'nsis', 'exact-app-process-check.nsh');
+  const source = fs.readFileSync(includePath, 'utf8');
+
+  assert.match(source, /ExecutablePath/);
+  assert.match(source, /::Equals\(/);
+  assert.match(source, /OrdinalIgnoreCase/);
+  assert.match(source, /APP_EXECUTABLE_FILENAME/);
+  assert.doesNotMatch(source, /\.StartsWith\(/);
+  assert.match(source, /process query failed; continuing without a false running-app block/i);
 });
 
 test('uses a deterministic per-machine installer only when the product requests it', () => {
@@ -68,6 +83,7 @@ test('uses a deterministic per-machine installer only when the product requests 
 
   assert.equal(config.nsis.oneClick, false);
   assert.equal(config.nsis.perMachine, true);
+  assert.equal(config.nsis.include, 'build/nsis/exact-app-process-check.nsh');
 });
 
 test('rejects unsupported or duplicate targets', () => {
