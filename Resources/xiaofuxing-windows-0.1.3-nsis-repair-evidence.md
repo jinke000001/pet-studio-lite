@@ -6,9 +6,9 @@
 - `0.1.0 -> 0.1.2` 同身份覆盖安装被 NSIS 的“无法关闭小福猩桌宠”弹窗阻断。
 - 弹窗保持期间，安装目录前缀 WMI 查询为 0，完整进程表中无小福猩进程，Run/RunOnce、启动目录和计划任务均无旧启动项；回传 19/19 哈希通过。因此按 NSIS 运行检测误判处理，而不是素材、DPI 或旧开发版残留冲突。
 
-Windows 审计证据位于：
+Windows 审计证据位于（原 T7 路径 `/Volumes/T7 Shield/...` 已于 2026-08-31 删除，以下为仓库归档位置）：
 
-`/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.2-20260830-01/RETURN/windows-install-conflict-audit-20260830-164621/`
+`release/windows-recheck/xiaofuxing-v1-windows-recheck-0.1.2-20260830-01/RETURN/windows-install-conflict-audit-20260830-164621/`
 
 ## 0.1.3 最小修复
 
@@ -52,7 +52,7 @@ Windows 审计证据位于：
 
 ## T7 非覆盖复验交付
 
-- 路径：`/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.3-20260830-01/`。
+- 路径：`/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.3-20260830-01/`（该 T7 目录已于 2026-08-31 删除；RETURN 回传的工作区副本位于 `runs/recheck-0.1.3-review-20260830/`，114 个文件与原件哈希一致）。
 - source ZIP：8,778,864 字节，SHA-256 `e9e4d014db5f34ae9ea0a41f39aab3c10ef9decb858b155f0ee4ff17ad9f8695`；113 个条目、89 个文件、3 个非 ASCII 路径全部带 UTF-8 标记，内部元数据与不安全路径为 0。
 - source ZIP 隔离解压后 `npm ci`、Electron 预检、77/77、lint 和 0 vulnerabilities 通过。
 - `checksums.sha256` 覆盖 108 个输入文件，T7 端 108/108 通过；清单自身 SHA-256 为 `be6434fff94632e56859d613ac25299e156bd550189e894f5473a3cb86c26135`。

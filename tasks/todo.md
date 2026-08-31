@@ -11,6 +11,7 @@
 - [x] 用户于 2026-08-27 确认 Phase 3 PRD 与默认构建方案。
 - [x] 用户于 2026-08-27 确认 Phase 4 PRD，并批准无服装、无道具的 `307322...jpg` 作为小福猩身份基准。
 - [x] 用户于 2026-08-28 确认 Phase 4 按 Petdex v1 收尾，不制作四基准方向和 16 个注视方向。
+- [x] 2026-08-31 小福猩 0.1.5 Windows 安装生命周期验收通过，Phase 4 Checkpoint 4 关闭。
 
 ## Phase 1：共享运行内核
 
@@ -62,6 +63,13 @@ Checkpoint 3 候选构建与 Mac 侧验证已通过；Windows 正式验收保持
 - [x] 4.9f-1 复核 2026-08-30 三轮 Windows 回传：全部因 `npm start` 起错产品、截图未落盘等问题判“验收对象错误”，不能作为小福猩缺陷证据；生成非覆盖 Kimi Code 执行版 `xiaofuxing-v1-windows-recheck-0.1.2-20260830-03-kimi/`（5/5 哈希、零元数据）。
 - [x] 4.9g 正确产品 source 与 win-unpacked 的冷启动/动态 DPI 通过；覆盖安装冲突审计确认 NSIS 检测误判，完成 0.1.3 精确主程序路径检测、77/77 和双平台候选验证。
 - [x] 4.9g-1 将 0.1.3 非覆盖安装生命周期复验包写入 T7，完成 source ZIP UTF-8/隔离解压、108/108 输入哈希和递归零元数据校验。
-- [ ] 4.9h 在 Windows 使用 0.1.3 完成 `0.1.0 -> 0.1.3` 覆盖修复、installed mode、官方卸载和同包干净重装；不重复已通过的 source/win-unpacked DPI。
+- [x] 4.9h 已终止：0.1.3 覆盖安装仍失败，本门由后续 4.9j/4.9k 修复与验收取代。
+- [x] 4.9h-1 复核 0.1.3 Windows 回传：覆盖安装再弹“无法关闭”，确诊为 electron-builder `uninstallOldVersion` 重试环（旧 0.1.0 卸载器静默执行从未成功），非检测误判；完成 0.1.4 修复（DetailPrint 探针、旧卸载器预检宏、`customUnInstallCheck`）、77/77、lint、0 漏洞、真实 NSIS 编译、双平台候选与 Mac packaged runtime 验证。
+- [x] 4.9i 组装并搬运 0.1.4 非覆盖交接包：验收顺序重排（官方卸载 0.1.0 → 干净安装 → installed mode → 同版本覆盖 → 官方卸载 → 干净重装），89/89 哈希复核通过；该交付随后按 4.9j-2 就地更新为 0.1.5。
+- [x] 4.9j 已终止：0.1.4 同版本覆盖仍失败，H1 已否证并确诊为卸载器 CRC 构建期损坏，本门由 4.9k 的 0.1.5 验收取代。
+- [x] 4.9j-1 复核 0.1.4 Windows 复验回传：门 F 复败，决定性证据为卸载器直启 CRC 自检失败（哈希未变、/NCRC 可用、Defender 零事件）；根因定位为 electron-builder macOS `UninstallerReader` 拼接路径不重算 CRC（上游 #4875），本机按 NSIS `loadHeaders` 算法静态复现；完成 0.1.5 修复（卸载器 `CRCCheck off`、版本 0.1.5）、77/77、lint、0 漏洞、真实 NSIS 编译、双平台候选、Mac packaged runtime 与静态 CRC 验收。
+- [x] 4.9j-2 将 0.1.5 修复落回仓库（nsh/config/test/tasks 四处）并就地更新 T7 交付为 0.1.5：source ZIP、win-unpacked、安装包、证据文档与 PRD/提示词/报告模板全部刷新，91/91 哈希复核通过。
+- [x] 4.9k Windows 0.1.5 安装生命周期验收通过：按计划用 `/NCRC` 卸载已知 CRC 损坏的 0.1.4，随后完成 0.1.5 干净安装、installed mode 全量、100%/125%/150% 冷启动与动态 DPI、三次同版本覆盖、0.1.5 官方卸载（不带 `/NCRC`）及同包干净重装；514/514 回传哈希复核通过，系统缩放恢复 100%，最终精确主程序进程数 0。本轮验收门关闭，0.1.5 仍为未签名内部候选。
+- [x] 4.9l 将 0.1.5 Windows RETURN 非覆盖归档到 `release/windows-recheck/xiaofuxing-v1-windows-recheck-0.1.5-20260831-01/`：515 个文件与 T7 逐字节一致，清单内 514/514 通过，递归元数据为 0；Phase 4 Checkpoint 4 关闭。
 
 商业发布体系暂缓，不属于当前任务清单。

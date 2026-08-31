@@ -4,7 +4,7 @@
 
 - 0.1.1 第二轮复验的输入哈希、Windows 原生解压、Electron 预检、76/76 测试、lint 和 150% 冷启动均通过。
 - source 在 Windows 设置真实动态 `100% -> 125% -> 150%` 的 150% 档出现大面积白窗和角色裁切；恢复 100% 后透明窗口恢复正常。
-- 失败证据位于 T7 `xiaofuxing-v1-windows-recheck-0.1.1-20260829-04/RETURN/windows-recheck-0.1.1-20260829-223201/`。win-unpacked、installed、覆盖修复、卸载和重装因终止门未执行。
+- 失败证据原位于 T7 `xiaofuxing-v1-windows-recheck-0.1.1-20260829-04/RETURN/windows-recheck-0.1.1-20260829-223201/`；该 T7 目录已于 2026-08-31 删除，证据已逐字节归档至仓库 `release/windows-recheck/xiaofuxing-v1-windows-recheck-0.1.1-20260829-04/RETURN/windows-recheck-0.1.1-20260829-223201/`。win-unpacked、installed、覆盖修复、卸载和重装因终止门未执行。
 
 ## 根因与修复
 
@@ -40,7 +40,7 @@
 
 ## T7 非覆盖复验交付
 
-- 新目录：`/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.2-20260830-01/`；旧 0.1.1 交付及回传未修改。
+- 新目录：`/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.2-20260830-01/`（该 T7 目录已于 2026-08-31 删除，RETURN 已逐字节归档至仓库 `release/windows-recheck/xiaofuxing-v1-windows-recheck-0.1.2-20260830-01/RETURN/`，120 个文件哈希一致）；旧 0.1.1 交付及回传未修改。
 - source ZIP：8,764,829 字节，SHA-256 `f465ab3553823f369f130ba5ade4770b23490fd29c96f46ed5eaddb706ae068a`；109 个条目、3 个非 ASCII UTF-8 路径、0 extra 风险项、0 macOS 元数据。
 - source ZIP 隔离解压后 `npm ci`、Electron 预检、76/76、lint 和 0 vulnerabilities 通过。
 - `checksums.sha256` 覆盖 93 个输入文件，清单 SHA-256 `55315ec8a54120c06b82c910cb2a94e32cb857ed6ee5f05fa8f3e9073d06294a`；T7 端 93/93 重新校验通过。

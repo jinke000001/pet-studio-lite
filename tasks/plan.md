@@ -166,15 +166,15 @@ Petdex Desktop 可以脱离 Codex 运行，但下载和社区依赖网络环境�
 - [x] Task 4.8：接入通用运行器并通过 Phase 3 生成独立候选。
   - 验收：项目本地标准包、产品配置、source-mode、macOS `.app`、Windows x64 `win-unpacked` 与未签名 NSIS 候选齐全。
   - 验证：Mac 真实窗口、包内单宠 ASAR、图集哈希和候选清单通过。
-- [ ] Task 4.9：Phase 4 完成后执行 Windows 正式验收。
+- [x] Task 4.9：Phase 4 完成后执行 Windows 正式验收。
   - 验收：source、win-unpacked、installed mode、卸载/重装和 100%/125%/150% DPI 分开验证。
   - 验证：使用返回的精确候选和 SHA-256，不以 macOS 结果代替。
-  - 准备状态：0.1.1 第二轮回传已证明 150% 冷启动正常，但 source 动态 150% 白窗/裁切。0.1.2 已移除动态 DPI 临时边界脉冲、通过 76/76 与双平台候选验证；等待新的非覆盖 T7 复验和 Windows 实机结论。
+  - 最终状态：0.1.5 已通过 Windows source、win-unpacked、installed mode、100%/125%/150% 冷启动与动态 DPI、核心交互、三次同版本覆盖、官方卸载和同包重装；514/514 回传哈希已在 Mac 侧复核，系统缩放恢复 100%。
 
 ### Checkpoint 4
 
 - [x] 客户素材从输入到候选安装包形成完整、可追溯的单次工作流。
-- [x] 候选范围内的关键视觉确认和自动验证证据齐全；Windows 正式验收保持独立待办。
+- [x] 候选范围内的关键视觉确认、自动验证和 Windows 正式验收证据齐全；0.1.5 保持未签名内部候选，不升级为正式发布版。
 
 ## 主要风险
 
@@ -191,4 +191,4 @@ Petdex Desktop 可以脱离 Codex 运行，但下载和社区依赖网络环境�
 
 - 通用项目的最终产品名称和品牌名尚未确定，当前使用“通用桌宠工作流”作为工作名。
 - Phase 3 沿用 Electron 43.4.1、electron-builder 26.15.3 和 Node.js 22.12+；首轮使用通用测试图标，正式角色图标以后单独确认。
-- 五张小福猩测试素材及三个跑步参考 GIF 已提供。Codex 九种标准动作、v1 标准包、运行器接入和 Mac 侧验证均已完成；Kimi Code 独立候选保持隔离。0.1.2 动态 DPI 修复候选已就绪，当前发布前待办是新的 T7 复验交付及 Windows source、win-unpacked、installed mode、卸载/重装和 100%/125%/150% 正式验收。
+- Phase 4 小福猩 Petdex v1 链路与 0.1.5 Windows 安装生命周期验收已收口；Kimi Code 独立候选保持隔离。当前唯一保留的实施待办是另行授权后的 Phase 3 Task 3.7（四个通用样本的 Windows 验收）；商业发布体系继续暂缓。

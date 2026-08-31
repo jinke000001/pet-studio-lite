@@ -42,7 +42,7 @@
 
 ## 2026-08-29 第二次回传与路径修复
 
-- T7 新目录 `xiaofuxing-v1-windows-recheck-0.1.1-20260829-03/RETURN/` 含四次递进复验。前三次分别停在 Electron 下载停滞、`fetch failed` 和代理未启用 `@electron/get`；第四次在临时设置 `ELECTRON_GET_USE_PROXY=true` 后通过 `npm ci` 与 Electron 预检。
+- T7 新目录 `xiaofuxing-v1-windows-recheck-0.1.1-20260829-03/RETURN/` 含四次递进复验（该 T7 目录已于 2026-08-31 删除，RETURN 已逐字节归档至仓库 `release/windows-recheck/xiaofuxing-v1-windows-recheck-0.1.1-20260829-03/RETURN/`，42 个文件哈希一致）。前三次分别停在 Electron 下载停滞、`fetch failed` 和代理未启用 `@electron/get`；第四次在临时设置 `ELECTRON_GET_USE_PROXY=true` 后通过 `npm ci` 与 Electron 预检。
 - 第四次 source 测试为 73/75；两个失败计数来自同一个 ASAR 父/子测试。叶子错误为 `config/products/sample.json was not found in this archive`，GUI、DPI、安装、卸载和重装均未执行。
 - 根因：`@electron/asar` 在 Windows 使用原生反斜杠定位嵌套条目。检查器将列表条目规范化为 `/` 后，又把规范化路径直接传给 `extractFile()`。
 - 修复提交：`634ed4e093d00f89f1b5a37d8f3914c415dd8ce5`。列表比较继续使用 `/`，提取前统一转换为当前平台分隔符，并新增 Windows 嵌套路径回归测试。
@@ -55,7 +55,7 @@
 
 ## T7 第二轮复验交付
 
-- 用户于 2026-08-29 明确确认继续后，新的非覆盖交付已写入 `/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.1-20260829-04/`；旧 `-03` 输入与四次 RETURN 均未修改。
+- 用户于 2026-08-29 明确确认继续后，新的非覆盖交付已写入 `/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.1-20260829-04/`（该 T7 目录已于 2026-08-31 删除；文档、`04-evidence` 与 RETURN 已逐字节归档至仓库 `release/windows-recheck/xiaofuxing-v1-windows-recheck-0.1.1-20260829-04/`）；旧 `-03` 输入与四次 RETURN 均未修改。
 - `checksums.sha256` 覆盖 90 个输入文件，T7 端重新校验 90/90 通过；清单 SHA-256 为 `73dc8601442874984d2f663c096c58e19bcfd1db43e14aab1aa35efaf86fd1fa`。
 - source ZIP 为 8,758,607 字节，SHA-256 `ff69ca779fed2a951d01c526cf78420dd1ddb0c70097007504e50431d873130c`；108 个条目、86 个文件、3 个非 ASCII 路径均带 UTF-8 标记，extra fields 与内部元数据均为 0。
 - source ZIP 隔离解压后 `npm ci`、Electron 预检、76/76 测试、lint 和 0 vulnerabilities 通过。
