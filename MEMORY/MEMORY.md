@@ -31,7 +31,8 @@
 - 2026-08-27 Phase 3 候选构建与 Mac 侧验证完成，实施分支为 `feature/package-factory`，Checkpoint 3 已通过。
 - Wukong、Doraemon、阿岱和 JokeBear 均生成 Windows x64 `win-unpacked`、未签名 NSIS 候选安装包和 macOS Apple Silicon 未签名 `.app`；四个 macOS 应用真实启动通过。
 - 自动测试 64/64、lint、npm audit、单宠 ASAR 隔离、来源/包内图集哈希和 20 个最终关键产物重新哈希通过。
-- Windows 真实安装、卸载、重装和 100%/125%/150% DPI 验收仍需另行授权，Mac 侧结果不能替代该结论。
+- Windows 真实安装、卸载、重装和 100%/125%/150% DPI 验收尚未执行，Mac 侧结果不能替代该结论。
+- 2026-08-31 用户已授权准备 Task 3.7 Windows 验收输入。只读审计发现 2026-08-27 四个历史候选均缺 NSIS 与 `win-unpacked` 主程序，T7 根目录仅存的旧阿岱安装包内嵌卸载器 CRC 不一致，故不复用旧二进制；已从提交 `a60f3b7` 组装受控源码交付并写入 T7 新目录 `phase-3-windows-acceptance-20260831-01/`。36/36 输入哈希、隔离源码 77/77、lint 与 0 vulnerabilities 通过，递归元数据为 0；Windows 原生构建和实机验收尚未执行。
 
 ## Phase 4 当前状态
 
@@ -58,6 +59,7 @@
 - `../Resources/phase-1-macos-evidence.md`：Phase 1 自动化、真实窗口和证据边界。
 - `../Resources/phase-2-import-evidence.md`：Phase 2 导入安全、三样本哈希、视觉与运行证据。
 - `../Resources/phase-3-package-evidence.md`：Phase 3 四产品候选、安装包哈希、ASAR 隔离、Mac 运行与 Windows 边界证据。
+- `/Volumes/T7 Shield/phase-3-windows-acceptance-20260831-01/`：Task 3.7 受控源码、历史候选审计、Windows PRD/提示词/报告模板、取证工具、36 项输入哈希与空 `RETURN/`。
 - `../Resources/xiaofuxing-source-manifest.md`：Phase 4 小福猩五张原始素材、哈希、身份基准与使用边界。
 - `../Resources/kimi-phase-4-handoff.md`：Kimi Code 独立候选目标、现状、隔离边界和首个动作。
 - `../Resources/xiaofuxing-standard-actions-repair-evidence.md`：Codex 九动作修正版范围、验证、哈希和用户确认门。

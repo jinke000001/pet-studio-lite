@@ -40,9 +40,10 @@
 - [x] 3.4 macOS Apple Silicon 未签名 `.app` 候选构建。
 - [x] 3.5 Wukong、Doraemon、阿岱三个主样本和 JokeBear 额外样本隔离验证。
 - [x] 3.6 版本化清单、SHA-256 和交付说明。
-- [ ] 获得授权后执行真实 Windows 安装、卸载和DPI验收。
+- [x] 3.7a 经授权整理 Task 3.7 T7 验收交付：受控源码、历史候选审计、PRD、Windows 提示词、报告模板、工具和 36 项输入哈希均已就绪。
+- [ ] 3.7b 在 Windows 原生构建四套新候选并执行 source、win-unpacked、installed mode、卸载/重装和 DPI 验收。
 
-Checkpoint 3 候选构建与 Mac 侧验证已通过；Windows 正式验收保持待办。
+Checkpoint 3 候选构建与 Mac 侧验证已通过；Task 3.7 交付已写入 T7，Windows 实机执行与回传仍为待办。
 
 ## Phase 4：客户素材制作
 
