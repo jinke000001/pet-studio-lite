@@ -69,6 +69,10 @@ test('custom NSIS process check matches only the installed application executabl
   assert.match(source, /APP_EXECUTABLE_FILENAME/);
   assert.doesNotMatch(source, /\.StartsWith\(/);
   assert.match(source, /process query failed; continuing without a false running-app block/i);
+  assert.match(source, /!ifdef BUILD_UNINSTALLER\s+CRCCheck off\s+!endif/);
+  assert.match(source, /!macro desktopPetPreUninstallOldVersion/);
+  assert.match(source, /!insertmacro desktopPetPreUninstallOldVersion/);
+  assert.match(source, /!macro customUnInstallCheck/);
 });
 
 test('uses a deterministic per-machine installer only when the product requests it', () => {

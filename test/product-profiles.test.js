@@ -37,7 +37,7 @@ test('tracked product profiles are valid and use unique product and pet identiti
     'doraemon-desktop-pet': '0.1.0',
     'jokebear-desktop-pet': '0.1.0',
     'wukong-desktop-pet': '0.1.0',
-    'xiaofuxing-desktop-pet': '0.1.3',
+    'xiaofuxing-desktop-pet': '0.1.5',
   });
   const installScopes = Object.fromEntries(profiles.map((profile) => [profile.productId, profile.build.installScope]));
   assert.deepEqual(installScopes, {
