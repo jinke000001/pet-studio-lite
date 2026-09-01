@@ -57,7 +57,7 @@ test('starts only one isolated preview and stops the previous child before repla
   const controller = createPreviewController({
     store,
     electronPath: '/electron',
-    applicationRoot: '/application',
+    applicationRoot: path.resolve(os.tmpdir(), 'application'),
     spawn,
     parentPid: 999,
   });
@@ -67,7 +67,7 @@ test('starts only one isolated preview and stops the previous child before repla
   assert.equal(children.length, 1);
   assert.equal(children[0].options.env.DESKTOP_PET_PREVIEW_PARENT_PID, '999');
   assert.equal(children[0].options.env.PET_PRODUCT, undefined);
-  assert.deepEqual(children[0].args, ['/application/src/main.js']);
+  assert.deepEqual(children[0].args, [path.join(path.resolve(os.tmpdir(), 'application'), 'src', 'main.js')]);
   await controller.start(project.id);
   assert.equal(children[0].exitCode, 0);
   assert.equal(children.length, 2);
@@ -76,8 +76,10 @@ test('starts only one isolated preview and stops the previous child before repla
 });
 
 test('uses a physical cwd when the runtime entry lives inside app.asar', () => {
-  assert.equal(resolvePreviewSpawnCwd('/application/resources/app.asar'), '/application/resources');
-  assert.equal(resolvePreviewSpawnCwd('/application'), '/application');
+  const applicationRoot = path.resolve(os.tmpdir(), 'application');
+  const asarRoot = path.join(applicationRoot, 'resources', 'app.asar');
+  assert.equal(resolvePreviewSpawnCwd(asarRoot), path.dirname(asarRoot));
+  assert.equal(resolvePreviewSpawnCwd(applicationRoot), applicationRoot);
 });
 
 test('refuses preview when the project has no successful import', async () => {

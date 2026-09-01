@@ -1,0 +1,14 @@
+
+> desktop-pet-workflow@0.1.0 studio:build
+> vite build --config vite.workbench.config.mjs
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 17 modules transformed.
+rendering chunks...
+computing gzip size...
+.workbench-dist/index.html                   0.66 kB │ gzip:  0.40 kB
+.workbench-dist/assets/index-4zhwjMB0.css   11.73 kB │ gzip:  3.30 kB
+.workbench-dist/assets/index-CxIGWF8f.js   213.30 kB │ gzip: 67.34 kB
+
+✓ built in 94ms

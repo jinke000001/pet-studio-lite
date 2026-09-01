@@ -59,6 +59,8 @@
 
 ## Phase 6 当前状态
 
+- 2026-09-01 预览 cwd 修复：`src/workbench/preview-controller.js` 在 packaged 模式下将 `app.asar` 的 spawn cwd 解析为真实父目录，同时保留 ASAR 内 `src/main.js` runtime entry；测试 132/132。提交 `87cdb2571af214e0f24444a5112997137f7fa5e9`，候选 `release/workbench-candidates/candidate-20260901142719184/`。macOS packaged runtime smoke 已记录 `studio-ready`、`renderer-ready`、`runtime-ready` 和窗口同步；完整 GUI 预览点击证据仍未收口，Windows RETURN 仍待用户完成。
+
 - 2026-09-01 用户确认“桌宠制作台 MVP”PRD 并创建目标模式，先由 Codex 执行 Phase 6.1–6.4，Kimi 在 Phase 6.5 负责视觉与展示层，最后由 Codex 集成和验证。
 - Phase 6.1 已完成：项目/步骤/任务/错误/产物契约、独立安全 Electron 壳层、React + TypeScript renderer、版本化非覆盖项目存储、关闭后恢复和 Kimi 设计交接包均已落地。
 - Phase 6.2 已完成：主进程目录/ZIP 选择、授权与安全来源摘要、失败保护、检查层级、联系表/逐帧预览和隔离真实桌宠启停；104/104 回归及 macOS Doraemon 隔离实测通过。证据：`../Resources/phase-6.2-workbench-evidence.md`。
@@ -66,7 +68,7 @@
 - Phase 6.4 已完成后台导入/构建/导出、真实候选取消清理、并发/切换/退出、显式启动恢复、Petdex 离线隔离、项目复制和安全产物定位。证据：`../Resources/phase-6.4-workbench-evidence.md`。
 - Phase 6.5 Kimi 视觉收口已执行：Kimi 仅修改 renderer 四个文件，Codex 完整 diff/类型/106 项回归/构建/lint 审查通过。证据：`../Resources/phase-6.5-workbench-evidence.md`。
 - Phase 6.6 已生成并真实启动 macOS arm64 未签名工作台候选 `release/workbench-candidates/candidate-20260901083025663/`；108/108 回归通过，Windows installed mode 仍待外部回传。证据：`../Resources/phase-6.6-workbench-evidence.md`。
-- Windows 验收交接位于 `release/handoff/phase-6-workbench-windows-acceptance-20260901-01/`，5/5 清单通过；仅表示验收准备完成，installed mode 待回传。
+- Windows 验收交接当前位于 `release/handoff/phase-6-workbench-windows-acceptance-20260901-06/`，T7 副本位于 `/Volumes/T7 Shield/phase-6-workbench-windows-acceptance-20260901-06/`；复用 source ZIP 对应提交 `87cdb2571af214e0f24444a5112997137f7fa5e9`，checksums SHA-256 为 `339ad968b87fdc5e7f397bfe022567c18483ac41494ae0cfb85bc46fa251ab70`，RETURN 为空，仅表示验收准备完成，installed mode 待回传。旧交接包保留不变。
 - 实施分支为 `codex/phase-6-1-workbench`，起点提交 `d78de60`；现有五个桌宠、历史候选、证据、原始素材、RETURN 和用户宠物目录保持不变。
 - 完整 PRD 与阶段计划位于 `tasks/phase-6-workbench-prd.md`。商业发布体系继续暂缓，Phase 6 MVP 不包含 AI 动作生成、逐帧编辑、签名、公证、商城、支付、DRM 或自动更新。
 - 验证为 91/91 测试、TypeScript、Vite 生产构建、lint、source preflight、npm audit 0 vulnerabilities 和 macOS 真实“新建 → 完整重启 → 恢复”；下一确认门是用户审查 Phase 6.1 后再进入 Phase 6.2。

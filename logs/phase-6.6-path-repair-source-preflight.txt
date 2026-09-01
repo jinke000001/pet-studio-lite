@@ -1,0 +1,5 @@
+
+> desktop-pet-workflow@0.1.0 source:preflight
+> node scripts/source-preflight.js
+
+{"executablePath":"/Users/jinke00001/Desktop/pet/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron","ok":true}

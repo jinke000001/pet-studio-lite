@@ -7,7 +7,10 @@ const {
 } = require('../src/workbench/candidate-builder');
 const { stageBuilderRuntime } = require('../src/workbench/builder-runtime');
 test('creates isolated unsigned workbench candidate configuration', () => {
-  const config = createStudioBuilderConfiguration({ outputDirectory: '/tmp/out', projectRoot: '/repo', builderPackages: [{ sourceDirectory: '/repo/node_modules/electron-builder', relativePath: 'node_modules/electron-builder' }] });
+  const projectRoot = path.resolve(os.tmpdir(), 'workbench-candidate-project');
+  const outputDirectory = path.resolve(os.tmpdir(), 'workbench-candidate-output');
+  const builderSource = path.join(projectRoot, 'node_modules', 'electron-builder');
+  const config = createStudioBuilderConfiguration({ outputDirectory, projectRoot, builderPackages: [{ sourceDirectory: builderSource, relativePath: 'node_modules/electron-builder' }] });
   assert.equal(config.extraMetadata.main, 'src/workbench/main.js'); assert.equal(config.forceCodeSigning, false); assert.equal(config.publish, null); assert.equal(config.mac.identity, null); assert.match(config.directories.output, /artifacts$/);
   assert.deepEqual(config.files, [
     'package.json',
@@ -19,18 +22,19 @@ test('creates isolated unsigned workbench candidate configuration', () => {
     '!**/._*',
   ]);
   assert.deepEqual(config.extraResources, [
-    { from: '/repo/node_modules/electron-builder', to: 'workbench-builder/node_modules/electron-builder' },
-    { from: '/tmp/out/workbench-build-package.json', to: 'workbench-build-assets/package.json' },
-    { from: '/repo/src', to: 'workbench-build-assets/src' },
-    { from: '/repo/build', to: 'workbench-build-assets/build' },
+    { from: builderSource, to: 'workbench-builder/node_modules/electron-builder' },
+    { from: path.join(outputDirectory, 'workbench-build-package.json'), to: 'workbench-build-assets/package.json' },
+    { from: path.join(projectRoot, 'src'), to: 'workbench-build-assets/src' },
+    { from: path.join(projectRoot, 'build'), to: 'workbench-build-assets/build' },
   ]);
 });
 test('creates versioned non-overwriting candidate ids', () => { assert.equal(candidateId(new Date('2026-09-01T01:02:03.000Z')), 'candidate-20260901010203000'); });
 
 test('binds studio candidates to a clean Git commit', () => {
   const calls = [];
+  const projectRoot = path.resolve(os.tmpdir(), 'workbench-candidate-git');
   const baseline = readGitBaseline({
-    projectRoot: '/repo',
+    projectRoot,
     execFile(command, args, options) {
       calls.push({ command, args, options });
       return args[0] === 'rev-parse' ? 'abc123\n' : '';
@@ -49,12 +53,12 @@ test('binds studio candidates to a clean Git commit', () => {
     ['rev-parse', 'HEAD'],
     ['status', '--porcelain', '--untracked-files=all'],
   ]);
-  assert.ok(calls.every((call) => call.options.cwd === '/repo'));
+  assert.ok(calls.every((call) => call.options.cwd === path.resolve(projectRoot)));
 });
 
 test('refuses to build a studio candidate from a dirty worktree', () => {
   assert.throws(() => readGitBaseline({
-    projectRoot: '/repo',
+    projectRoot: path.resolve(os.tmpdir(), 'workbench-candidate-dirty'),
     execFile(_command, args) {
       return args[0] === 'rev-parse' ? 'abc123\n' : ' M src/workbench/main.js\n';
     },
