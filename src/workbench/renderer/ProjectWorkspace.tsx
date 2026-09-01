@@ -73,6 +73,7 @@ export function ProjectWorkspace({
   const [busy, setBusy] = useState('');
   const [petStatus, setPetStatus] = useState(previewStatus);
   const [product, setProduct] = useState({ productName: project.product?.productName as string ?? '', version: project.product?.version as string ?? '0.1.0', productId: project.product?.productId as string ?? `${project.id}-product`, appId: project.product?.appId as string ?? `com.jinke.${project.id}`, executableName: project.product?.executableName as string ?? 'DesktopPetCandidate', artifactName: project.product?.artifactName as string ?? 'desktop-pet-candidate' });
+  const [jobs, setJobs] = useState<Array<any>>([]);
 
   useEffect(() => {
     setPreview(null);
@@ -84,6 +85,13 @@ export function ProjectWorkspace({
       else onError(errorMessage(result));
     }).catch(() => onError('无法读取最近一次成功导入的预览。'));
   }, [project.id, project.latestImport?.id, previewStatus, onError]);
+
+  useEffect(() => {
+    let mounted = true;
+    const refresh = () => window.workbenchApi.listJobs(project.id).then((result) => { if (mounted && result.ok) setJobs(result.value as Array<any>); }).catch(() => {});
+    refresh(); const timer = window.setInterval(refresh, 1000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, [project.id, project.updatedAt]);
 
   const activeAction = useMemo(
     () => preview?.actions.find((action) => action.name === selectedAction) ?? preview?.actions[0],
@@ -139,6 +147,13 @@ export function ProjectWorkspace({
     setBusy('export'); onError('');
     const result = await window.workbenchApi.exportProject(project.id);
     if (result.ok) onProjectChange(result.value); else onError(errorMessage(result));
+    setBusy('');
+  }
+
+  async function startExportJob() {
+    setBusy('export-job'); onError('');
+    const result = await window.workbenchApi.startExportJob(project.id);
+    if (!result.ok) onError(errorMessage(result));
     setBusy('');
   }
 
@@ -233,10 +248,11 @@ export function ProjectWorkspace({
         <section className="tool-panel product-panel" aria-labelledby="product-title">
           <p className="panel-index">04</p><h3 id="product-title">产品信息与导出</h3>
           <div className="product-fields">{Object.entries(product).map(([key, value]) => <label key={key}>{key}<input value={value} onChange={(event) => setProduct((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div>
-          <div className="button-row"><button type="button" onClick={saveProduct} disabled={Boolean(busy)}>{busy === 'product' ? '保存中…' : '保存产品配置'}</button><button type="button" className="secondary" onClick={exportProject} disabled={Boolean(busy) || !project.product}>{busy === 'export' ? '导出中…' : '导出可恢复项目包'}</button></div>
+          <div className="button-row"><button type="button" onClick={saveProduct} disabled={Boolean(busy)}>{busy === 'product' ? '保存中…' : '保存产品配置'}</button><button type="button" className="secondary" onClick={exportProject} disabled={Boolean(busy) || !project.product}>{busy === 'export' ? '导出中…' : '导出可恢复项目包'}</button><button type="button" className="secondary" onClick={startExportJob} disabled={Boolean(busy) || !project.product}>{busy === 'export-job' ? '排队中…' : '后台导出'}</button></div>
           {project.product && <p className="source-summary">当前配置已保存；导出采用版本化、非覆盖目录。</p>}
         </section>
       )}
+      <section className="tool-panel jobs-panel" aria-labelledby="jobs-title"><p className="panel-index">05</p><h3 id="jobs-title">任务中心</h3>{jobs.length === 0 ? <p className="empty-copy">暂无任务。</p> : <ul className="job-list">{jobs.slice().reverse().map((job) => <li key={job.id}><div><strong>{job.type === 'export' ? '项目导出' : job.type}</strong><span>{job.step}</span></div><span className={`job-status ${job.status}`}>{job.status} {job.progress ?? 0}%</span></li>)}</ul>}</section>
     </section>
   );
 }

@@ -111,6 +111,15 @@ select { width: 100%; padding: 11px 12px; border: 1px solid #b9beb9; border-radi
 .product-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .product-fields label { min-width: 0; }
 .product-fields input { margin-top: 7px; padding: 9px; font-size: 12px; }
+.jobs-panel { margin-top: 18px; }
+.job-list { margin: 0; padding: 0; list-style: none; }
+.job-list li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid #e4e1da; }
+.job-list li div { min-width: 0; }
+.job-list strong, .job-list span { display: block; }
+.job-list strong { font-size: 13px; }
+.job-list li div span { margin-top: 3px; color: #707a74; font-size: 11px; }
+.job-status { flex: none; color: #376b5a; font-size: 11px; font-weight: 800; }
+.job-status.failed, .job-status.interrupted { color: #9a3d32; }
 
 @media (max-width: 1040px) {
   .workspace { padding-inline: 32px; }

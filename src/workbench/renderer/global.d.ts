@@ -24,6 +24,10 @@ declare global {
       getPetPreviewStatus(): Promise<WorkbenchResult<PetPreviewStatus>>;
       saveProduct(input: { projectId: string; product: Record<string, unknown> }): Promise<WorkbenchResult<WorkbenchProject>>;
       exportProject(projectId: string): Promise<WorkbenchResult<WorkbenchProject>>;
+      listJobs(projectId: string): Promise<WorkbenchResult<unknown[]>>;
+      startExportJob(projectId: string): Promise<WorkbenchResult<unknown>>;
+      cancelJob(input: { projectId: string; jobId: string }): Promise<WorkbenchResult<unknown>>;
+      retryJob(input: { projectId: string; jobId: string }): Promise<WorkbenchResult<unknown>>;
     };
   }
 }

@@ -117,11 +117,13 @@ Checkpoint 6.2 已完成；证据：`Resources/phase-6.2-workbench-evidence.md`�
 
 ### Phase 6.4：后台任务与恢复
 
-- [ ] 6.4a 建立 queued/running/succeeded/failed/cancelled/interrupted 持久任务与受控 worker。
+- [x] 6.4a 建立 queued/running/succeeded/failed/cancelled/interrupted 持久任务与受控 worker。
 - [ ] 6.4b 接入导入/构建/导出进度、取消清理、失败证据、安全重试和重启中断识别。
 - [ ] 6.4c 增加任务历史、产物定位、项目复制、并发/重复请求/切换/退出控制。
 - [ ] 6.4d 接入 Petdex slug 与在线/离线状态，本地能力不受网络失败影响。
 - [ ] 6.4e 完成响应性、恢复、清理、审查、证据和本地 checkpoint。
+
+6.4a 已完成并提交基础任务系统；6.4b–6.4e 仍待完整接入和真实验证。
 
 ### Phase 6.5：Kimi 视觉收口与 Codex 集成
 

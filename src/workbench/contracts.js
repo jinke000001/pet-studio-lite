@@ -86,7 +86,8 @@ function validateJob(job) {
   if (!isPlainObject(job)
     || typeof job.id !== 'string'
     || !JOB_TYPES.includes(job.type)
-    || !JOB_STATUSES.includes(job.status)) {
+    || !JOB_STATUSES.includes(job.status)
+    || (job.progress !== undefined && (!Number.isInteger(job.progress) || job.progress < 0 || job.progress > 100))) {
     throw contractError('INVALID_PROJECT_FILE', '项目任务记录无效。');
   }
 }

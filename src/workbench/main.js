@@ -9,6 +9,7 @@ const { createImportController, explainImportError } = require('./import-control
 const { createImportSelectionHandler } = require('./import-selection');
 const { createPreviewController } = require('./preview-controller');
 const { createProductController } = require('./product-controller');
+const { createJobController } = require('./job-controller');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const RENDERER_ENTRY = path.join(PROJECT_ROOT, '.workbench-dist', 'index.html');
@@ -37,6 +38,12 @@ const previewController = createPreviewController({
   applicationRoot: PROJECT_ROOT,
 });
 const productController = createProductController({ store });
+const jobs = createJobController({
+  store,
+  handlers: {
+    export: (projectId) => productController.exportProject(projectId),
+  },
+});
 let window;
 const selectImport = createImportSelectionHandler({
   dialog,
@@ -101,6 +108,10 @@ function registerIpc() {
   registerHandler('workbench:get-pet-preview-status', () => previewController.status());
   registerHandler('workbench:save-product', ({ projectId, product }) => productController.save(validateProjectId(projectId), product));
   registerHandler('workbench:export-project', (projectId) => productController.exportProject(validateProjectId(projectId)));
+  registerHandler('workbench:list-jobs', (projectId) => jobs.list(validateProjectId(projectId)));
+  registerHandler('workbench:start-export-job', ({ projectId }) => jobs.enqueue(validateProjectId(projectId), 'export'));
+  registerHandler('workbench:cancel-job', ({ projectId, jobId }) => jobs.cancel(validateProjectId(projectId), jobId));
+  registerHandler('workbench:retry-job', ({ projectId, jobId }) => jobs.retry(validateProjectId(projectId), jobId));
 }
 
 function createWindow() {
