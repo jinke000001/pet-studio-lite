@@ -50,7 +50,7 @@ function createStudioBuilderConfiguration({ outputDirectory, projectRoot, builde
     ],
     extraResources: [
       ...builderPackages.map((entry) => ({ from: entry.sourceDirectory, to: `workbench-builder/${entry.relativePath}` })),
-      { from: path.join(projectRoot, 'package.json'), to: 'workbench-build-assets/package.json' },
+      { from: path.join(outputDirectory, 'workbench-build-package.json'), to: 'workbench-build-assets/package.json' },
       { from: path.join(projectRoot, 'src'), to: 'workbench-build-assets/src' },
       { from: path.join(projectRoot, 'build'), to: 'workbench-build-assets/build' },
     ],
@@ -65,6 +65,7 @@ function buildStudioCandidate({ projectRoot, targets = ['mac'], now = new Date()
   const root = path.resolve(projectRoot); const baseline = readGitBaseline({ projectRoot: root });
   const releaseRoot = path.join(root, 'release', 'workbench-candidates'); fs.mkdirSync(releaseRoot, { recursive: true });
   const runDirectory = path.join(releaseRoot, candidateId(now)); fs.mkdirSync(runDirectory);
+  fs.copyFileSync(path.join(root, 'package.json'), path.join(runDirectory, 'workbench-build-package.json'), fs.constants.COPYFILE_EXCL);
   const builderPackages = collectBuilderRuntime({ projectRoot: root }).packages;
   const config = createStudioBuilderConfiguration({ outputDirectory: runDirectory, projectRoot: root, builderPackages });
   const configPath = path.join(runDirectory, 'build-config.json'); fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { flag: 'wx' });

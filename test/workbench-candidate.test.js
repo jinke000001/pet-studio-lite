@@ -20,7 +20,7 @@ test('creates isolated unsigned workbench candidate configuration', () => {
   ]);
   assert.deepEqual(config.extraResources, [
     { from: '/repo/node_modules/electron-builder', to: 'workbench-builder/node_modules/electron-builder' },
-    { from: '/repo/package.json', to: 'workbench-build-assets/package.json' },
+    { from: '/tmp/out/workbench-build-package.json', to: 'workbench-build-assets/package.json' },
     { from: '/repo/src', to: 'workbench-build-assets/src' },
     { from: '/repo/build', to: 'workbench-build-assets/build' },
   ]);
