@@ -10,7 +10,7 @@
 - app.asar SHA-256：`5c057b7dcc8a6da9a30584e4511ec91274c8acc3bec2ff054add0cb2b5e95003`
 - candidate-manifest SHA-256：`07f765f63172f41090bbc5236367d9adb4c08121e6ee1cdc7624bf79bc086aa4`
 - 候选 manifest 明确标注 `unsigned-internal-candidate`，Windows installed mode 为 `pending-external-return`。
-- 使用隔离 userData 直接运行包内主程序，输出 `studio-ready` / `renderer-ready`；packaged runtime smoke 记录 `renderer-ready`、`runtime-ready`、`window-frame-synchronized`，未出现 ENOTDIR。
+- 使用隔离 userData 直接运行本轮包内主程序，输出 `studio-ready` / `renderer-ready`；本轮未启动真实宠物预览子进程，因此不把旧候选的 `runtime-ready` 记录挪作本轮新候选证据。
 - Doraemon v1 本地目录导入已通过并落盘安全来源摘要与导入产物。
 - Computer Use 在滚动布局下未形成稳定的 GUI 预览切换/停止点击证据，本轮不宣称完整 GUI 闭环通过。
 
