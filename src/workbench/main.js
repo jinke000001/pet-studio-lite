@@ -8,6 +8,7 @@ const { validateProjectId } = require('./contracts');
 const { createImportController, explainImportError } = require('./import-controller');
 const { createImportSelectionHandler } = require('./import-selection');
 const { createPreviewController } = require('./preview-controller');
+const { createProductController } = require('./product-controller');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const RENDERER_ENTRY = path.join(PROJECT_ROOT, '.workbench-dist', 'index.html');
@@ -35,6 +36,7 @@ const previewController = createPreviewController({
   electronPath: process.execPath,
   applicationRoot: PROJECT_ROOT,
 });
+const productController = createProductController({ store });
 let window;
 const selectImport = createImportSelectionHandler({
   dialog,
@@ -97,6 +99,8 @@ function registerIpc() {
   ));
   registerHandler('workbench:stop-pet-preview', () => previewController.stop());
   registerHandler('workbench:get-pet-preview-status', () => previewController.status());
+  registerHandler('workbench:save-product', ({ projectId, product }) => productController.save(validateProjectId(projectId), product));
+  registerHandler('workbench:export-project', (projectId) => productController.exportProject(validateProjectId(projectId)));
 }
 
 function createWindow() {

@@ -72,6 +72,7 @@ export function ProjectWorkspace({
   const [frame, setFrame] = useState(0);
   const [busy, setBusy] = useState('');
   const [petStatus, setPetStatus] = useState(previewStatus);
+  const [product, setProduct] = useState({ productName: project.product?.productName as string ?? '', version: project.product?.version as string ?? '0.1.0', productId: project.product?.productId as string ?? `${project.id}-product`, appId: project.product?.appId as string ?? `com.jinke.${project.id}`, executableName: project.product?.executableName as string ?? 'DesktopPetCandidate', artifactName: project.product?.artifactName as string ?? 'desktop-pet-candidate' });
 
   useEffect(() => {
     setPreview(null);
@@ -125,6 +126,20 @@ export function ProjectWorkspace({
     } finally {
       setBusy('');
     }
+  }
+
+  async function saveProduct() {
+    setBusy('product'); onError('');
+    const result = await window.workbenchApi.saveProduct({ projectId: project.id, product });
+    if (result.ok) onProjectChange(result.value); else onError(errorMessage(result));
+    setBusy('');
+  }
+
+  async function exportProject() {
+    setBusy('export'); onError('');
+    const result = await window.workbenchApi.exportProject(project.id);
+    if (result.ok) onProjectChange(result.value); else onError(errorMessage(result));
+    setBusy('');
   }
 
   const imported = project.latestImport;
@@ -212,6 +227,14 @@ export function ProjectWorkspace({
               ))}
             </div>
           )}
+        </section>
+      )}
+      {imported && (
+        <section className="tool-panel product-panel" aria-labelledby="product-title">
+          <p className="panel-index">04</p><h3 id="product-title">产品信息与导出</h3>
+          <div className="product-fields">{Object.entries(product).map(([key, value]) => <label key={key}>{key}<input value={value} onChange={(event) => setProduct((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div>
+          <div className="button-row"><button type="button" onClick={saveProduct} disabled={Boolean(busy)}>{busy === 'product' ? '保存中…' : '保存产品配置'}</button><button type="button" className="secondary" onClick={exportProject} disabled={Boolean(busy) || !project.product}>{busy === 'export' ? '导出中…' : '导出可恢复项目包'}</button></div>
+          {project.product && <p className="source-summary">当前配置已保存；导出采用版本化、非覆盖目录。</p>}
         </section>
       )}
     </section>

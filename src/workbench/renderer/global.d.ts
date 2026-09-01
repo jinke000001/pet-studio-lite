@@ -22,6 +22,8 @@ declare global {
       startPetPreview(projectId: string): Promise<WorkbenchResult<PetPreviewStatus>>;
       stopPetPreview(): Promise<WorkbenchResult<PetPreviewStatus>>;
       getPetPreviewStatus(): Promise<WorkbenchResult<PetPreviewStatus>>;
+      saveProduct(input: { projectId: string; product: Record<string, unknown> }): Promise<WorkbenchResult<WorkbenchProject>>;
+      exportProject(projectId: string): Promise<WorkbenchResult<WorkbenchProject>>;
     };
   }
 }

@@ -107,6 +107,10 @@ select { width: 100%; padding: 11px 12px; border: 1px solid #b9beb9; border-radi
 .look-strip > div { min-width: 0; padding: 5px; border: 1px solid #e0ddd6; border-radius: 7px; text-align: center; }
 .look-strip .sprite-frame { width: 100%; }
 .look-strip small { display: block; color: #6e7972; font-size: 9px; }
+.product-panel { margin-top: 18px; }
+.product-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.product-fields label { min-width: 0; }
+.product-fields input { margin-top: 7px; padding: 9px; font-size: 12px; }
 
 @media (max-width: 1040px) {
   .workspace { padding-inline: 32px; }

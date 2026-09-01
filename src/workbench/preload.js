@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld('workbenchApi', {
   startPetPreview: (projectId) => ipcRenderer.invoke('workbench:start-pet-preview', projectId),
   stopPetPreview: () => ipcRenderer.invoke('workbench:stop-pet-preview'),
   getPetPreviewStatus: () => ipcRenderer.invoke('workbench:get-pet-preview-status'),
+  saveProduct: (input) => ipcRenderer.invoke('workbench:save-product', input),
+  exportProject: (projectId) => ipcRenderer.invoke('workbench:export-project', projectId),
 });
