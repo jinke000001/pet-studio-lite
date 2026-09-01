@@ -4,6 +4,13 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 
+// Preview children use the packaged application's normal entry. Switch that
+// entry to the shared transparent-pet runtime instead of recursively opening
+// another workbench window.
+if (process.env.DESKTOP_PET_PREVIEW_ROOT) {
+  require('../main');
+} else {
+
 const { createProjectStore } = require('./project-store');
 const { validateProjectId } = require('./contracts');
 const { createImportController, explainImportError } = require('./import-controller');
@@ -223,5 +230,6 @@ app.on('second-instance', () => {
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('before-quit', () => { log('studio-before-quit'); jobs.shutdown(); selectedSources.clear(); previewController.stop(); releaseInstanceLock?.(); });
+}
 
 module.exports = { assertTrustedSender, publicError };
