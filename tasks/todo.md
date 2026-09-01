@@ -136,7 +136,7 @@ Checkpoint 6.2 已完成；证据：`Resources/phase-6.2-workbench-evidence.md`�
 ### Phase 6.6：质量门与可运行软件交付
 
 - [ ] 6.6a 完整自动回归和隔离 macOS 主流程、错误、取消、离线、重复与恢复验证。
-- [ ] 6.6b 生成并真实启动可操作、可恢复、可导出的 macOS 工作台候选。
+- [x] 6.6b 生成并真实启动可操作、可恢复、可导出的 macOS 工作台候选。
 - [ ] 6.6c 建立非覆盖 Windows 验收交接包、PRD、提示词、模板、脚本与 checksums。
 - [ ] 6.6d 完成候选/manifest/哈希/包工厂检查和最终多轴代码审查，修复全部 Critical/Required。
 - [ ] 6.6e 同步 MEMORY、计划、待办、证据与最终报告，创建最终本地 checkpoint，确认工作区干净和零残留进程。

@@ -1,0 +1,4 @@
+const test = require('node:test'); const assert = require('node:assert/strict'); const path = require('node:path');
+const { createStudioBuilderConfiguration, candidateId } = require('../src/workbench/candidate-builder');
+test('creates isolated unsigned workbench candidate configuration', () => { const config = createStudioBuilderConfiguration({ outputDirectory: '/tmp/out' }); assert.equal(config.extraMetadata.main, 'src/workbench/main.js'); assert.equal(config.forceCodeSigning, false); assert.equal(config.publish, null); assert.equal(config.mac.identity, null); assert.match(config.directories.output, /artifacts$/); assert.ok(config.files.includes('.workbench-dist/**/*')); });
+test('creates versioned non-overwriting candidate ids', () => { assert.equal(candidateId(new Date('2026-09-01T01:02:03.000Z')), 'candidate-20260901010203000'); });

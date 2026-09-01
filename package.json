@@ -13,6 +13,7 @@
     "pet": "node scripts/source-preflight.js && node scripts/start-pet.js",
     "studio": "npm run studio:build && node scripts/source-preflight.js && electron src/workbench/main.js",
     "studio:build": "vite build --config vite.workbench.config.mjs",
+    "studio:package": "npm run studio:build && node scripts/build-studio.js",
     "studio:typecheck": "tsc -p tsconfig.workbench.json --noEmit",
     "source:preflight": "node scripts/source-preflight.js",
     "import-pet": "node scripts/import-pet.js",
