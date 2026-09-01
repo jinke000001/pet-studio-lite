@@ -25,6 +25,7 @@ const jobStatusLabels: Record<JobStatus, string> = {
 };
 
 const jobTypeLabels: Record<string, string> = {
+  build: '候选构建',
   export: '项目导出',
 };
 
@@ -97,7 +98,7 @@ export function ProjectWorkspace({
   const [busy, setBusy] = useState('');
   const [infoNote, setInfoNote] = useState('');
   const [petStatus, setPetStatus] = useState(previewStatus);
-  const [product, setProduct] = useState({ productName: project.product?.productName as string ?? '', version: project.product?.version as string ?? '0.1.0', productId: project.product?.productId as string ?? `${project.id}-product`, appId: project.product?.appId as string ?? `com.jinke.${project.id}`, executableName: project.product?.executableName as string ?? 'DesktopPetCandidate', artifactName: project.product?.artifactName as string ?? 'desktop-pet-candidate' });
+  const [product, setProduct] = useState({ productName: project.product?.productName as string ?? '', version: project.product?.version as string ?? '0.1.0', productId: project.product?.productId as string ?? `${project.id}-product`, appId: project.product?.appId as string ?? `com.jinke.${project.id}`, executableName: project.product?.executableName as string ?? 'DesktopPetCandidate', artifactName: project.product?.artifactName as string ?? 'desktop-pet-candidate', targets: (project.product?.targets as Array<'mac' | 'win'> | undefined) ?? ['mac'] });
   const [jobs, setJobs] = useState<Array<WorkbenchJob>>([]);
 
   useEffect(() => {
@@ -177,6 +178,20 @@ export function ProjectWorkspace({
     setBusy('');
   }
 
+  async function exportStandardPackage() {
+    setBusy('standard-package'); onError('');
+    const result = await window.workbenchApi.exportStandardPackage(project.id);
+    if (result.ok) onProjectChange(result.value); else onError(errorMessage(result));
+    setBusy('');
+  }
+
+  async function startCandidateJob(target: 'mac' | 'win') {
+    setBusy(`candidate-${target}`); onError('');
+    const result = await window.workbenchApi.startCandidateJob({ projectId: project.id, targets: [target] });
+    if (!result.ok) onError(errorMessage(result));
+    setBusy('');
+  }
+
   async function startExportJob() {
     setBusy('export-job'); onError('');
     const result = await window.workbenchApi.startExportJob(project.id);
@@ -201,6 +216,7 @@ export function ProjectWorkspace({
   const imported = project.latestImport;
   const runningHere = petStatus.status === 'running' && petStatus.projectId === project.id;
   const interruptedJobs = jobs.filter((job) => job.status === 'interrupted');
+  const distributable = imported?.authorizationStatus === 'authorized';
 
   return (
     <section className="project-workspace" aria-labelledby="project-workspace-title">
@@ -292,17 +308,27 @@ export function ProjectWorkspace({
       {imported && (
         <section className="tool-panel product-panel" aria-labelledby="product-title">
           <p className="panel-index">04</p><h3 id="product-title">产品信息与导出</h3>
-          <div className="product-fields">{Object.entries(product).map(([key, value]) => (
+          <div className="product-fields">{Object.entries(product).filter(([key]) => key !== 'targets').map(([key, value]) => (
             <label key={key} htmlFor={`product-${key}`}>
               {productFieldLabels[key] ?? key}
               <input
                 id={`product-${key}`}
-                value={value}
+                value={String(value)}
                 onChange={(event) => setProduct((current) => ({ ...current, [key]: event.target.value }))}
               />
             </label>
           ))}</div>
-          <div className="button-row"><button type="button" onClick={saveProduct} disabled={Boolean(busy)}>{busy === 'product' ? '保存中…' : '保存产品配置'}</button><button type="button" className="secondary" onClick={exportProject} disabled={Boolean(busy) || !project.product}>{busy === 'export' ? '导出中…' : '导出可恢复项目包'}</button><button type="button" className="secondary" onClick={startExportJob} disabled={Boolean(busy) || !project.product}>{busy === 'export-job' ? '排队中…' : '后台导出'}</button></div>
+          <fieldset className="target-fields"><legend>目标平台</legend>{(['mac', 'win'] as const).map((target) => <label key={target}><input type="checkbox" checked={product.targets.includes(target)} onChange={(event) => setProduct((current) => ({ ...current, targets: event.target.checked ? [...new Set([...current.targets, target])] : current.targets.filter((value) => value !== target) }))} />{target === 'mac' ? 'macOS 未签名候选' : 'Windows 未签名候选'}</label>)}</fieldset>
+          <div className="button-row">
+            <button type="button" onClick={saveProduct} disabled={Boolean(busy)}>{busy === 'product' ? '保存中…' : '保存产品配置'}</button>
+            <button type="button" className="secondary" onClick={exportStandardPackage} disabled={Boolean(busy)}>{busy === 'standard-package' ? '导出中…' : '导出标准包'}</button>
+            <button type="button" className="secondary" onClick={exportProject} disabled={Boolean(busy) || !project.product}>{busy === 'export' ? '导出中…' : '导出可恢复项目包'}</button>
+            <button type="button" className="secondary" onClick={startExportJob} disabled={Boolean(busy) || !project.product}>{busy === 'export-job' ? '排队中…' : '后台导出项目包'}</button>
+            <button type="button" onClick={() => startCandidateJob('mac')} disabled={Boolean(busy) || !project.product || !distributable}>{busy === 'candidate-mac' ? '排队中…' : '构建 macOS 候选'}</button>
+            <button type="button" onClick={() => startCandidateJob('win')} disabled={Boolean(busy) || !project.product || !distributable}>{busy === 'candidate-win' ? '排队中…' : '构建 Windows 候选'}</button>
+          </div>
+          {!distributable && <p className="recovery-note" role="status">当前授权为“{authorizationLabels[imported.authorizationStatus]}”：可导出标准包和项目包，但不可生成可分发候选。请核实授权后重新导入。</p>}
+          {distributable && <p className="field-hint">macOS 候选仍需真实运行验证；Windows 构建只形成静态候选，installed mode 与 100%/125%/150% DPI 必须外部验收。</p>}
           {project.product && <p className="source-summary">当前配置已保存；导出采用版本化、非覆盖目录。</p>}
         </section>
       )}

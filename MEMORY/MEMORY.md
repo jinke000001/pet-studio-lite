@@ -62,7 +62,7 @@
 - 2026-09-01 用户确认“桌宠制作台 MVP”PRD 并创建目标模式，先由 Codex 执行 Phase 6.1–6.4，Kimi 在 Phase 6.5 负责视觉与展示层，最后由 Codex 集成和验证。
 - Phase 6.1 已完成：项目/步骤/任务/错误/产物契约、独立安全 Electron 壳层、React + TypeScript renderer、版本化非覆盖项目存储、关闭后恢复和 Kimi 设计交接包均已落地。
 - Phase 6.2 已完成：主进程目录/ZIP 选择、授权与安全来源摘要、失败保护、检查层级、联系表/逐帧预览和隔离真实桌宠启停；104/104 回归及 macOS Doraemon 隔离实测通过。证据：`../Resources/phase-6.2-workbench-evidence.md`。
-- Phase 6.3a/6.3b 已实现产品配置校验、持久化和非覆盖可恢复项目包导出；标准包/候选构建任务化与 source/packaged/installed 验证仍待完成。证据：`../Resources/phase-6.3-workbench-evidence.md`。
+- Phase 6.3 已完成产品配置、标准包、可恢复项目包和授权受控候选构建；Doraemon 自定义 macOS 候选 packaged `renderer-ready`/`runtime-ready` 通过，Windows installed mode 保持外部门。证据：`../Resources/phase-6.3-workbench-evidence.md`。
 - Phase 6.4a 已加入持久化任务基础（六种状态、取消、重试、重启中断识别、任务中心展示）；完整 worker/构建接入仍待完成。证据：`../Resources/phase-6.4-workbench-evidence.md`。
 - Phase 6.5 Kimi 视觉收口已执行：Kimi 仅修改 renderer 四个文件，Codex 完整 diff/类型/106 项回归/构建/lint 审查通过。证据：`../Resources/phase-6.5-workbench-evidence.md`。
 - Phase 6.6 已生成并真实启动 macOS arm64 未签名工作台候选 `release/workbench-candidates/candidate-20260901083025663/`；108/108 回归通过，Windows installed mode 仍待外部回传。证据：`../Resources/phase-6.6-workbench-evidence.md`。

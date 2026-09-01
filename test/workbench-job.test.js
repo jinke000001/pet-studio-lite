@@ -33,3 +33,32 @@ test('cancels a queued job and retries failed jobs as a new attempt', async () =
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(store.loadProject(project.id).jobs.at(-1).status, 'failed');
 });
+
+test('cancelling a running build invokes its registered process cleanup', async () => {
+  const { store, project } = harness();
+  let cancelProcess;
+  let processCancelled = false;
+  const started = new Promise((resolve) => {
+    cancelProcess = resolve;
+  });
+  const jobs = createJobController({
+    store,
+    handlers: {
+      build: async (_id, _input, context) => {
+        context.setCancel(() => {
+          processCancelled = true;
+          cancelProcess();
+        });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      },
+    },
+  });
+  const job = jobs.enqueue(project.id, 'build');
+  await new Promise((resolve) => setImmediate(resolve));
+  jobs.cancel(project.id, job.id);
+  await started;
+  assert.equal(processCancelled, true);
+  assert.equal(store.loadProject(project.id).jobs[0].status, 'cancelled');
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  assert.equal(store.loadProject(project.id).jobs[0].status, 'cancelled');
+});

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   ARTIFACT_KINDS,
   JOB_STATUSES,
+  JOB_TYPES,
   STEP_IDS,
   createWorkbenchProject,
   normalizeImportRequest,
@@ -85,6 +86,7 @@ test('rejects persisted projects with unknown job or artifact variants', () => {
   });
 
   assert.ok(JOB_STATUSES.includes('interrupted'));
+  assert.ok(JOB_TYPES.includes('build'));
   assert.ok(ARTIFACT_KINDS.includes('windowsCandidate'));
   assert.throws(
     () => validateWorkbenchProject({ ...project, jobs: [{ id: 'job-1', type: 'import', status: 'mystery' }] }),

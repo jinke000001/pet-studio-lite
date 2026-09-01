@@ -11,8 +11,10 @@ contextBridge.exposeInMainWorld('workbenchApi', {
   getPetPreviewStatus: () => ipcRenderer.invoke('workbench:get-pet-preview-status'),
   saveProduct: (input) => ipcRenderer.invoke('workbench:save-product', input),
   exportProject: (projectId) => ipcRenderer.invoke('workbench:export-project', projectId),
+  exportStandardPackage: (projectId) => ipcRenderer.invoke('workbench:export-standard-package', projectId),
   listJobs: (projectId) => ipcRenderer.invoke('workbench:list-jobs', projectId),
   startExportJob: (projectId) => ipcRenderer.invoke('workbench:start-export-job', { projectId }),
+  startCandidateJob: (input) => ipcRenderer.invoke('workbench:start-candidate-job', input),
   cancelJob: (input) => ipcRenderer.invoke('workbench:cancel-job', input),
   retryJob: (input) => ipcRenderer.invoke('workbench:retry-job', input),
 });

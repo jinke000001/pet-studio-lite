@@ -110,10 +110,10 @@ Checkpoint 6.2 已完成；证据：`Resources/phase-6.2-workbench-evidence.md`�
 
 - [x] 6.3a 产品表单、安全默认值、格式/保留字/身份/历史冲突检查与持久化。
 - [x] 6.3b 非覆盖导出标准包和可恢复项目包，记录 manifest、来源、时间与 SHA-256。
-- [ ] 6.3c 复用包工厂导出 macOS/Windows 未签名候选并保持 source/packaged/installed 分层。
-- [ ] 6.3d 真实工作台无终端导出验证、审查、证据和本地 checkpoint。
+- [x] 6.3c 复用包工厂导出 macOS/Windows 未签名候选并保持 source/packaged/installed 分层。
+- [x] 6.3d 真实工作台无终端导出验证、审查、证据和本地 checkpoint。
 
-6.3a/6.3b 已完成；6.3c/6.3d 仍待任务化构建接入与真实候选验证。
+Checkpoint 6.3 已完成；macOS 自定义 Doraemon 候选真实启动通过，Windows installed mode 保持外部验收边界。
 
 ### Phase 6.4：后台任务与恢复
 

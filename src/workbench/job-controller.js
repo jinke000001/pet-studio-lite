@@ -21,11 +21,15 @@ function createJobController({ store, handlers = {} }) {
     const job = { id: jobId(), type, status: 'queued', progress: 0, step: '排队中', input, createdAt, updatedAt: createdAt, attempts: 1 };
     store.updateProject(projectId, (project) => ({ ...project, jobs: [...project.jobs, job] }));
     const timer = setImmediate(async () => {
+      const state = active.get(job.id);
+      if (!state || state.cancelled) return;
+      state.running = true;
       try {
         update(projectId, job.id, { status: 'running', progress: 10, step: '正在执行' });
         const result = await handlers[type]?.(projectId, input, {
           report: (progress, step) => update(projectId, job.id, { progress, step }),
           isCancelled: () => active.get(job.id)?.cancelled === true,
+          setCancel: (cancel) => { if (typeof cancel === 'function' && active.has(job.id)) active.get(job.id).cancel = cancel; },
         });
         if (active.get(job.id)?.cancelled) {
           update(projectId, job.id, { status: 'cancelled', progress: 0, step: '已取消' });
@@ -33,10 +37,14 @@ function createJobController({ store, handlers = {} }) {
           update(projectId, job.id, { status: 'succeeded', progress: 100, step: '已完成', result });
         }
       } catch (error) {
-        update(projectId, job.id, { status: 'failed', progress: 0, step: '失败', error: { code: error.code || 'JOB_FAILED', message: error.message } });
+        if (active.get(job.id)?.cancelled) {
+          update(projectId, job.id, { status: 'cancelled', progress: 0, step: '已取消' });
+        } else {
+          update(projectId, job.id, { status: 'failed', progress: 0, step: '失败', error: { code: error.code || 'JOB_FAILED', message: error.message } });
+        }
       } finally { active.delete(job.id); }
     });
-    active.set(job.id, { timer, cancelled: false });
+    active.set(job.id, { timer, cancelled: false, running: false });
     return job;
   }
 
@@ -44,8 +52,9 @@ function createJobController({ store, handlers = {} }) {
     const state = active.get(id);
     if (!state) return store.loadProject(projectId).jobs.find((job) => job.id === id) || null;
     state.cancelled = true;
+    state.cancel?.();
     clearImmediate(state.timer);
-    active.delete(id);
+    if (!state.running) active.delete(id);
     const project = update(projectId, id, { status: 'cancelled', progress: 0, step: '已取消' });
     return project.jobs.find((job) => job.id === id);
   }

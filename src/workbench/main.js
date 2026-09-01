@@ -10,6 +10,7 @@ const { createImportSelectionHandler } = require('./import-selection');
 const { createPreviewController } = require('./preview-controller');
 const { createProductController } = require('./product-controller');
 const { createJobController } = require('./job-controller');
+const { createCandidateController } = require('./candidate-controller');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const RENDERER_ENTRY = path.join(PROJECT_ROOT, '.workbench-dist', 'index.html');
@@ -38,10 +39,12 @@ const previewController = createPreviewController({
   applicationRoot: PROJECT_ROOT,
 });
 const productController = createProductController({ store });
+const candidateController = createCandidateController({ store, applicationRoot: PROJECT_ROOT });
 const jobs = createJobController({
   store,
   handlers: {
     export: (projectId) => productController.exportProject(projectId),
+    build: (projectId, input, context) => candidateController.build(projectId, input, context),
   },
 });
 let window;
@@ -108,8 +111,10 @@ function registerIpc() {
   registerHandler('workbench:get-pet-preview-status', () => previewController.status());
   registerHandler('workbench:save-product', ({ projectId, product }) => productController.save(validateProjectId(projectId), product));
   registerHandler('workbench:export-project', (projectId) => productController.exportProject(validateProjectId(projectId)));
+  registerHandler('workbench:export-standard-package', (projectId) => productController.exportStandardPackage(validateProjectId(projectId)));
   registerHandler('workbench:list-jobs', (projectId) => jobs.list(validateProjectId(projectId)));
   registerHandler('workbench:start-export-job', ({ projectId }) => jobs.enqueue(validateProjectId(projectId), 'export'));
+  registerHandler('workbench:start-candidate-job', ({ projectId, targets }) => jobs.enqueue(validateProjectId(projectId), 'build', { targets }));
   registerHandler('workbench:cancel-job', ({ projectId, jobId }) => jobs.cancel(validateProjectId(projectId), jobId));
   registerHandler('workbench:retry-job', ({ projectId, jobId }) => jobs.retry(validateProjectId(projectId), jobId));
 }
