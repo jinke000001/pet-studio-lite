@@ -41,9 +41,10 @@
 - [x] 3.5 Wukong、Doraemon、阿岱三个主样本和 JokeBear 额外样本隔离验证。
 - [x] 3.6 版本化清单、SHA-256 和交付说明。
 - [x] 3.7a 经授权整理 Task 3.7 T7 验收交付：受控源码、历史候选审计、PRD、Windows 提示词、报告模板、工具和 36 项输入哈希均已就绪。
-- [ ] 3.7b 在 Windows 原生构建四套新候选并执行 source、win-unpacked、installed mode、卸载/重装和 DPI 验收。
+- [x] 3.7b Kimi 已在 Windows 原生构建四套新候选并完成 source、win-unpacked、installed mode、卸载/重装、100%/125%/150% 冷启动和真实动态 DPI 验收；T7 回传 1352/1352 哈希复核通过。
+- [ ] 网络观察项：Windows 构建机直连 GitHub 曾出现 `ETIMEDOUT 20.205.243.166:443`；本轮命令级镜像重试已成功，先保留，不修改永久 npm 配置、系统代理或网络设置。
 
-Checkpoint 3 候选构建与 Mac 侧验证已通过；Task 3.7 交付已写入 T7，Windows 实机执行与回传仍为待办。
+Checkpoint 3 与 Task 3.7 Windows 实机验收均已通过；四套产品保持未签名内部候选，Doraemon 与 JokeBear 仅用于内部兼容测试。
 
 ## Phase 4：客户素材制作
 
@@ -72,5 +73,14 @@ Checkpoint 3 候选构建与 Mac 侧验证已通过；Task 3.7 交付已写入 T
 - [x] 4.9j-2 将 0.1.5 修复落回仓库（nsh/config/test/tasks 四处）并就地更新 T7 交付为 0.1.5：source ZIP、win-unpacked、安装包、证据文档与 PRD/提示词/报告模板全部刷新，91/91 哈希复核通过。
 - [x] 4.9k Windows 0.1.5 安装生命周期验收通过：按计划用 `/NCRC` 卸载已知 CRC 损坏的 0.1.4，随后完成 0.1.5 干净安装、installed mode 全量、100%/125%/150% 冷启动与动态 DPI、三次同版本覆盖、0.1.5 官方卸载（不带 `/NCRC`）及同包干净重装；514/514 回传哈希复核通过，系统缩放恢复 100%，最终精确主程序进程数 0。本轮验收门关闭，0.1.5 仍为未签名内部候选。
 - [x] 4.9l 将 0.1.5 Windows RETURN 非覆盖归档到 `release/windows-recheck/xiaofuxing-v1-windows-recheck-0.1.5-20260831-01/`：515 个文件与 T7 逐字节一致，清单内 514/514 通过，递归元数据为 0；Phase 4 Checkpoint 4 关闭。
+
+## Phase 5：项目收尾
+
+- [x] 5.1 用户确认收尾 PRD：只做状态统一、最终证据索引和轻量归档策略；不进入商业发布、新功能或网络配置修改。
+- [x] 5.2 统一 README、计划、任务清单与 MEMORY 的当前完成状态，保留历史证据语境。
+- [x] 5.3 新增最终项目收尾报告，记录最终能力、边界、精确证据路径、哈希和网络观察项。
+- [x] 5.4 保留 T7 的 3.9 GiB Task 3.7 完整 RETURN，本机只建立轻量索引，不复制大体积候选。
+- [x] 5.5 Checkpoint 5A 与完整回归通过：测试 77/77、lint、source preflight 和 npm audit 全部通过；audit 前两次网络失败保留为过程证据，第三次未改配置重试返回 0 vulnerabilities。
+- [x] 5.6 最终 diff 五轴审查无阻断项；用户授权只创建一个 Git 内部基线提交，不创建标签、不合并分支、不推送远端。
 
 商业发布体系暂缓，不属于当前任务清单。

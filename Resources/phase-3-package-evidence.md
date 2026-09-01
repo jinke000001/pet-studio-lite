@@ -2,6 +2,8 @@
 
 日期：2026-08-27
 
+> 后续状态（2026-09-01）：本文记录 2026-08-27 候选构建当时的 Mac 与静态证据边界。随后 Phase 3 Task 3.7 已在 Windows 原生重建四套候选并完成 source、win-unpacked、installed mode、卸载/重装和 DPI 验收；最终状态与精确回传索引见 `Resources/project-closeout-20260901.md`。本文中的“Windows 仍未验证”保留为当时结论，不代表当前状态。
+
 ## 结论
 
 - 配置驱动的单宠构建工厂已经完成；Wukong、Doraemon、阿岱三个主样本和 JokeBear 额外兼容样本均生成 Windows x64 与 macOS Apple Silicon 内部候选。

@@ -2,6 +2,12 @@
 
 这是一个离线、配置驱动的 Electron 桌宠运行内核。Phase 2 已支持从本地目录、安全 ZIP 或 Petdex slug 导入 v1/v2 宠物；导入后的运行时不依赖 Codex、Petdex、VPN、账号或网络。
 
+## 项目状态
+
+截至 2026-09-01，Phase 1–4 与 Phase 3 Task 3.7 均已完成：共享运行内核、安全导入、单宠构建工厂、小福猩 Petdex v1 客户素材链路，以及 Wukong、Doraemon、阿岱、JokeBear 四产品的 Windows source、`win-unpacked`、installed mode、卸载/重装和 100%/125%/150% DPI 验收均已关闭。
+
+当前产物仍是未签名内部候选，不是正式发布版。Doraemon 与 JokeBear 仅用于内部技术兼容测试，不构成对外分发授权。最终状态、证据路径和关键哈希见 [`Resources/project-closeout-20260901.md`](Resources/project-closeout-20260901.md)。
+
 ## 当前可运行样本
 
 - `wukong`：Wukong v2 基准样本。
@@ -58,7 +64,9 @@ npm run import-pet -- slug --slug dai --authorization internal-test
 
 已实现透明置顶窗口、像素图集动画、单击/双击文案、拖动方向动作、托盘显示隐藏、50%–150% 缩放、短动作、长待机、独立设置与日志目录、v1/v2 识别和状态回退。
 
-Phase 2 已完成目录/ZIP/slug 导入、不可变来源快照、安全校验、哈希清单和预览报告。Phase 3 已实现 Windows/macOS 单宠候选构建；候选状态不能替代 Windows 真实安装、卸载、重装和 DPI 正式验收。
+Phase 2 已完成目录/ZIP/slug 导入、不可变来源快照、安全校验、哈希清单和预览报告。Phase 3 已实现 Windows/macOS 单宠候选构建，并已由 Task 3.7 的 Windows 实机回传关闭四产品安装生命周期与 DPI 验收门。今后生成的新候选仍必须单独执行 Windows 验收，不能沿用本轮结论。
+
+商业签名、macOS Developer ID、公证、自动更新、商城和正式发布体系不属于当前完成范围。
 
 ## 验证
 

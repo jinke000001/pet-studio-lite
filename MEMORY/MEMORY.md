@@ -31,8 +31,8 @@
 - 2026-08-27 Phase 3 候选构建与 Mac 侧验证完成，实施分支为 `feature/package-factory`，Checkpoint 3 已通过。
 - Wukong、Doraemon、阿岱和 JokeBear 均生成 Windows x64 `win-unpacked`、未签名 NSIS 候选安装包和 macOS Apple Silicon 未签名 `.app`；四个 macOS 应用真实启动通过。
 - 自动测试 64/64、lint、npm audit、单宠 ASAR 隔离、来源/包内图集哈希和 20 个最终关键产物重新哈希通过。
-- Windows 真实安装、卸载、重装和 100%/125%/150% DPI 验收尚未执行，Mac 侧结果不能替代该结论。
-- 2026-08-31 用户已授权准备 Task 3.7 Windows 验收输入。只读审计发现 2026-08-27 四个历史候选均缺 NSIS 与 `win-unpacked` 主程序，T7 根目录仅存的旧阿岱安装包内嵌卸载器 CRC 不一致，故不复用旧二进制；已从提交 `a60f3b7` 组装受控源码交付并写入 T7 新目录 `phase-3-windows-acceptance-20260831-01/`。36/36 输入哈希、隔离源码 77/77、lint 与 0 vulnerabilities 通过，递归元数据为 0；Windows 原生构建和实机验收尚未执行。
+- 2026-08-31 用户授权 Task 3.7 后，未复用缺失主二进制或卸载器 CRC 异常的历史候选；改用提交 `a60f3b7` 的受控源码在 Windows 本地 NTFS 原生构建四套新候选。Kimi 回传报告确认 source、win-unpacked、installed mode、100%/125%/150% 冷启动、真实动态 DPI、核心交互、官方卸载、同包重装和四产品身份隔离全部通过，Task 3.7 关闭；四套产品仍为未签名内部候选，Doraemon 与 JokeBear 不获得对外分发结论。
+- 最终回传位于 `/Volumes/T7 Shield/phase-3-windows-acceptance-20260831-01/RETURN/phase-3-task3.7-windows-20260831-20260831-175125/`，Mac 侧独立复核 1352/1352 哈希通过。构建机直连 GitHub 曾出现 `ETIMEDOUT 20.205.243.166:443`，通过仅限重试命令的 `ELECTRON_MIRROR` 完成构建；该问题按用户要求保留为非阻塞网络观察项，不改永久配置或系统网络设置。
 
 ## Phase 4 当前状态
 
@@ -50,6 +50,13 @@
 - 0.1.4 Windows 复验回传（T7 `xiaofuxing-v1-windows-recheck-0.1.4-20260830-01/RETURN/`）终止于门 F：同版本覆盖再弹“无法关闭”；决定性新证据为 0.1.0/0.1.4 卸载器直启即弹 NSIS Error “Installer integrity check has failed”（磁盘哈希未变、`/NCRC` 可用、Defender 全时段零事件，H1 否证）。根因定位为 electron-builder 26.15.3 在 macOS 上的 `UninstallerReader` 拼接路径不重算卸载器 CRC（上游 #4875），本机按 NSIS `loadHeaders` 算法静态复现（0.1.4 卸载器计算 `0x6b343ac4` ≠ 存储 `0xc2d5a1af`，主安装器一致通过）。0.1.5 仅对卸载器编译加 `CRCCheck off`（firstheader flags=0x5）并升版本，探针与身份字段全保留；77/77、lint、0 漏洞、真实 NSIS 编译、Mac packaged runtime 与静态 CRC 验收通过，候选为 `release/candidates/xiaofuxing-desktop-pet/0.1.5/candidate-20260831015730039/`，安装包 SHA-256 `656f34eb63b55b0537488e30aff6e44c332672036a3bc8246d5db87aa5f17bb1`。T7 交付已就地更新为 0.1.5（91/91 哈希复核通过），修复与技术证据提交为 `a1c8e24`。详见 `tasks/xiaofuxing-0.1.5-uninstaller-crc-repair-plan.md` 与 `Resources/xiaofuxing-windows-0.1.5-uninstaller-crc-repair-evidence.md`。
 - 2026-08-31 0.1.5 Windows 安装生命周期验收门已关闭：91/91 输入哈希、77/77、lint、installed mode 三档冷启动与动态 DPI、交互、三次同版本覆盖、0.1.5 官方卸载（不带 `/NCRC`）及同包重装全部通过；Mac 侧独立复核回传哈希 514/514 通过。最终系统缩放为 100%，0.1.5 保持安装，精确主程序进程数 0。RETURN 已以 515 个文件非覆盖归档到 `release/windows-recheck/xiaofuxing-v1-windows-recheck-0.1.5-20260831-01/`，与 T7 原件逐字节一致、零元数据。用户确认 Phase 4 收尾，Checkpoint 4 关闭；0.1.5 仍为未签名内部候选，不自动转为正式发布版。
 
+## Phase 5 当前状态
+
+- 2026-09-01 用户确认项目收尾 PRD。当前只统一状态、建立最终证据索引和采用轻量归档策略，不进入新功能、商业发布或网络配置修改。
+- `README.md`、计划、任务清单、MEMORY 和两份早期候选证据已增加最终状态指针；统一收尾报告为 `Resources/project-closeout-20260901.md`。
+- Task 3.7 约 3.9 GiB 完整 RETURN 继续原样保留在 T7，本机不复制大体积候选，只保存精确路径、报告/清单 SHA-256 与 1352/1352 核验说明。
+- 用户已确认 Checkpoint 5A。回归结果为测试 77/77、lint、source preflight 和 npm audit 全部通过；audit 前两次受官方 Registry TLS 断开阻断，第三次未改配置重试返回 0 vulnerabilities。用户已授权只创建一个内部基线提交，不创建标签、不合并分支、不推送远端。
+
 ## 文件索引
 
 - `决策点.md`：已确认的产品、架构和阶段决策。
@@ -59,7 +66,8 @@
 - `../Resources/phase-1-macos-evidence.md`：Phase 1 自动化、真实窗口和证据边界。
 - `../Resources/phase-2-import-evidence.md`：Phase 2 导入安全、三样本哈希、视觉与运行证据。
 - `../Resources/phase-3-package-evidence.md`：Phase 3 四产品候选、安装包哈希、ASAR 隔离、Mac 运行与 Windows 边界证据。
-- `/Volumes/T7 Shield/phase-3-windows-acceptance-20260831-01/`：Task 3.7 受控源码、历史候选审计、Windows PRD/提示词/报告模板、取证工具、36 项输入哈希与空 `RETURN/`。
+- `../Resources/project-closeout-20260901.md`：Phase 1–4 与 Task 3.7 最终状态、精确 Windows 证据索引、授权边界、T7 保存策略和下一确认门。
+- `/Volumes/T7 Shield/phase-3-windows-acceptance-20260831-01/`：Task 3.7 受控源码、Windows PRD/提示词、取证工具与 Kimi 最终回传；`RETURN/phase-3-task3.7-windows-20260831-20260831-175125/` 的报告与 1352/1352 哈希已复核通过。
 - `../Resources/xiaofuxing-source-manifest.md`：Phase 4 小福猩五张原始素材、哈希、身份基准与使用边界。
 - `../Resources/kimi-phase-4-handoff.md`：Kimi Code 独立候选目标、现状、隔离边界和首个动作。
 - `../Resources/xiaofuxing-standard-actions-repair-evidence.md`：Codex 九动作修正版范围、验证、哈希和用户确认门。
