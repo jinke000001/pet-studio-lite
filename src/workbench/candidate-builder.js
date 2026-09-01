@@ -41,11 +41,11 @@ function createStudioBuilderConfiguration({ outputDirectory, projectRoot, builde
     directories: { output: path.join(outputDirectory, 'artifacts') },
     extraMetadata: { name: 'desktop-pet-studio', version, main: 'src/workbench/main.js', private: true },
     files: [
-      { from: path.join(projectRoot, 'package.json'), to: 'package.json' },
-      { from: path.join(projectRoot, 'src'), to: 'src' },
-      { from: path.join(projectRoot, 'config'), to: 'config' },
-      { from: path.join(projectRoot, 'build'), to: 'build' },
-      { from: path.join(projectRoot, '.workbench-dist'), to: '.workbench-dist' },
+      'package.json',
+      'src/**/*',
+      'config/**/*',
+      'build/**/*',
+      '.workbench-dist/**/*',
       '!**/.DS_Store', '!**/._*',
     ],
     extraResources: [

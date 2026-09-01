@@ -8,7 +8,16 @@ const {
 const { stageBuilderRuntime } = require('../src/workbench/builder-runtime');
 test('creates isolated unsigned workbench candidate configuration', () => {
   const config = createStudioBuilderConfiguration({ outputDirectory: '/tmp/out', projectRoot: '/repo', builderPackages: [{ sourceDirectory: '/repo/node_modules/electron-builder', relativePath: 'node_modules/electron-builder' }] });
-  assert.equal(config.extraMetadata.main, 'src/workbench/main.js'); assert.equal(config.forceCodeSigning, false); assert.equal(config.publish, null); assert.equal(config.mac.identity, null); assert.match(config.directories.output, /artifacts$/); assert.equal(config.files[0].to, 'package.json');
+  assert.equal(config.extraMetadata.main, 'src/workbench/main.js'); assert.equal(config.forceCodeSigning, false); assert.equal(config.publish, null); assert.equal(config.mac.identity, null); assert.match(config.directories.output, /artifacts$/);
+  assert.deepEqual(config.files, [
+    'package.json',
+    'src/**/*',
+    'config/**/*',
+    'build/**/*',
+    '.workbench-dist/**/*',
+    '!**/.DS_Store',
+    '!**/._*',
+  ]);
   assert.deepEqual(config.extraResources, [
     { from: '/repo/node_modules/electron-builder', to: 'workbench-builder/node_modules/electron-builder' },
     { from: '/repo/package.json', to: 'workbench-build-assets/package.json' },
