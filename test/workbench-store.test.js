@@ -61,6 +61,16 @@ test('rejects path traversal and symbolic-link project directories', () => {
   assert.throws(() => store.loadProject(unsafeId), (error) => error.code === 'UNSAFE_PROJECT_PATH');
 });
 
+test('rejects a projects root that is a symbolic link', () => {
+  const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-workbench-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-workbench-outside-'));
+  fs.symlinkSync(outside, path.join(workspaceRoot, 'projects'));
+  const store = createProjectStore({ workspaceRoot });
+
+  assert.throws(() => store.createProject({ name: 'Unsafe root' }), (error) => error.code === 'UNSAFE_WORKSPACE_PATH');
+  assert.deepEqual(fs.readdirSync(outside), []);
+});
+
 test('does not treat a modified project file as recoverable state', () => {
   const { workspaceRoot, store } = makeStore();
   const project = store.createProject({ name: 'Tamper check' });

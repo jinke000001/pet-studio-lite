@@ -9,6 +9,7 @@ const steps: Array<{ id: StepId; label: string; hint: string }> = [
   { id: 'product', label: '产品信息', hint: '名称、版本与身份' },
   { id: 'export', label: '导出结果', hint: '标准包与候选' },
 ];
+const statusLabels = { pending: '待开始', active: '当前', completed: '已完成', blocked: '被阻断' } as const;
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
@@ -16,18 +17,12 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
-function applyResult(
-  result: WorkbenchResult<WorkbenchBootstrap>,
-  setData: (value: WorkbenchBootstrap) => void,
-  setError: (value: string) => void,
-) {
+function applyResult(result: WorkbenchResult<WorkbenchBootstrap>, setData: (value: WorkbenchBootstrap) => void) {
   if (result.ok) {
     setData(result.value);
-    setError('');
-    return true;
+    return '';
   }
-  setError(result.error.message);
-  return false;
+  return result.error.message;
 }
 
 export function App() {
@@ -35,25 +30,37 @@ export function App() {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [fatalError, setFatalError] = useState('');
+  const [actionError, setActionError] = useState('');
   const nameInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     window.workbenchApi.getBootstrap()
-      .then((result) => applyResult(result, setData, setError))
-      .catch(() => setError('工作台启动失败，请关闭后重试。'))
+      .then((result) => setFatalError(applyResult(result, setData)))
+      .catch(() => setFatalError('工作台启动失败，请关闭后重试。'))
       .finally(() => setIsLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (isCreating) nameInput.current?.focus();
+  }, [isCreating]);
 
   async function createProject(event: FormEvent) {
     event.preventDefault();
     if (!name.trim() || isSaving) return;
     setIsSaving(true);
+    setActionError('');
     try {
       const result = await window.workbenchApi.createProject({ name });
-      if (applyResult(result, setData, setError)) setName('');
+      const message = applyResult(result, setData);
+      setActionError(message);
+      if (!message) {
+        setName('');
+        setIsCreating(false);
+      }
     } catch {
-      setError('项目创建失败，请重试。');
+      setActionError('项目创建失败，请重试。');
     } finally {
       setIsSaving(false);
     }
@@ -62,10 +69,12 @@ export function App() {
   async function openProject(project: WorkbenchProject) {
     if (project.id === data.activeProject?.id) return;
     setIsLoading(true);
+    setActionError('');
     try {
-      applyResult(await window.workbenchApi.openProject(project.id), setData, setError);
+      setActionError(applyResult(await window.workbenchApi.openProject(project.id), setData));
+      setIsCreating(false);
     } catch {
-      setError('项目打开失败，请重试。');
+      setActionError('项目打开失败，请重试。');
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +87,7 @@ export function App() {
           <span className="brand-mark" aria-hidden="true">宠</span>
           <div><strong>桌宠制作台</strong><small>Desktop Pet Studio</small></div>
         </div>
-        <button className="new-project" type="button" onClick={() => nameInput.current?.focus()}>
+        <button className="new-project" type="button" onClick={() => setIsCreating(true)}>
           新建制作项目
         </button>
         <nav aria-label="历史项目">
@@ -106,19 +115,25 @@ export function App() {
         <header className="workspace-header">
           <div>
             <p className="eyebrow">内部制作工具 · 未签名候选流程</p>
-            <h1>{data.activeProject?.name ?? '开始一个桌宠制作项目'}</h1>
+            <h1>{isCreating ? '开始一个桌宠制作项目' : data.activeProject?.name ?? '开始一个桌宠制作项目'}</h1>
           </div>
           {data.activeProject && <span className="saved-state">已安全保存</span>}
         </header>
 
-        <div className="live-region" aria-live="polite">{isLoading ? '正在读取项目…' : error}</div>
+        <div className="live-region" aria-live="polite">{isLoading ? '正在读取项目…' : actionError}</div>
+        {actionError && (
+          <div className="action-error" role="alert">
+            <span>{actionError}</span>
+            <button type="button" onClick={() => setActionError('')}>关闭提示</button>
+          </div>
+        )}
 
-        {error ? (
+        {fatalError ? (
           <section className="message-panel" role="alert">
-            <h2>暂时无法继续</h2><p>{error}</p>
+            <h2>暂时无法继续</h2><p>{fatalError}</p>
             <button type="button" onClick={() => window.location.reload()}>重新加载工作台</button>
           </section>
-        ) : data.activeProject ? <ProjectOverview project={data.activeProject} /> : (
+        ) : data.activeProject && !isCreating ? <ProjectOverview project={data.activeProject} /> : (
           <section className="welcome-panel" aria-labelledby="welcome-title">
             <div className="welcome-copy">
               <p className="step-kicker">第一步</p>
@@ -163,10 +178,10 @@ function ProjectOverview({ project }: { project: WorkbenchProject }) {
       </div>
       <ol className="step-list">
         {steps.map((step, index) => (
-          <li key={step.id} className={step.id === project.activeStep ? 'current' : ''}>
+          <li key={step.id} className={project.steps[step.id].status === 'active' ? 'current' : ''}>
             <span className="step-number">{String(index + 1).padStart(2, '0')}</span>
             <div><h3>{step.label}</h3><p>{step.hint}</p></div>
-            <span className="step-status">{step.id === project.activeStep ? '当前' : '待开始'}</span>
+            <span className="step-status">{statusLabels[project.steps[step.id].status]}</span>
           </li>
         ))}
       </ol>

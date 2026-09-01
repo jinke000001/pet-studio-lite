@@ -11,7 +11,7 @@ const {
   validateWorkbenchProject,
 } = require('../src/workbench/contracts');
 
-test('creates a versioned project contract with every workflow step pending', () => {
+test('creates a versioned project contract with the project step active', () => {
   const project = createWorkbenchProject({
     id: 'studio-20260901-090000-abc123',
     name: '  小福猩 新版本  ',
@@ -23,7 +23,11 @@ test('creates a versioned project contract with every workflow step pending', ()
   assert.equal(project.name, '小福猩 新版本');
   assert.equal(project.activeStep, 'project');
   assert.deepEqual(Object.keys(project.steps), STEP_IDS);
-  assert.deepEqual(new Set(Object.values(project.steps).map((step) => step.status)), new Set(['pending']));
+  assert.equal(project.steps.project.status, 'active');
+  assert.deepEqual(
+    new Set(STEP_IDS.slice(1).map((stepId) => project.steps[stepId].status)),
+    new Set(['pending']),
+  );
   assert.deepEqual(project.jobs, []);
   assert.deepEqual(project.artifacts, []);
 });

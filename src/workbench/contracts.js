@@ -54,7 +54,10 @@ function createWorkbenchProject({ id, name, now }) {
     createdAt: now,
     updatedAt: now,
     activeStep: 'project',
-    steps: Object.fromEntries(STEP_IDS.map((stepId) => [stepId, { status: 'pending' }])),
+    steps: Object.fromEntries(STEP_IDS.map((stepId) => [
+      stepId,
+      { status: stepId === 'project' ? 'active' : 'pending' },
+    ])),
     jobs: [],
     artifacts: [],
   };

@@ -36,6 +36,9 @@ test('workbench renderer declares a strict CSP and accessible project form', () 
   assert.match(app, /<main/);
   assert.match(app, /<label htmlFor="project-name"/);
   assert.match(app, /aria-live="polite"/);
+  assert.match(app, /action-error/);
+  assert.match(app, /fatalError/);
+  assert.match(app, /setIsCreating\(true\)/);
   assert.doesNotMatch(app, /dangerouslySetInnerHTML/);
 });
 

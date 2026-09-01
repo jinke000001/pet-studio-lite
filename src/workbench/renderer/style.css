@@ -38,6 +38,8 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
 h1 { margin: 0; font-size: clamp(28px, 3vw, 40px); line-height: 1.15; letter-spacing: -.025em; }
 .saved-state { flex: none; padding: 7px 10px; border: 1px solid #bdd0c8; border-radius: 999px; color: #3d6557; background: #edf5f1; font-size: 12px; font-weight: 700; }
 .live-region { min-height: 24px; padding-top: 8px; color: #9a3d32; font-size: 13px; }
+.action-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 6px 0 14px; padding: 10px 12px; border-left: 3px solid #b95649; color: #74352e; background: #fff1ef; font-size: 13px; }
+.action-error button { flex: none; border: 0; color: #74352e; background: transparent; font-weight: 750; }
 .welcome-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(310px, 420px); gap: 64px; align-items: center; min-height: 470px; }
 .welcome-copy h2, .overview-intro h2, .message-panel h2 { margin: 0; font-size: 28px; line-height: 1.2; }
 .welcome-copy > p:last-child, .overview-intro > div > p:last-child { max-width: 570px; color: #647069; line-height: 1.7; }

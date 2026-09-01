@@ -69,7 +69,16 @@ function createProjectStore({
   const recentPath = path.join(workspaceRoot, 'recent.json');
 
   function ensureRoot() {
+    fs.mkdirSync(workspaceRoot, { recursive: true, mode: 0o700 });
+    const workspaceStats = fs.lstatSync(workspaceRoot);
+    if (!workspaceStats.isDirectory() || workspaceStats.isSymbolicLink()) {
+      throw storeError('UNSAFE_WORKSPACE_PATH', '工作台存储目录不安全。');
+    }
     fs.mkdirSync(projectsRoot, { recursive: true, mode: 0o700 });
+    const projectsStats = fs.lstatSync(projectsRoot);
+    if (!projectsStats.isDirectory() || projectsStats.isSymbolicLink()) {
+      throw storeError('UNSAFE_WORKSPACE_PATH', '工作台项目目录不安全。');
+    }
   }
 
   function projectDirectory(projectId) {
@@ -89,11 +98,12 @@ function createProjectStore({
   }
 
   function remember(projectId) {
-    fs.mkdirSync(workspaceRoot, { recursive: true, mode: 0o700 });
+    ensureRoot();
     writeJsonFile(recentPath, { projectId: validateProjectId(projectId) }, { replace: true });
   }
 
   function loadProject(projectId) {
+    ensureRoot();
     const directory = projectDirectory(projectId);
     assertSafeProjectDirectory(directory);
     const projectPath = path.join(directory, 'project.json');
@@ -110,7 +120,7 @@ function createProjectStore({
   }
 
   function listProjects() {
-    if (!fs.existsSync(projectsRoot)) return [];
+    ensureRoot();
     return fs.readdirSync(projectsRoot, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && /^studio-[0-9]{8}-[0-9]{6}-[a-f0-9]{6}$/.test(entry.name))
       .map((entry) => loadProject(entry.name))
@@ -152,6 +162,7 @@ function createProjectStore({
   }
 
   function loadMostRecentProject() {
+    ensureRoot();
     if (!fs.existsSync(recentPath)) return listProjects()[0] || null;
     const recent = readJsonFile(recentPath, 'INVALID_RECENT_FILE', '最近项目记录无效。');
     if (!recent || Object.keys(recent).length !== 1) {
