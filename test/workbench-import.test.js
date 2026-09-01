@@ -114,3 +114,23 @@ test('maps unsafe input failures to actionable Chinese blocking explanations', (
   assert.match(explanation.unaffected, /已有/);
   assert.ok(explanation.action);
 });
+
+test('imports a validated Petdex slug without exposing a URL or breaking local projects on network failure', async () => {
+  const { root, store, project } = makeHarness();
+  const source = makePetDirectory(root, { id: 'remote-sample', version: 2 });
+  const { importPetDirectory } = require('../src/import/directory-importer');
+  const controller = createImportController({
+    store,
+    downloadSlug: async ({ slug, outputRoot, authorizationStatus }) => importPetDirectory({ sourceDirectory: source, outputRoot, sourceType: 'petdex-slug', sourceIdentity: slug, authorizationStatus }),
+  });
+  const updated = await controller.importPetdex({ projectId: project.id, slug: 'remote-sample', authorizationStatus: 'internal-test' });
+  assert.equal(updated.latestImport.sourceType, 'petdex-slug');
+  assert.equal(updated.latestImport.sourceIdentity, 'remote-sample');
+  assert.equal(JSON.stringify(updated).includes('https://'), false);
+
+  const beforeFailure = structuredClone(updated);
+  const offline = createImportController({ store, downloadSlug: async () => { throw Object.assign(new Error('offline'), { code: 'DOWNLOAD_FAILED' }); } });
+  await assert.rejects(offline.importPetdex({ projectId: project.id, slug: 'remote-sample' }), (error) => error.code === 'DOWNLOAD_FAILED');
+  assert.deepEqual(store.loadProject(project.id), beforeFailure);
+  await assert.rejects(controller.importPetdex({ projectId: project.id, slug: '../unsafe' }), (error) => error.code === 'INVALID_IMPORT_INPUT');
+});

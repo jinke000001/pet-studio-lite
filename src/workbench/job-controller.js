@@ -7,6 +7,10 @@ function jobId() { return `job-${Date.now()}-${crypto.randomBytes(3).toString('h
 function createJobController({ store, handlers = {} }) {
   const active = new Map();
 
+  function activeForProject(projectId) {
+    return [...active.values()].some((state) => state.projectId === projectId && !state.cancelled);
+  }
+
   function list(projectId) { return store.loadProject(projectId).jobs; }
 
   function update(projectId, id, patch) {
@@ -17,6 +21,11 @@ function createJobController({ store, handlers = {} }) {
   }
 
   function enqueue(projectId, type, input = {}) {
+    if (activeForProject(projectId)) {
+      const error = new Error('当前项目已有任务运行，请等待、取消或切换后再试。');
+      error.code = 'PROJECT_JOB_ACTIVE';
+      throw error;
+    }
     const createdAt = new Date().toISOString();
     const job = { id: jobId(), type, status: 'queued', progress: 0, step: '排队中', input, createdAt, updatedAt: createdAt, attempts: 1 };
     store.updateProject(projectId, (project) => ({ ...project, jobs: [...project.jobs, job] }));
@@ -44,7 +53,7 @@ function createJobController({ store, handlers = {} }) {
         }
       } finally { active.delete(job.id); }
     });
-    active.set(job.id, { timer, cancelled: false, running: false });
+    active.set(job.id, { projectId, timer, cancelled: false, running: false });
     return job;
   }
 
@@ -65,7 +74,17 @@ function createJobController({ store, handlers = {} }) {
     return enqueue(projectId, job.type, job.input);
   }
 
-  return { enqueue, list, cancel, retry };
+  function cancelProject(projectId) {
+    return [...active.entries()]
+      .filter(([, state]) => state.projectId === projectId)
+      .map(([id]) => cancel(projectId, id));
+  }
+
+  function shutdown() {
+    for (const [id, state] of [...active.entries()]) cancel(state.projectId, id);
+  }
+
+  return { enqueue, list, cancel, cancelProject, retry, shutdown };
 }
 
 module.exports = { createJobController };

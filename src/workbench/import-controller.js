@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const { importPetDirectory } = require('../import/directory-importer');
 const { importPetZip } = require('../import/zip-importer');
+const { downloadPetdexSlug } = require('../import/petdex-adapter');
 const { STANDARD_STATES } = require('../core/pet-package');
 
 const MAX_ATLAS_BYTES = 64 * 1024 * 1024;
@@ -71,31 +72,11 @@ function createImportController({
   store,
   importDirectory = importPetDirectory,
   importZip = importPetZip,
+  downloadSlug = downloadPetdexSlug,
 }) {
   if (!store) throw new Error('store is required');
 
-  async function importSource({ projectId, sourceType, sourcePath, authorizationStatus }) {
-    store.loadProject(projectId);
-    if (!['directory', 'zip'].includes(sourceType) || !path.isAbsolute(sourcePath)) {
-      const error = new Error('导入来源无效。');
-      error.code = 'INVALID_IMPORT_INPUT';
-      throw error;
-    }
-    const outputRoot = store.resolveProjectPath(projectId, 'workspace', 'imports');
-    const sourceIdentity = deriveSourceIdentity(sourcePath, sourceType);
-    const result = sourceType === 'directory'
-      ? importDirectory({
-        sourceDirectory: sourcePath,
-        outputRoot,
-        sourceIdentity,
-        authorizationStatus,
-      })
-      : await importZip({
-        zipPath: sourcePath,
-        outputRoot,
-        sourceIdentity,
-        authorizationStatus,
-      });
+  function persistResult({ projectId, sourceType, sourceLabel, sourceIdentity, authorizationStatus, result }) {
     const relativeDirectory = path.relative(
       store.resolveProjectPath(projectId, 'workspace'),
       result.importDirectory,
@@ -111,7 +92,7 @@ function createImportController({
     const latestImport = {
       id: importId,
       sourceType,
-      sourceLabel: safeSourceLabel(sourcePath),
+      sourceLabel,
       sourceIdentity,
       authorizationStatus,
       importedAt: result.report.importedAt,
@@ -135,24 +116,49 @@ function createImportController({
     return store.updateProject(projectId, (project) => ({
       ...project,
       activeStep: 'preview',
-      steps: {
-        ...project.steps,
-        project: { status: 'completed' },
-        import: { status: 'completed' },
-        validate: { status: 'completed' },
-        preview: { status: 'active' },
-      },
+      steps: { ...project.steps, project: { status: 'completed' }, import: { status: 'completed' }, validate: { status: 'completed' }, preview: { status: 'active' } },
       latestImport,
-      artifacts: [
-        ...project.artifacts.filter((artifact) => artifact.id !== artifactId),
-        {
-          id: artifactId,
-          kind: 'standardPackage',
-          relativePath: `workspace/${relativeDirectory}/package`,
-          createdAt: result.report.importedAt,
-        },
-      ],
+      artifacts: [...project.artifacts.filter((artifact) => artifact.id !== artifactId), { id: artifactId, kind: 'standardPackage', relativePath: `workspace/${relativeDirectory}/package`, createdAt: result.report.importedAt }],
     }));
+  }
+
+  async function importSource({ projectId, sourceType, sourcePath, authorizationStatus }) {
+    store.loadProject(projectId);
+    if (!['directory', 'zip'].includes(sourceType) || !path.isAbsolute(sourcePath)) {
+      const error = new Error('导入来源无效。');
+      error.code = 'INVALID_IMPORT_INPUT';
+      throw error;
+    }
+    const outputRoot = store.resolveProjectPath(projectId, 'workspace', 'imports');
+    const sourceIdentity = deriveSourceIdentity(sourcePath, sourceType);
+    const result = sourceType === 'directory'
+      ? importDirectory({
+        sourceDirectory: sourcePath,
+        outputRoot,
+        sourceIdentity,
+        authorizationStatus,
+      })
+      : await importZip({
+        zipPath: sourcePath,
+        outputRoot,
+        sourceIdentity,
+        authorizationStatus,
+      });
+    return persistResult({ projectId, sourceType, sourceLabel: safeSourceLabel(sourcePath), sourceIdentity, authorizationStatus, result });
+  }
+
+  async function importPetdex({ projectId, slug, authorizationStatus = 'internal-test' }, context = {}) {
+    store.loadProject(projectId);
+    if (typeof slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 64) {
+      const error = new Error('Petdex slug 应使用小写字母、数字和连字符。');
+      error.code = 'INVALID_IMPORT_INPUT';
+      throw error;
+    }
+    context.report?.(15, '连接 Petdex');
+    const outputRoot = store.resolveProjectPath(projectId, 'workspace', 'imports');
+    const result = await downloadSlug({ slug, outputRoot, authorizationStatus });
+    context.report?.(80, '验证下载的宠物包');
+    return persistResult({ projectId, sourceType: 'petdex-slug', sourceLabel: `Petdex: ${slug}`, sourceIdentity: slug, authorizationStatus, result });
   }
 
   function loadPreview(projectId) {
@@ -195,7 +201,7 @@ function createImportController({
     };
   }
 
-  return { importSource, loadPreview };
+  return { importPetdex, importSource, loadPreview };
 }
 
 module.exports = { createImportController, deriveSourceIdentity, explainImportError };

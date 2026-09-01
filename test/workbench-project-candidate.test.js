@@ -73,3 +73,23 @@ test('rejects invalid or duplicate candidate targets before spawning', async () 
     await assert.rejects(controllerFor(value).build(value.project.id, { targets }, context), (error) => error.code === 'INVALID_BUILD_TARGET');
   }
 });
+
+test('cleans partial candidate payloads while preserving cancellation evidence', async () => {
+  const value = harness();
+  const cancelledContext = { report() {}, isCancelled: () => true, setCancel() {} };
+  const controller = controllerFor(value, {
+    spawnBuilder: async (_command, options) => {
+      const configPath = options.args[options.args.indexOf('--config') + 1];
+      const config = JSON.parse(fs.readFileSync(configPath));
+      fs.mkdirSync(config.directories.output, { recursive: true });
+      fs.writeFileSync(path.join(config.directories.output, 'partial.bin'), 'partial');
+      return { code: null, signal: 'SIGTERM', stdout: '', stderr: '' };
+    },
+  });
+  await assert.rejects(controller.build(value.project.id, { targets: ['mac'] }, cancelledContext), (error) => error.code === 'BUILD_CANCELLED');
+  const exportsRoot = value.store.resolveProjectPath(value.project.id, 'workspace', 'exports');
+  const runDirectory = path.join(exportsRoot, fs.readdirSync(exportsRoot)[0]);
+  assert.equal(fs.existsSync(path.join(runDirectory, 'artifacts')), false);
+  assert.equal(fs.existsSync(path.join(runDirectory, 'generated')), false);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(runDirectory, 'build-cancelled.json'))).status, 'cancelled');
+});

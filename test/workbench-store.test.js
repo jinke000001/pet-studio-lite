@@ -102,3 +102,13 @@ test('updates projects atomically and resolves only project-owned paths', () => 
     (error) => error.code === 'UNSAFE_PROJECT_PATH',
   );
 });
+
+test('marks unfinished jobs interrupted only during explicit startup recovery', () => {
+  const { store } = makeStore();
+  const project = store.createProject({ name: 'recovery' });
+  store.updateProject(project.id, (current) => ({ ...current, jobs: [{ id: 'job-1', type: 'export', status: 'running', progress: 50 }] }));
+  assert.equal(store.loadProject(project.id).jobs[0].status, 'running');
+  assert.equal(store.recoverInterruptedJobs(), 1);
+  assert.equal(store.loadProject(project.id).jobs[0].status, 'interrupted');
+  assert.equal(store.recoverInterruptedJobs(), 0);
+});

@@ -60,3 +60,19 @@ test('rejects renderer-supplied paths before opening the picker', async () => {
     path: '/tmp/escape',
   }), (error) => error.code === 'INVALID_IMPORT_INPUT');
 });
+
+test('queues a selected local source with an opaque renderer response', async () => {
+  const selectedPath = '/private/source/pet';
+  let queued;
+  const handler = createImportSelectionHandler({
+    dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [selectedPath] }) },
+    getWindow: () => ({}),
+    importController: { importSource: async () => { throw new Error('must not import inline'); } },
+    enqueueImport: (input) => { queued = input; return { id: 'job-1', type: 'import', status: 'queued' }; },
+  });
+  const result = await handler({ projectId: 'studio-20260901-090000-abc123', sourceType: 'directory', authorizationStatus: 'internal-test' });
+  assert.equal(queued.sourcePath, selectedPath);
+  assert.equal(result.project, null);
+  assert.equal(JSON.stringify(result).includes(selectedPath), false);
+  assert.equal(result.job.id, 'job-1');
+});

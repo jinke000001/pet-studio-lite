@@ -135,12 +135,6 @@ function createProjectStore({
       throw storeError('INVALID_PROJECT_FILE', '制作项目文件无效。', error);
     }
     if (project.id !== projectId) throw storeError('INVALID_PROJECT_FILE', '制作项目身份不一致。');
-    const interrupted = project.jobs.some((job) => job.status === 'queued' || job.status === 'running');
-    if (interrupted) {
-      project.jobs = project.jobs.map((job) => ['queued', 'running'].includes(job.status)
-        ? { ...job, status: 'interrupted', step: '工作台重启时任务未完成', updatedAt: new Date().toISOString() } : job);
-      writeJsonFile(projectPath, project, { replace: true });
-    }
     return project;
   }
 
@@ -214,12 +208,29 @@ function createProjectStore({
     return loadProject(validateProjectId(recent.projectId));
   }
 
+  function recoverInterruptedJobs() {
+    let recovered = 0;
+    for (const project of listProjects()) {
+      const count = project.jobs.filter((job) => job.status === 'queued' || job.status === 'running').length;
+      if (!count) continue;
+      updateProject(project.id, (current) => ({
+        ...current,
+        jobs: current.jobs.map((job) => ['queued', 'running'].includes(job.status)
+          ? { ...job, status: 'interrupted', step: '工作台重启时任务未完成', updatedAt: now().toISOString() }
+          : job),
+      }));
+      recovered += count;
+    }
+    return recovered;
+  }
+
   return {
     createProject,
     listProjects,
     loadMostRecentProject,
     loadProject,
     openProject,
+    recoverInterruptedJobs,
     resolveProjectPath,
     updateProject,
   };

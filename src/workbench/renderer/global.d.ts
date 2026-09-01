@@ -27,6 +27,9 @@ declare global {
       exportStandardPackage(projectId: string): Promise<WorkbenchResult<WorkbenchProject>>;
       listJobs(projectId: string): Promise<WorkbenchResult<unknown[]>>;
       startExportJob(projectId: string): Promise<WorkbenchResult<unknown>>;
+      startPetdexJob(input: { projectId: string; slug: string; authorizationStatus: AuthorizationStatus }): Promise<WorkbenchResult<unknown>>;
+      duplicateProject(input: { projectId: string; name?: string }): Promise<WorkbenchResult<WorkbenchBootstrap>>;
+      revealArtifact(input: { projectId: string; artifactId: string }): Promise<WorkbenchResult<{ artifactId: string; revealed: true }>>;
       startCandidateJob(input: { projectId: string; targets: Array<'mac' | 'win'> }): Promise<WorkbenchResult<unknown>>;
       cancelJob(input: { projectId: string; jobId: string }): Promise<WorkbenchResult<unknown>>;
       retryJob(input: { projectId: string; jobId: string }): Promise<WorkbenchResult<unknown>>;

@@ -62,3 +62,30 @@ test('cancelling a running build invokes its registered process cleanup', async 
   await new Promise((resolve) => setTimeout(resolve, 120));
   assert.equal(store.loadProject(project.id).jobs[0].status, 'cancelled');
 });
+
+test('rejects duplicate active work in one project and cancels all work on shutdown', async () => {
+  const { store, project } = harness();
+  let release;
+  const jobs = createJobController({ store, handlers: { build: async () => new Promise((resolve) => { release = resolve; }) } });
+  const first = jobs.enqueue(project.id, 'build');
+  assert.throws(() => jobs.enqueue(project.id, 'export'), (error) => error.code === 'PROJECT_JOB_ACTIVE');
+  await new Promise((resolve) => setImmediate(resolve));
+  jobs.shutdown();
+  assert.equal(store.loadProject(project.id).jobs.find((job) => job.id === first.id).status, 'cancelled');
+  release?.();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(store.loadProject(project.id).jobs.find((job) => job.id === first.id).status, 'cancelled');
+});
+
+test('polling active jobs does not mark them interrupted', async () => {
+  const { store, project } = harness();
+  let release;
+  const jobs = createJobController({ store, handlers: { export: () => new Promise((resolve) => { release = resolve; }) } });
+  jobs.enqueue(project.id, 'export');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(jobs.list(project.id)[0].status, 'running');
+  assert.equal(jobs.list(project.id)[0].status, 'running');
+  release();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(jobs.list(project.id)[0].status, 'succeeded');
+});

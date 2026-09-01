@@ -25,6 +25,8 @@ const jobStatusLabels: Record<JobStatus, string> = {
 };
 
 const jobTypeLabels: Record<string, string> = {
+  import: '本地导入',
+  'petdex-import': 'Petdex 导入',
   build: '候选构建',
   export: '项目导出',
 };
@@ -100,6 +102,8 @@ export function ProjectWorkspace({
   const [petStatus, setPetStatus] = useState(previewStatus);
   const [product, setProduct] = useState({ productName: project.product?.productName as string ?? '', version: project.product?.version as string ?? '0.1.0', productId: project.product?.productId as string ?? `${project.id}-product`, appId: project.product?.appId as string ?? `com.jinke.${project.id}`, executableName: project.product?.executableName as string ?? 'DesktopPetCandidate', artifactName: project.product?.artifactName as string ?? 'desktop-pet-candidate', targets: (project.product?.targets as Array<'mac' | 'win'> | undefined) ?? ['mac'] });
   const [jobs, setJobs] = useState<Array<WorkbenchJob>>([]);
+  const [petdexSlug, setPetdexSlug] = useState('');
+  const refreshedImports = useRef(new Set<string>());
 
   useEffect(() => {
     setPreview(null);
@@ -114,7 +118,17 @@ export function ProjectWorkspace({
 
   useEffect(() => {
     let mounted = true;
-    const refresh = () => window.workbenchApi.listJobs(project.id).then((result) => { if (mounted && result.ok) setJobs(result.value as Array<WorkbenchJob>); }).catch(() => {});
+    const refresh = () => window.workbenchApi.listJobs(project.id).then(async (result) => {
+      if (!mounted || !result.ok) return;
+      const nextJobs = result.value as Array<WorkbenchJob>;
+      setJobs(nextJobs);
+      const completedImport = nextJobs.find((job) => ['import', 'petdex-import'].includes(job.type) && job.status === 'succeeded' && !refreshedImports.current.has(job.id));
+      if (completedImport) {
+        refreshedImports.current.add(completedImport.id);
+        const opened = await window.workbenchApi.openProject(project.id);
+        if (mounted && opened.ok && opened.value.activeProject) onProjectChange(opened.value.activeProject);
+      }
+    }).catch(() => {});
     refresh(); const timer = window.setInterval(refresh, 1000);
     return () => { mounted = false; window.clearInterval(timer); };
   }, [project.id, project.updatedAt]);
@@ -162,6 +176,13 @@ export function ProjectWorkspace({
     } finally {
       setBusy('');
     }
+  }
+
+  async function importPetdex() {
+    setBusy('petdex'); onError(''); setInfoNote('');
+    const result = await window.workbenchApi.startPetdexJob({ projectId: project.id, slug: petdexSlug.trim(), authorizationStatus });
+    if (!result.ok) onError(errorMessage(result)); else setInfoNote('Petdex 下载已进入后台；离线或网络失败不会改变已有本地项目。');
+    setBusy('');
   }
 
   async function saveProduct() {
@@ -213,6 +234,18 @@ export function ProjectWorkspace({
     setBusy('');
   }
 
+  async function duplicateProject() {
+    setBusy('duplicate'); onError('');
+    const result = await window.workbenchApi.duplicateProject({ projectId: project.id, name: `${project.name} 新版本` });
+    if (result.ok && result.value.activeProject) onProjectChange(result.value.activeProject); else if (!result.ok) onError(errorMessage(result));
+    setBusy('');
+  }
+
+  async function revealArtifact(artifactId: string) {
+    const result = await window.workbenchApi.revealArtifact({ projectId: project.id, artifactId });
+    if (!result.ok) onError(errorMessage(result));
+  }
+
   const imported = project.latestImport;
   const runningHere = petStatus.status === 'running' && petStatus.projectId === project.id;
   const interruptedJobs = jobs.filter((job) => job.status === 'interrupted');
@@ -251,6 +284,9 @@ export function ProjectWorkspace({
               {busy === 'import-zip' ? '正在导入…' : '选择 ZIP'}
             </button>
           </div>
+          <label htmlFor="petdex-slug">Petdex slug</label>
+          <div className="button-row"><input id="petdex-slug" value={petdexSlug} onChange={(event) => setPetdexSlug(event.target.value)} placeholder="例如 doraemon" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" /><button type="button" className="secondary" onClick={importPetdex} disabled={Boolean(busy) || !petdexSlug.trim()}>{busy === 'petdex' ? '排队中…' : '从 Petdex 导入'}</button></div>
+          <p className="field-hint">只有此操作需要网络；失败或离线不会影响目录/ZIP 导入、已有项目和预览。</p>
           {imported && <p className="source-summary">最近来源：<strong>{imported.sourceLabel}</strong><br />安全标识：{imported.sourceIdentity}</p>}
         </section>
 
@@ -376,6 +412,12 @@ export function ProjectWorkspace({
             })}
           </ul>
         )}
+      </section>
+      <section className="tool-panel" aria-labelledby="artifacts-title">
+        <p className="panel-index">06</p><h3 id="artifacts-title">历史与产物</h3>
+        <button type="button" className="secondary" onClick={duplicateProject} disabled={Boolean(busy)}>{busy === 'duplicate' ? '复制中…' : '复制为新版本'}</button>
+        {project.artifacts.length === 0 ? <p className="empty-copy">暂无产物。</p> : <ul className="job-list">{(project.artifacts as Array<{ id: string; kind: string; createdAt?: string }>).slice().reverse().map((artifact) => <li key={artifact.id} className="job-row succeeded"><div className="job-main"><strong>{artifact.kind}</strong><span>{artifact.createdAt ?? '时间未记录'}</span></div><button type="button" className="job-action" onClick={() => revealArtifact(artifact.id)}>在 Finder 中定位</button></li>)}</ul>}
+        <p className="field-hint">界面只发送项目内产物 ID；主进程验证归属后定位，不向页面返回绝对路径。</p>
       </section>
     </section>
   );

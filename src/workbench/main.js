@@ -1,7 +1,8 @@
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 
 const { createProjectStore } = require('./project-store');
 const { validateProjectId } = require('./contracts');
@@ -11,6 +12,7 @@ const { createPreviewController } = require('./preview-controller');
 const { createProductController } = require('./product-controller');
 const { createJobController } = require('./job-controller');
 const { createCandidateController } = require('./candidate-controller');
+const { createWorkspaceController } = require('./workspace-controller');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const RENDERER_ENTRY = path.join(PROJECT_ROOT, '.workbench-dist', 'index.html');
@@ -32,6 +34,7 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 
 const store = createProjectStore({ workspaceRoot: userDataPath });
+store.recoverInterruptedJobs();
 const importController = createImportController({ store });
 const previewController = createPreviewController({
   store,
@@ -40,9 +43,20 @@ const previewController = createPreviewController({
 });
 const productController = createProductController({ store });
 const candidateController = createCandidateController({ store, applicationRoot: PROJECT_ROOT });
+const workspaceController = createWorkspaceController({ store, reveal: (target) => shell.showItemInFolder(target) });
+const selectedSources = new Map();
 const jobs = createJobController({
   store,
   handlers: {
+    import: async (projectId, input, context) => {
+      const selected = selectedSources.get(input.selectionToken);
+      if (!selected || selected.projectId !== projectId) {
+        const error = new Error('导入选择已失效，请重新选择素材。'); error.code = 'IMPORT_SELECTION_EXPIRED'; throw error;
+      }
+      context.report(20, '复制并检查素材');
+      return importController.importSource(selected);
+    },
+    'petdex-import': (projectId, input, context) => importController.importPetdex({ projectId, slug: input.slug, authorizationStatus: input.authorizationStatus }, context),
     export: (projectId) => productController.exportProject(projectId),
     build: (projectId, input, context) => candidateController.build(projectId, input, context),
   },
@@ -52,6 +66,11 @@ const selectImport = createImportSelectionHandler({
   dialog,
   getWindow: () => window,
   importController,
+  enqueueImport: (selected) => {
+    const selectionToken = crypto.randomBytes(16).toString('hex');
+    selectedSources.set(selectionToken, selected);
+    return jobs.enqueue(selected.projectId, 'import', { selectionToken });
+  },
 });
 
 function assertTrustedSender(event) {
@@ -92,6 +111,7 @@ function registerIpc() {
     return bootstrap(activeProject);
   });
   registerHandler('workbench:open-project', async (projectId) => {
+    jobs.cancelProject(store.loadMostRecentProject()?.id);
     await previewController.stop();
     const activeProject = store.openProject(projectId);
     return bootstrap(activeProject);
@@ -114,6 +134,9 @@ function registerIpc() {
   registerHandler('workbench:export-standard-package', (projectId) => productController.exportStandardPackage(validateProjectId(projectId)));
   registerHandler('workbench:list-jobs', (projectId) => jobs.list(validateProjectId(projectId)));
   registerHandler('workbench:start-export-job', ({ projectId }) => jobs.enqueue(validateProjectId(projectId), 'export'));
+  registerHandler('workbench:start-petdex-job', ({ projectId, slug, authorizationStatus }) => jobs.enqueue(validateProjectId(projectId), 'petdex-import', { slug, authorizationStatus }));
+  registerHandler('workbench:duplicate-project', ({ projectId, name }) => bootstrap(workspaceController.duplicate(validateProjectId(projectId), name)));
+  registerHandler('workbench:reveal-artifact', ({ projectId, artifactId }) => workspaceController.revealArtifact(validateProjectId(projectId), artifactId));
   registerHandler('workbench:start-candidate-job', ({ projectId, targets }) => jobs.enqueue(validateProjectId(projectId), 'build', { targets }));
   registerHandler('workbench:cancel-job', ({ projectId, jobId }) => jobs.cancel(validateProjectId(projectId), jobId));
   registerHandler('workbench:retry-job', ({ projectId, jobId }) => jobs.retry(validateProjectId(projectId), jobId));
@@ -164,6 +187,6 @@ app.on('second-instance', () => {
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => { previewController.stop(); });
+app.on('before-quit', () => { jobs.shutdown(); selectedSources.clear(); previewController.stop(); });
 
 module.exports = { assertTrustedSender, publicError };

@@ -1,6 +1,6 @@
 const STEP_IDS = Object.freeze(['project', 'import', 'validate', 'preview', 'product', 'export']);
 const STEP_STATUSES = Object.freeze(['pending', 'active', 'completed', 'blocked']);
-const JOB_TYPES = Object.freeze(['import', 'preview', 'build', 'export']);
+const JOB_TYPES = Object.freeze(['import', 'petdex-import', 'preview', 'build', 'export']);
 const JOB_STATUSES = Object.freeze(['queued', 'running', 'succeeded', 'failed', 'cancelled', 'interrupted']);
 const ARTIFACT_KINDS = Object.freeze([
   'sourceSnapshot',

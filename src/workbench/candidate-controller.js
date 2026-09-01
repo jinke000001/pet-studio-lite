@@ -8,6 +8,11 @@ const { discoverCandidateArtifacts } = require('../build/build-runner');
 
 function candidateError(code, message) { const error = new Error(message); error.code = code; return error; }
 
+function recordCancelledRun(runDirectory) {
+  for (const name of ['artifacts', 'generated']) fs.rmSync(path.join(runDirectory, name), { recursive: true, force: true });
+  fs.writeFileSync(path.join(runDirectory, 'build-cancelled.json'), `${JSON.stringify({ status: 'cancelled', cancelledAt: new Date().toISOString(), cleaned: ['artifacts', 'generated'] }, null, 2)}\n`, { flag: 'wx' });
+}
+
 function runBuilder(command, options, context) {
   return new Promise((resolve, reject) => {
     const child = childProcess.spawn(command, options.args, options.spawnOptions);
@@ -61,8 +66,11 @@ function createCandidateController({
     const cli = path.join(applicationRoot, 'node_modules', 'electron-builder', 'out', 'cli', 'cli.js');
     const result = await spawnBuilder(process.execPath, { args: [cli, '--publish', 'never', '--config', configPath, ...targets.map((target) => `--${target}`)], spawnOptions: { cwd: applicationRoot, env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false', ELECTRON_BUILDER_PUBLISH: 'never' }, stdio: ['ignore', 'pipe', 'pipe'] } }, context);
     fs.writeFileSync(path.join(runDirectory, 'builder.log'), `${result.stdout}${result.stderr}`);
-    if (context.isCancelled()) throw candidateError('BUILD_CANCELLED', '候选构建已取消。');
-    if (result.code !== 0) throw candidateError('BUILD_FAILED', `候选构建失败，证据已保留：${runId}`);
+    if (context.isCancelled()) { recordCancelledRun(runDirectory); throw candidateError('BUILD_CANCELLED', '候选构建已取消。'); }
+    if (result.code !== 0) {
+      fs.writeFileSync(path.join(runDirectory, 'build-failure.json'), `${JSON.stringify({ status: result.code, signal: result.signal || null }, null, 2)}\n`, { flag: 'wx' });
+      throw candidateError('BUILD_FAILED', `候选构建失败，证据已保留：${runId}`);
+    }
     context.report(85, '核对候选身份与哈希');
     const artifactPaths = discoverArtifacts(runDirectory);
     const asars = artifactPaths.filter((file) => path.basename(file) === 'app.asar').map((asarPath) => ({ path: path.relative(runDirectory, asarPath).replaceAll(path.sep, '/'), ...inspectAsar({ asarPath, selector }) }));
@@ -78,4 +86,4 @@ function createCandidateController({
   return { build };
 }
 
-module.exports = { createCandidateController };
+module.exports = { createCandidateController, recordCancelledRun };
