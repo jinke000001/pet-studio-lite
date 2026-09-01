@@ -9,4 +9,6 @@
 
 自动门：108/108、typecheck、build、lint 通过。
 
-剩余：完整 GUI 导入到导出复验、Windows 独立交接包/checksums、最终审查和 MEMORY 收口；因此 Phase 6.6 尚未关闭。
+Windows 独立验收交接已生成：`release/handoff/phase-6-workbench-windows-acceptance-20260901-01/`，含 PRD、执行提示词、报告模板、PowerShell RETURN 检查脚本、提交 `a0cada4` source ZIP 和 checksums；5/5 清单条目通过，`checksums.sha256` SHA-256 为 `77e0f8c49fe40901067c23298ed9bac6d362fcf0d535bc192286adf65e83eb77`。结论仅为“Windows 验收准备完成/待回传”。
+
+剩余：完整 GUI 导入到导出复验、最终审查和 MEMORY 收口；因此 Phase 6.6 尚未关闭。
