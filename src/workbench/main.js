@@ -130,6 +130,7 @@ function registerHandler(channel, callback) {
       assertTrustedSender(event);
       return { ok: true, value: await callback(input) };
     } catch (error) {
+      log(`ipc-error channel=${channel} code=${error?.code || 'UNKNOWN'} message=${error?.message || error}`);
       return { ok: false, error: publicError(error) };
     }
   });
