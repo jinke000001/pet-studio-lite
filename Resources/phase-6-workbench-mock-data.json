@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "scenarios": {
+    "empty": {
+      "projects": [],
+      "activeProject": null
+    },
+    "active": {
+      "projects": [
+        {
+          "schemaVersion": 1,
+          "id": "studio-20260901-090000-abc123",
+          "name": "小福猩秋季版本",
+          "createdAt": "2026-09-01T09:00:00.000Z",
+          "updatedAt": "2026-09-01T09:00:00.000Z",
+          "activeStep": "project",
+          "steps": {
+            "project": { "status": "active" },
+            "import": { "status": "pending" },
+            "validate": { "status": "pending" },
+            "preview": { "status": "pending" },
+            "product": { "status": "pending" },
+            "export": { "status": "pending" }
+          },
+          "jobs": [],
+          "artifacts": []
+        },
+        {
+          "schemaVersion": 1,
+          "id": "studio-20260831-153000-def456",
+          "name": "Doraemon 兼容检查",
+          "createdAt": "2026-08-31T15:30:00.000Z",
+          "updatedAt": "2026-08-31T16:10:00.000Z",
+          "activeStep": "preview",
+          "steps": {
+            "project": { "status": "completed" },
+            "import": { "status": "completed" },
+            "validate": { "status": "completed" },
+            "preview": { "status": "active" },
+            "product": { "status": "pending" },
+            "export": { "status": "pending" }
+          },
+          "jobs": [],
+          "artifacts": []
+        }
+      ],
+      "activeProject": {
+        "schemaVersion": 1,
+        "id": "studio-20260901-090000-abc123",
+        "name": "小福猩秋季版本",
+        "createdAt": "2026-09-01T09:00:00.000Z",
+        "updatedAt": "2026-09-01T09:00:00.000Z",
+        "activeStep": "project",
+        "steps": {
+          "project": { "status": "active" },
+          "import": { "status": "pending" },
+          "validate": { "status": "pending" },
+          "preview": { "status": "pending" },
+          "product": { "status": "pending" },
+          "export": { "status": "pending" }
+        },
+        "jobs": [],
+        "artifacts": []
+      }
+    }
+  },
+  "errors": [
+    {
+      "code": "INVALID_PROJECT_NAME",
+      "title": "项目名称需要调整",
+      "message": "项目名称应为 1 到 80 个可见字符。",
+      "actionLabel": "返回修改"
+    },
+    {
+      "code": "PROJECT_EXISTS",
+      "title": "这个版本已经存在",
+      "message": "同一版本的制作项目已存在，现有内容没有被覆盖。",
+      "actionLabel": "创建新版本"
+    },
+    {
+      "code": "INVALID_PROJECT_FILE",
+      "title": "项目文件无法读取",
+      "message": "项目文件不完整或已被修改，工作台没有继续加载它。",
+      "actionLabel": "查看其他项目"
+    }
+  ]
+}
