@@ -11,6 +11,9 @@
     "postinstall": "node node_modules/electron/install.js",
     "start": "node scripts/source-preflight.js && electron .",
     "pet": "node scripts/source-preflight.js && node scripts/start-pet.js",
+    "studio": "npm run studio:build && node scripts/source-preflight.js && electron src/workbench/main.js",
+    "studio:build": "vite build --config vite.workbench.config.mjs",
+    "studio:typecheck": "tsc -p tsconfig.workbench.json --noEmit",
     "source:preflight": "node scripts/source-preflight.js",
     "import-pet": "node scripts/import-pet.js",
     "build-pet": "node scripts/build-pet.js",
@@ -20,10 +23,17 @@
   },
   "devDependencies": {
     "@electron/asar": "^3.4.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.1",
     "electron": "43.4.1",
-    "electron-builder": "26.15.3"
+    "electron-builder": "26.15.3",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
   },
   "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "yauzl": "3.4.0"
   }
 }

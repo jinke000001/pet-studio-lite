@@ -1,0 +1,112 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { app, BrowserWindow, ipcMain } = require('electron');
+
+const { createProjectStore } = require('./project-store');
+
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+const RENDERER_ENTRY = path.join(PROJECT_ROOT, '.workbench-dist', 'index.html');
+const TRUSTED_RENDERER_URL = pathToFileURL(RENDERER_ENTRY).href;
+const PUBLIC_ERROR_CODES = new Set([
+  'INVALID_PROJECT_FILE', 'INVALID_PROJECT_ID', 'INVALID_PROJECT_INPUT',
+  'INVALID_PROJECT_NAME', 'PROJECT_EXISTS', 'PROJECT_NOT_FOUND', 'UNSAFE_PROJECT_PATH',
+]);
+
+app.setName('桌宠制作台');
+const userDataOverride = process.env.DESKTOP_PET_STUDIO_USER_DATA;
+const userDataPath = userDataOverride && path.isAbsolute(userDataOverride)
+  ? path.resolve(userDataOverride)
+  : path.join(app.getPath('appData'), 'DesktopPetWorkflow', 'studio');
+app.setPath('userData', userDataPath);
+app.setAppUserModelId('com.jinke.desktop-pet.studio');
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+
+const store = createProjectStore({ workspaceRoot: userDataPath });
+let window;
+
+function assertTrustedSender(event) {
+  if (event.senderFrame?.url !== TRUSTED_RENDERER_URL) {
+    const error = new Error('不受信任的工作台请求。');
+    error.code = 'UNTRUSTED_RENDERER';
+    throw error;
+  }
+}
+
+function publicError(error) {
+  if (error && PUBLIC_ERROR_CODES.has(error.code)) return { code: error.code, message: error.message };
+  return { code: 'WORKBENCH_ERROR', message: '工作台暂时无法完成此操作，请重试。' };
+}
+
+function registerHandler(channel, callback) {
+  ipcMain.handle(channel, async (event, input) => {
+    try {
+      assertTrustedSender(event);
+      return { ok: true, value: await callback(input) };
+    } catch (error) {
+      return { ok: false, error: publicError(error) };
+    }
+  });
+}
+
+function registerIpc() {
+  registerHandler('workbench:get-bootstrap', () => ({
+    projects: store.listProjects(),
+    activeProject: store.loadMostRecentProject(),
+  }));
+  registerHandler('workbench:create-project', (input) => {
+    const activeProject = store.createProject(input);
+    return { projects: store.listProjects(), activeProject };
+  });
+  registerHandler('workbench:open-project', (projectId) => {
+    const activeProject = store.openProject(projectId);
+    return { projects: store.listProjects(), activeProject };
+  });
+}
+
+function createWindow() {
+  if (!fs.existsSync(RENDERER_ENTRY)) throw new Error('工作台前端尚未构建，请先运行 npm run studio:build。');
+  window = new BrowserWindow({
+    width: 1180,
+    height: 760,
+    minWidth: 920,
+    minHeight: 620,
+    title: '桌宠制作台',
+    backgroundColor: '#f5f3ee',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+    },
+  });
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.on('will-navigate', (event, url) => {
+    if (url !== TRUSTED_RENDERER_URL) event.preventDefault();
+  });
+  window.once('ready-to-show', () => window?.show());
+  window.loadFile(RENDERER_ENTRY);
+  window.on('closed', () => { window = undefined; });
+}
+
+app.whenReady().then(() => {
+  registerIpc();
+  createWindow();
+  console.log('studio-ready');
+  app.on('activate', () => { if (!window) createWindow(); });
+});
+
+app.on('second-instance', () => {
+  if (!window) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+});
+
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+module.exports = { assertTrustedSender, publicError };
