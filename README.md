@@ -43,6 +43,16 @@ npm run pet -- xiaofuxing
 
 产品配置位于 `config/products/`。角色工作副本位于被 Git 忽略的 `local-pets/`，原始 Wukong 交付目录和 `~/.codex/pets/` 不会被运行器修改。
 
+## 桌宠制作台（Phase 6.1）
+
+安装依赖后启动独立工作台：
+
+```bash
+npm run studio
+```
+
+当前工作台可以创建版本化制作项目、列出历史项目并在完整重启后恢复最近项目。目录/ZIP 导入、校验、动作预览、产品配置和导出将在 Phase 6.2–6.4 接入；当前壳层不是打包候选，也没有 Windows installed-mode 验收结论。
+
 ## 导入宠物
 
 导入结果默认写入被 Git 忽略的 `imports/`，使用内容与来源摘要生成非覆盖目录。每份结果包含原始来源快照、标准宠物包、JSON/Markdown 报告、SVG 联系表和离线动作预览。

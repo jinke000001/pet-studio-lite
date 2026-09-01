@@ -60,9 +60,10 @@
 ## Phase 6 当前状态
 
 - 2026-09-01 用户确认“桌宠制作台 MVP”PRD 并创建目标模式，先由 Codex 执行 Phase 6.1–6.4，Kimi 在 Phase 6.5 负责视觉与展示层，最后由 Codex 集成和验证。
-- 当前进入 Phase 6.1：定义项目/步骤/任务/错误/产物契约，新增独立安全工作台壳层，建立版本化非覆盖项目存储与关闭后恢复，并准备 Kimi 设计交接包。
+- Phase 6.1 已完成：项目/步骤/任务/错误/产物契约、独立安全 Electron 壳层、React + TypeScript renderer、版本化非覆盖项目存储、关闭后恢复和 Kimi 设计交接包均已落地。
 - 实施分支为 `codex/phase-6-1-workbench`，起点提交 `d78de60`；现有五个桌宠、历史候选、证据、原始素材、RETURN 和用户宠物目录保持不变。
 - 完整 PRD 与阶段计划位于 `tasks/phase-6-workbench-prd.md`。商业发布体系继续暂缓，Phase 6 MVP 不包含 AI 动作生成、逐帧编辑、签名、公证、商城、支付、DRM 或自动更新。
+- 验证为 91/91 测试、TypeScript、Vite 生产构建、lint、source preflight、npm audit 0 vulnerabilities 和 macOS 真实“新建 → 完整重启 → 恢复”；下一确认门是用户审查 Phase 6.1 后再进入 Phase 6.2。
 
 ## 文件索引
 
@@ -74,6 +75,9 @@
 - `../Resources/phase-2-import-evidence.md`：Phase 2 导入安全、三样本哈希、视觉与运行证据。
 - `../Resources/phase-3-package-evidence.md`：Phase 3 四产品候选、安装包哈希、ASAR 隔离、Mac 运行与 Windows 边界证据。
 - `../Resources/project-closeout-20260901.md`：Phase 1–4 与 Task 3.7 最终状态、精确 Windows 证据索引、授权边界、T7 保存策略和下一确认门。
+- `../Resources/phase-6.1-workbench-evidence.md`：Phase 6.1 完成范围、安全边界、91/91 回归、构建、macOS 真实创建/恢复与剩余证据边界。
+- `../Resources/kimi-phase-6-workbench-handoff.md`：Kimi Phase 6.5 页面、字段、状态、错误、职责与不可修改边界。
+- `../Resources/phase-6-workbench-mock-data.json`：符合工作台契约的空状态、活动项目和错误模拟数据。
 - `/Volumes/T7 Shield/phase-3-windows-acceptance-20260831-01/`：Task 3.7 受控源码、Windows PRD/提示词、取证工具与 Kimi 最终回传；`RETURN/phase-3-task3.7-windows-20260831-20260831-175125/` 的报告与 1352/1352 哈希已复核通过。
 - `../Resources/xiaofuxing-source-manifest.md`：Phase 4 小福猩五张原始素材、哈希、身份基准与使用边界。
 - `../Resources/kimi-phase-4-handoff.md`：Kimi Code 独立候选目标、现状、隔离边界和首个动作。
