@@ -4,7 +4,7 @@
 
 ## 项目状态
 
-截至 2026-09-01，Phase 1–4 与 Phase 3 Task 3.7 均已完成：共享运行内核、安全导入、单宠构建工厂、小福猩 Petdex v1 客户素材链路，以及 Wukong、Doraemon、阿岱、JokeBear 四产品的 Windows source、`win-unpacked`、installed mode、卸载/重装和 100%/125%/150% DPI 验收均已关闭。
+截至 2026-09-01，Phase 1–5 与 Phase 3 Task 3.7 均已完成：共享运行内核、安全导入、单宠构建工厂、小福猩 Petdex v1 客户素材链路，以及 Wukong、Doraemon、阿岱、JokeBear 四产品的 Windows source、`win-unpacked`、installed mode、卸载/重装和 100%/125%/150% DPI 验收均已关闭。当前进入 Phase 6“桌宠制作台 MVP”，从独立工作台契约、安全壳层和可恢复项目存储开始，完整计划见 [`tasks/phase-6-workbench-prd.md`](tasks/phase-6-workbench-prd.md)。
 
 当前产物仍是未签名内部候选，不是正式发布版。Doraemon 与 JokeBear 仅用于内部技术兼容测试，不构成对外分发授权。最终状态、证据路径和关键哈希见 [`Resources/project-closeout-20260901.md`](Resources/project-closeout-20260901.md)。
 

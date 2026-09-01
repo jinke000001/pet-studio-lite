@@ -57,6 +57,13 @@
 - Task 3.7 约 3.9 GiB 完整 RETURN 继续原样保留在 T7，本机不复制大体积候选，只保存精确路径、报告/清单 SHA-256 与 1352/1352 核验说明。
 - 用户已确认 Checkpoint 5A。回归结果为测试 77/77、lint、source preflight 和 npm audit 全部通过；audit 前两次受官方 Registry TLS 断开阻断，第三次未改配置重试返回 0 vulnerabilities。用户已授权只创建一个内部基线提交，不创建标签、不合并分支、不推送远端。
 
+## Phase 6 当前状态
+
+- 2026-09-01 用户确认“桌宠制作台 MVP”PRD 并创建目标模式，先由 Codex 执行 Phase 6.1–6.4，Kimi 在 Phase 6.5 负责视觉与展示层，最后由 Codex 集成和验证。
+- 当前进入 Phase 6.1：定义项目/步骤/任务/错误/产物契约，新增独立安全工作台壳层，建立版本化非覆盖项目存储与关闭后恢复，并准备 Kimi 设计交接包。
+- 实施分支为 `codex/phase-6-1-workbench`，起点提交 `d78de60`；现有五个桌宠、历史候选、证据、原始素材、RETURN 和用户宠物目录保持不变。
+- 完整 PRD 与阶段计划位于 `tasks/phase-6-workbench-prd.md`。商业发布体系继续暂缓，Phase 6 MVP 不包含 AI 动作生成、逐帧编辑、签名、公证、商城、支付、DRM 或自动更新。
+
 ## 文件索引
 
 - `决策点.md`：已确认的产品、架构和阶段决策。
@@ -81,6 +88,7 @@
 - `/Volumes/T7 Shield/小福猩桌宠/xiaofuxing-v1-windows-acceptance-20260828-01/`：小福猩 v1 精确 Windows 验收输入、PRD、提示词、报告模板、证据与回传目录。
 - `../.kimi-code/skills/xiaofuxing-phase4/SKILL.md`：Kimi Code 项目级 Phase 4 Skill。
 - `../tasks/plan.md`：正式 PRD 与实施计划。
+- `../tasks/phase-6-workbench-prd.md`：Phase 6 桌宠制作台 MVP 范围、架构、分工、Phase 6.1–6.6 计划与确认门。
 - `../tasks/todo.md`：可执行任务清单。
 - `../tasks/xiaofuxing-0.1.4-nsis-repair-plan.md`：0.1.3 覆盖安装失败确诊（uninstallOldVersion 重试环）、0.1.4 修复方案和重排后的 Windows 复验顺序。
 - `../tasks/xiaofuxing-0.1.5-uninstaller-crc-repair-plan.md`：0.1.4 复验 F 门复败确诊（卸载器 CRC 构建期损坏，UninstallerReader 拼接路径，上游 #4875）、0.1.5 修复方案和 Windows 复验要点。
