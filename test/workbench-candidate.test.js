@@ -1,5 +1,10 @@
 const test = require('node:test'); const assert = require('node:assert/strict'); const fs = require('node:fs'); const os = require('node:os'); const path = require('node:path');
-const { createStudioBuilderConfiguration, candidateId } = require('../src/workbench/candidate-builder');
+const {
+  createStudioBuilderConfiguration,
+  createStudioCandidateManifest,
+  candidateId,
+  readGitBaseline,
+} = require('../src/workbench/candidate-builder');
 const { stageBuilderRuntime } = require('../src/workbench/builder-runtime');
 test('creates isolated unsigned workbench candidate configuration', () => {
   const config = createStudioBuilderConfiguration({ outputDirectory: '/tmp/out', projectRoot: '/repo', builderPackages: [{ sourceDirectory: '/repo/node_modules/electron-builder', relativePath: 'node_modules/electron-builder' }] });
@@ -12,6 +17,40 @@ test('creates isolated unsigned workbench candidate configuration', () => {
   ]);
 });
 test('creates versioned non-overwriting candidate ids', () => { assert.equal(candidateId(new Date('2026-09-01T01:02:03.000Z')), 'candidate-20260901010203000'); });
+
+test('binds studio candidates to a clean Git commit', () => {
+  const calls = [];
+  const baseline = readGitBaseline({
+    projectRoot: '/repo',
+    execFile(command, args, options) {
+      calls.push({ command, args, options });
+      return args[0] === 'rev-parse' ? 'abc123\n' : '';
+    },
+  });
+  const manifest = createStudioCandidateManifest({
+    baseline,
+    targets: ['mac'],
+    now: new Date('2026-09-01T01:02:03.000Z'),
+    artifacts: [],
+  });
+
+  assert.equal(baseline.commit, 'abc123');
+  assert.deepEqual(manifest.source, { gitCommit: 'abc123', worktreeClean: true });
+  assert.deepEqual(calls.map((call) => call.args), [
+    ['rev-parse', 'HEAD'],
+    ['status', '--porcelain', '--untracked-files=all'],
+  ]);
+  assert.ok(calls.every((call) => call.options.cwd === '/repo'));
+});
+
+test('refuses to build a studio candidate from a dirty worktree', () => {
+  assert.throws(() => readGitBaseline({
+    projectRoot: '/repo',
+    execFile(_command, args) {
+      return args[0] === 'rev-parse' ? 'abc123\n' : ' M src/workbench/main.js\n';
+    },
+  }), /clean Git worktree/);
+});
 
 test('stages only the electron-builder production dependency closure', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-builder-source-'));

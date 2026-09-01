@@ -7,6 +7,30 @@ const { collectBuilderRuntime } = require('./builder-runtime');
 function candidateId(now = new Date()) { return `candidate-${now.toISOString().replace(/[-:.TZ]/g, '')}`; }
 function hashFile(filePath) { const bytes = fs.readFileSync(filePath); return { size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') }; }
 
+function readGitBaseline({ projectRoot, execFile = childProcess.execFileSync }) {
+  const options = { cwd: path.resolve(projectRoot), encoding: 'utf8' };
+  const commit = execFile('git', ['rev-parse', 'HEAD'], options).trim();
+  const status = execFile('git', ['status', '--porcelain', '--untracked-files=all'], options).trim();
+  if (!commit || status) throw new Error('workbench candidates require a clean Git worktree');
+  return { commit };
+}
+
+function createStudioCandidateManifest({ baseline, targets, now, artifacts }) {
+  return {
+    schemaVersion: 2,
+    status: 'unsigned-internal-candidate',
+    generatedAt: now.toISOString(),
+    source: { gitCommit: baseline.commit, worktreeClean: true },
+    targets,
+    evidenceLevel: {
+      source: 'automated-regression-passed',
+      packaged: 'built-pending-runtime-check',
+      windowsInstalledMode: 'pending-external-return',
+    },
+    artifacts,
+  };
+}
+
 function createStudioBuilderConfiguration({ outputDirectory, projectRoot, builderPackages, version = '0.1.0' }) {
   return {
     appId: 'com.jinke.desktop-pet.studio',
@@ -38,7 +62,8 @@ function createStudioBuilderConfiguration({ outputDirectory, projectRoot, builde
 
 function buildStudioCandidate({ projectRoot, targets = ['mac'], now = new Date(), spawn = childProcess.spawnSync }) {
   if (!Array.isArray(targets) || targets.length === 0 || targets.some((target) => !['mac', 'win'].includes(target))) throw new Error('targets must contain mac or win');
-  const root = path.resolve(projectRoot); const releaseRoot = path.join(root, 'release', 'workbench-candidates'); fs.mkdirSync(releaseRoot, { recursive: true });
+  const root = path.resolve(projectRoot); const baseline = readGitBaseline({ projectRoot: root });
+  const releaseRoot = path.join(root, 'release', 'workbench-candidates'); fs.mkdirSync(releaseRoot, { recursive: true });
   const runDirectory = path.join(releaseRoot, candidateId(now)); fs.mkdirSync(runDirectory);
   const builderPackages = collectBuilderRuntime({ projectRoot: root }).packages;
   const config = createStudioBuilderConfiguration({ outputDirectory: runDirectory, projectRoot: root, builderPackages });
@@ -50,9 +75,20 @@ function buildStudioCandidate({ projectRoot, targets = ['mac'], now = new Date()
   const files = [];
   function walk(directory) { for (const entry of fs.readdirSync(directory, { withFileTypes: true })) { const item = path.join(directory, entry.name); if (entry.isDirectory()) walk(item); else if (entry.isFile() && (entry.name === 'app.asar' || /DesktopPetStudio|桌宠制作台/.test(entry.name) || entry.name.endsWith('.exe'))) files.push(item); } }
   walk(path.join(runDirectory, 'artifacts'));
-  const manifest = { schemaVersion: 1, status: 'unsigned-internal-candidate', generatedAt: now.toISOString(), targets, evidenceLevel: { source: 'automated-regression-passed', packaged: 'built-pending-runtime-check', windowsInstalledMode: 'pending-external-return' }, artifacts: files.map((file) => ({ path: path.relative(runDirectory, file).split(path.sep).join('/'), ...hashFile(file) })) };
+  const manifest = createStudioCandidateManifest({
+    baseline,
+    targets,
+    now,
+    artifacts: files.map((file) => ({ path: path.relative(runDirectory, file).split(path.sep).join('/'), ...hashFile(file) })),
+  });
   fs.writeFileSync(path.join(runDirectory, 'candidate-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   return { runDirectory, manifest };
 }
 
-module.exports = { buildStudioCandidate, candidateId, createStudioBuilderConfiguration };
+module.exports = {
+  buildStudioCandidate,
+  candidateId,
+  createStudioBuilderConfiguration,
+  createStudioCandidateManifest,
+  readGitBaseline,
+};
