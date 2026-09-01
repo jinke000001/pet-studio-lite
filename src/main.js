@@ -12,8 +12,8 @@ const {
 
 const { loadRuntimeInputs } = require('./core/package-loader');
 const { normalizeProductProfile } = require('./core/product-profile');
-const { resolveProductProfile, selectProductSelector } = require('./core/profile-selector');
 const { inspectWebp } = require('./core/webp-inspector');
+const { resolveRuntimeSelection } = require('./core/runtime-selection');
 const {
   clampBounds,
   createRuntimeContract,
@@ -27,18 +27,21 @@ const {
   synchronizePetWindowFrame,
 } = require('./core/window-frame');
 
-const PROJECT_ROOT = path.resolve(__dirname, '..');
-const packageMetadata = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8'));
-const productSelector = selectProductSelector({
-  embeddedSelector: packageMetadata.desktopPetProduct,
-  environmentSelector: process.env.PET_PRODUCT,
+const DEFAULT_PROJECT_ROOT = path.resolve(__dirname, '..');
+const packageMetadata = JSON.parse(fs.readFileSync(path.join(DEFAULT_PROJECT_ROOT, 'package.json'), 'utf8'));
+const runtimeSelection = resolveRuntimeSelection({
+  defaultProjectRoot: DEFAULT_PROJECT_ROOT,
+  packageMetadata,
+  environment: process.env,
 });
-const profilePath = resolveProductProfile(PROJECT_ROOT, productSelector);
+const PROJECT_ROOT = runtimeSelection.projectRoot;
+const profilePath = runtimeSelection.profilePath;
 const selectedProfile = normalizeProductProfile(JSON.parse(fs.readFileSync(profilePath, 'utf8')));
 
 app.setName(selectedProfile.productName);
 app.setAppUserModelId(selectedProfile.build.appId);
-app.setPath('userData', path.join(app.getPath('appData'), 'DesktopPetWorkflow', selectedProfile.productId));
+app.setPath('userData', runtimeSelection.userDataPath
+  || path.join(app.getPath('appData'), 'DesktopPetWorkflow', selectedProfile.productId));
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock({ productId: selectedProfile.productId });
 if (!hasSingleInstanceLock) app.quit();
@@ -53,6 +56,7 @@ let displayMetricsSynchronizer;
 let postShowSyncTimer;
 let windowReadyToShow = false;
 let rendererFirstFrameReady = false;
+let previewParentTimer;
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 const logPath = path.join(app.getPath('userData'), 'app.log');
@@ -324,6 +328,17 @@ if (hasSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
+    if (runtimeSelection.preview && runtimeSelection.parentPid) {
+      previewParentTimer = setInterval(() => {
+        try {
+          process.kill(runtimeSelection.parentPid, 0);
+        } catch {
+          log('preview-parent-missing; quitting');
+          app.quit();
+        }
+      }, 1000);
+      previewParentTimer.unref?.();
+    }
     runtime = loadRuntimeInputs({ projectRoot: PROJECT_ROOT, profilePath, inspectAtlas: inspectWebp });
     loadSettings();
     registerIpc();
@@ -353,5 +368,6 @@ app.on('before-quit', () => {
   stopDrag();
   displayMetricsSynchronizer?.dispose();
   clearTimeout(postShowSyncTimer);
+  clearInterval(previewParentTimer);
 });
 app.on('window-all-closed', (event) => event.preventDefault());

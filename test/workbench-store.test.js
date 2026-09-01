@@ -81,3 +81,24 @@ test('does not treat a modified project file as recoverable state', () => {
 
   assert.throws(() => store.loadMostRecentProject(), (error) => error.code === 'INVALID_PROJECT_FILE');
 });
+
+test('updates projects atomically and resolves only project-owned paths', () => {
+  const { workspaceRoot, store } = makeStore();
+  const project = store.createProject({ name: 'Update demo' });
+  const updated = store.updateProject(project.id, (current) => ({
+    ...current,
+    activeStep: 'import',
+    steps: { ...current.steps, project: { status: 'completed' }, import: { status: 'active' } },
+  }));
+
+  assert.equal(updated.activeStep, 'import');
+  assert.equal(store.loadProject(project.id).steps.project.status, 'completed');
+  assert.equal(
+    store.resolveProjectPath(project.id, 'workspace', 'imports'),
+    path.join(workspaceRoot, 'projects', project.id, 'workspace', 'imports'),
+  );
+  assert.throws(
+    () => store.resolveProjectPath(project.id, '..', 'outside'),
+    (error) => error.code === 'UNSAFE_PROJECT_PATH',
+  );
+});

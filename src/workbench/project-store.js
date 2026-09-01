@@ -32,7 +32,7 @@ function writeJsonFile(filePath, value, { replace = false } = {}) {
     mode: 0o600,
   });
   try {
-    if (replace) fs.rmSync(filePath, { force: true });
+    if (!replace && fs.existsSync(filePath)) throw storeError('PROJECT_EXISTS', '目标文件已存在。');
     fs.renameSync(temporaryPath, filePath);
   } catch (error) {
     fs.rmSync(temporaryPath, { force: true });
@@ -95,6 +95,25 @@ function createProjectStore({
     if (!stats.isDirectory() || stats.isSymbolicLink()) {
       throw storeError('UNSAFE_PROJECT_PATH', '制作项目目录不安全。');
     }
+  }
+
+  function resolveProjectPath(projectId, ...segments) {
+    ensureRoot();
+    const directory = projectDirectory(projectId);
+    assertSafeProjectDirectory(directory);
+    if (segments.length === 0 || segments.some((segment) => typeof segment !== 'string'
+      || !segment || path.isAbsolute(segment) || segment.includes('/') || segment.includes('\\')
+      || segment === '.' || segment === '..')) {
+      throw storeError('UNSAFE_PROJECT_PATH', '制作项目路径无效。');
+    }
+    let candidate = directory;
+    for (const segment of segments) {
+      candidate = path.join(candidate, segment);
+      if (!fs.existsSync(candidate)) continue;
+      const stats = fs.lstatSync(candidate);
+      if (stats.isSymbolicLink()) throw storeError('UNSAFE_PROJECT_PATH', '制作项目路径不安全。');
+    }
+    return candidate;
   }
 
   function remember(projectId) {
@@ -161,6 +180,24 @@ function createProjectStore({
     return project;
   }
 
+  function updateProject(projectId, updater) {
+    if (typeof updater !== 'function') throw storeError('INVALID_PROJECT_UPDATE', '项目更新无效。');
+    const current = loadProject(projectId);
+    const next = updater(structuredClone(current));
+    if (!next || next.id !== current.id || next.createdAt !== current.createdAt) {
+      throw storeError('INVALID_PROJECT_UPDATE', '项目身份不能修改。');
+    }
+    next.updatedAt = now().toISOString();
+    try {
+      validateWorkbenchProject(next);
+    } catch (error) {
+      throw storeError('INVALID_PROJECT_UPDATE', '项目更新无效。', error);
+    }
+    writeJsonFile(resolveProjectPath(projectId, 'project.json'), next, { replace: true });
+    remember(projectId);
+    return next;
+  }
+
   function loadMostRecentProject() {
     ensureRoot();
     if (!fs.existsSync(recentPath)) return listProjects()[0] || null;
@@ -171,7 +208,15 @@ function createProjectStore({
     return loadProject(validateProjectId(recent.projectId));
   }
 
-  return { createProject, listProjects, loadMostRecentProject, loadProject, openProject };
+  return {
+    createProject,
+    listProjects,
+    loadMostRecentProject,
+    loadProject,
+    openProject,
+    resolveProjectPath,
+    updateProject,
+  };
 }
 
 module.exports = { createProjectStore, projectIdFor };

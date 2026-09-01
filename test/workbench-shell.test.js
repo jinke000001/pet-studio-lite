@@ -21,10 +21,15 @@ test('workbench uses a separate sandboxed Electron entry with narrow IPC', () =>
   assert.match(main, /workbench:get-bootstrap/);
   assert.match(main, /workbench:create-project/);
   assert.match(main, /workbench:open-project/);
+  assert.match(main, /workbench:select-import/);
+  assert.match(main, /workbench:get-import-preview/);
+  assert.match(main, /workbench:start-pet-preview/);
+  assert.match(main, /workbench:stop-pet-preview/);
   assert.match(main, /assertTrustedSender/);
   assert.match(preload, /contextBridge\.exposeInMainWorld\('workbenchApi'/);
   assert.doesNotMatch(preload, /invoke:\s*\(/);
   assert.doesNotMatch(preload, /send:\s*\(/);
+  assert.doesNotMatch(preload, /path|filePath|sourcePath/);
 });
 
 test('workbench renderer declares a strict CSP and accessible project form', () => {

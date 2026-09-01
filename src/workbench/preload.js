@@ -4,4 +4,9 @@ contextBridge.exposeInMainWorld('workbenchApi', {
   getBootstrap: () => ipcRenderer.invoke('workbench:get-bootstrap'),
   createProject: (input) => ipcRenderer.invoke('workbench:create-project', input),
   openProject: (projectId) => ipcRenderer.invoke('workbench:open-project', projectId),
+  selectImport: (input) => ipcRenderer.invoke('workbench:select-import', input),
+  getImportPreview: (projectId) => ipcRenderer.invoke('workbench:get-import-preview', projectId),
+  startPetPreview: (projectId) => ipcRenderer.invoke('workbench:start-pet-preview', projectId),
+  stopPetPreview: () => ipcRenderer.invoke('workbench:stop-pet-preview'),
+  getPetPreviewStatus: () => ipcRenderer.invoke('workbench:get-pet-preview-status'),
 });

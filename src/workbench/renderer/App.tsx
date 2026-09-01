@@ -1,15 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import type { StepId, WorkbenchBootstrap, WorkbenchProject, WorkbenchResult } from './types';
-
-const steps: Array<{ id: StepId; label: string; hint: string }> = [
-  { id: 'project', label: '制作项目', hint: '名称与恢复点' },
-  { id: 'import', label: '导入素材', hint: '目录、ZIP 或 Petdex' },
-  { id: 'validate', label: '自动检查', hint: '结构、安全与图集' },
-  { id: 'preview', label: '制作预览', hint: '动作与真实桌宠' },
-  { id: 'product', label: '产品信息', hint: '名称、版本与身份' },
-  { id: 'export', label: '导出结果', hint: '标准包与候选' },
-];
-const statusLabels = { pending: '待开始', active: '当前', completed: '已完成', blocked: '被阻断' } as const;
+import type { PetPreviewStatus, WorkbenchBootstrap, WorkbenchProject, WorkbenchResult } from './types';
+import { ProjectWorkspace } from './ProjectWorkspace';
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
@@ -33,11 +24,15 @@ export function App() {
   const [isCreating, setIsCreating] = useState(false);
   const [fatalError, setFatalError] = useState('');
   const [actionError, setActionError] = useState('');
+  const [previewStatus, setPreviewStatus] = useState<PetPreviewStatus>({ status: 'stopped' });
   const nameInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     window.workbenchApi.getBootstrap()
-      .then((result) => setFatalError(applyResult(result, setData)))
+      .then((result) => {
+        if (result.ok && result.value.petPreview) setPreviewStatus(result.value.petPreview);
+        setFatalError(applyResult(result, setData));
+      })
       .catch(() => setFatalError('工作台启动失败，请关闭后重试。'))
       .finally(() => setIsLoading(false));
   }, []);
@@ -72,6 +67,7 @@ export function App() {
     setActionError('');
     try {
       setActionError(applyResult(await window.workbenchApi.openProject(project.id), setData));
+      setPreviewStatus({ status: 'stopped' });
       setIsCreating(false);
     } catch {
       setActionError('项目打开失败，请重试。');
@@ -108,7 +104,7 @@ export function App() {
             </ul>
           )}
         </nav>
-        <div className="phase-note"><span>Phase 6.1</span><p>项目契约、保存与恢复基础</p></div>
+        <div className="phase-note"><span>Phase 6.2</span><p>导入、检查与真实预览闭环</p></div>
       </aside>
 
       <main className="workspace">
@@ -133,7 +129,18 @@ export function App() {
             <h2>暂时无法继续</h2><p>{fatalError}</p>
             <button type="button" onClick={() => window.location.reload()}>重新加载工作台</button>
           </section>
-        ) : data.activeProject && !isCreating ? <ProjectOverview project={data.activeProject} /> : (
+        ) : data.activeProject && !isCreating ? (
+          <ProjectWorkspace
+            project={data.activeProject}
+            previewStatus={previewStatus}
+            onProjectChange={(project) => setData((current) => ({
+              ...current,
+              activeProject: project,
+              projects: current.projects.map((candidate) => candidate.id === project.id ? project : candidate),
+            }))}
+            onError={setActionError}
+          />
+        ) : (
           <section className="welcome-panel" aria-labelledby="welcome-title">
             <div className="welcome-copy">
               <p className="step-kicker">第一步</p>
@@ -160,31 +167,5 @@ export function App() {
         )}
       </main>
     </div>
-  );
-}
-
-function ProjectOverview({ project }: { project: WorkbenchProject }) {
-  return (
-    <section className="project-overview" aria-labelledby="progress-title">
-      <div className="overview-intro">
-        <div>
-          <p className="step-kicker">项目已恢复</p><h2 id="progress-title">制作流程</h2>
-          <p>工作台已保存项目基础。导入、校验和预览将在后续阶段接入。</p>
-        </div>
-        <dl>
-          <div><dt>创建时间</dt><dd>{formatTime(project.createdAt)}</dd></div>
-          <div><dt>保存方式</dt><dd>版本化、非覆盖</dd></div>
-        </dl>
-      </div>
-      <ol className="step-list">
-        {steps.map((step, index) => (
-          <li key={step.id} className={project.steps[step.id].status === 'active' ? 'current' : ''}>
-            <span className="step-number">{String(index + 1).padStart(2, '0')}</span>
-            <div><h3>{step.label}</h3><p>{step.hint}</p></div>
-            <span className="step-status">{statusLabels[project.steps[step.id].status]}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
   );
 }

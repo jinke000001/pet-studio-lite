@@ -6,6 +6,7 @@ const {
   JOB_STATUSES,
   STEP_IDS,
   createWorkbenchProject,
+  normalizeImportRequest,
   normalizeCreateProjectInput,
   validateProjectId,
   validateWorkbenchProject,
@@ -30,6 +31,36 @@ test('creates a versioned project contract with the project step active', () => 
   );
   assert.deepEqual(project.jobs, []);
   assert.deepEqual(project.artifacts, []);
+  assert.equal(project.latestImport, null);
+  assert.deepEqual(project.product, null);
+});
+
+test('accepts only path-free local import requests and known authorization states', () => {
+  assert.deepEqual(normalizeImportRequest({
+    projectId: 'studio-20260901-090000-abc123',
+    sourceType: 'directory',
+    authorizationStatus: 'internal-test',
+  }), {
+    projectId: 'studio-20260901-090000-abc123',
+    sourceType: 'directory',
+    authorizationStatus: 'internal-test',
+  });
+  assert.throws(() => normalizeImportRequest({
+    projectId: 'studio-20260901-090000-abc123',
+    sourceType: 'zip',
+    authorizationStatus: 'authorized',
+    path: '/tmp/pet.zip',
+  }), (error) => error.code === 'INVALID_IMPORT_INPUT');
+  assert.throws(() => normalizeImportRequest({
+    projectId: 'studio-20260901-090000-abc123',
+    sourceType: 'slug',
+    authorizationStatus: 'unknown',
+  }), (error) => error.code === 'INVALID_IMPORT_SOURCE_TYPE');
+  assert.throws(() => normalizeImportRequest({
+    projectId: 'studio-20260901-090000-abc123',
+    sourceType: 'directory',
+    authorizationStatus: 'public',
+  }), (error) => error.code === 'INVALID_AUTHORIZATION_STATUS');
 });
 
 test('validates create-project input at the boundary', () => {

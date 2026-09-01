@@ -10,6 +10,8 @@ const ARTIFACT_KINDS = Object.freeze([
   'windowsCandidate',
   'report',
 ]);
+const AUTHORIZATION_STATUSES = Object.freeze(['unknown', 'internal-test', 'authorized']);
+const LOCAL_IMPORT_SOURCE_TYPES = Object.freeze(['directory', 'zip']);
 
 function contractError(code, message) {
   const error = new Error(message);
@@ -43,6 +45,21 @@ function normalizeCreateProjectInput(input) {
   return { name };
 }
 
+function normalizeImportRequest(input) {
+  const allowedKeys = new Set(['projectId', 'sourceType', 'authorizationStatus']);
+  if (!isPlainObject(input) || Object.keys(input).some((key) => !allowedKeys.has(key))) {
+    throw contractError('INVALID_IMPORT_INPUT', '导入参数无效。');
+  }
+  const projectId = validateProjectId(input.projectId);
+  if (!LOCAL_IMPORT_SOURCE_TYPES.includes(input.sourceType)) {
+    throw contractError('INVALID_IMPORT_SOURCE_TYPE', '请选择本地目录或 ZIP 文件。');
+  }
+  if (!AUTHORIZATION_STATUSES.includes(input.authorizationStatus)) {
+    throw contractError('INVALID_AUTHORIZATION_STATUS', '素材授权状态无效。');
+  }
+  return { projectId, sourceType: input.sourceType, authorizationStatus: input.authorizationStatus };
+}
+
 function createWorkbenchProject({ id, name, now }) {
   const normalized = normalizeCreateProjectInput({ name });
   validateProjectId(id);
@@ -60,6 +77,8 @@ function createWorkbenchProject({ id, name, now }) {
     ])),
     jobs: [],
     artifacts: [],
+    latestImport: null,
+    product: null,
   };
 }
 
@@ -75,8 +94,38 @@ function validateJob(job) {
 function validateArtifact(artifact) {
   if (!isPlainObject(artifact)
     || typeof artifact.id !== 'string'
-    || !ARTIFACT_KINDS.includes(artifact.kind)) {
+    || !ARTIFACT_KINDS.includes(artifact.kind)
+    || (artifact.relativePath !== undefined
+      && (typeof artifact.relativePath !== 'string'
+        || artifact.relativePath.split('/').some((part) => !part || part === '.' || part === '..')))) {
     throw contractError('INVALID_PROJECT_FILE', '项目产物记录无效。');
+  }
+}
+
+function validateLatestImport(latestImport) {
+  if (latestImport === null || latestImport === undefined) return;
+  if (!isPlainObject(latestImport)
+    || !/^import-[a-f0-9]{12}$/.test(latestImport.id)
+    || !['directory', 'zip', 'petdex-slug'].includes(latestImport.sourceType)
+    || typeof latestImport.sourceLabel !== 'string'
+    || !latestImport.sourceLabel
+    || latestImport.sourceLabel.length > 120
+    || typeof latestImport.sourceIdentity !== 'string'
+    || !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(latestImport.sourceIdentity)
+    || !AUTHORIZATION_STATUSES.includes(latestImport.authorizationStatus)
+    || !isIsoDate(latestImport.importedAt)
+    || typeof latestImport.artifactId !== 'string'
+    || !isPlainObject(latestImport.pet)
+    || typeof latestImport.pet.id !== 'string'
+    || typeof latestImport.pet.displayName !== 'string'
+    || ![1, 2].includes(latestImport.pet.spriteVersionNumber)
+    || latestImport.pet.hasAlpha !== true
+    || !isPlainObject(latestImport.pet.grid)
+    || !Array.isArray(latestImport.pet.actions)
+    || !isPlainObject(latestImport.validation)
+    || !['passed', 'warning'].includes(latestImport.validation.level)
+    || !Array.isArray(latestImport.validation.messages)) {
+    throw contractError('INVALID_PROJECT_FILE', '项目导入记录无效。');
   }
 }
 
@@ -102,6 +151,10 @@ function validateWorkbenchProject(project) {
   }
   project.jobs.forEach(validateJob);
   project.artifacts.forEach(validateArtifact);
+  validateLatestImport(project.latestImport);
+  if (project.product !== null && project.product !== undefined && !isPlainObject(project.product)) {
+    throw contractError('INVALID_PROJECT_FILE', '项目产品配置无效。');
+  }
   return project;
 }
 
@@ -112,6 +165,7 @@ module.exports = {
   STEP_IDS,
   STEP_STATUSES,
   createWorkbenchProject,
+  normalizeImportRequest,
   normalizeCreateProjectInput,
   validateProjectId,
   validateWorkbenchProject,

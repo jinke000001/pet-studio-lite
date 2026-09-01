@@ -1,9 +1,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 
 const { createProjectStore } = require('./project-store');
+const { validateProjectId } = require('./contracts');
+const { createImportController, explainImportError } = require('./import-controller');
+const { createImportSelectionHandler } = require('./import-selection');
+const { createPreviewController } = require('./preview-controller');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const RENDERER_ENTRY = path.join(PROJECT_ROOT, '.workbench-dist', 'index.html');
@@ -25,7 +29,18 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 
 const store = createProjectStore({ workspaceRoot: userDataPath });
+const importController = createImportController({ store });
+const previewController = createPreviewController({
+  store,
+  electronPath: process.execPath,
+  applicationRoot: PROJECT_ROOT,
+});
 let window;
+const selectImport = createImportSelectionHandler({
+  dialog,
+  getWindow: () => window,
+  importController,
+});
 
 function assertTrustedSender(event) {
   if (event.senderFrame?.url !== TRUSTED_RENDERER_URL) {
@@ -37,7 +52,11 @@ function assertTrustedSender(event) {
 
 function publicError(error) {
   if (error && PUBLIC_ERROR_CODES.has(error.code)) return { code: error.code, message: error.message };
-  return { code: 'WORKBENCH_ERROR', message: '工作台暂时无法完成此操作，请重试。' };
+  return explainImportError(error);
+}
+
+function bootstrap(activeProject) {
+  return { projects: store.listProjects(), activeProject };
 }
 
 function registerHandler(channel, callback) {
@@ -53,17 +72,31 @@ function registerHandler(channel, callback) {
 
 function registerIpc() {
   registerHandler('workbench:get-bootstrap', () => ({
-    projects: store.listProjects(),
-    activeProject: store.loadMostRecentProject(),
+    ...bootstrap(store.loadMostRecentProject()),
+    petPreview: previewController.status(),
   }));
   registerHandler('workbench:create-project', (input) => {
     const activeProject = store.createProject(input);
-    return { projects: store.listProjects(), activeProject };
+    return bootstrap(activeProject);
   });
-  registerHandler('workbench:open-project', (projectId) => {
+  registerHandler('workbench:open-project', async (projectId) => {
+    await previewController.stop();
     const activeProject = store.openProject(projectId);
-    return { projects: store.listProjects(), activeProject };
+    return bootstrap(activeProject);
   });
+  registerHandler('workbench:select-import', async (input) => {
+    await previewController.stop();
+    const result = await selectImport(input);
+    return { ...bootstrap(result.project || store.loadProject(input.projectId)), cancelled: result.cancelled };
+  });
+  registerHandler('workbench:get-import-preview', (projectId) => (
+    importController.loadPreview(validateProjectId(projectId))
+  ));
+  registerHandler('workbench:start-pet-preview', (projectId) => (
+    previewController.start(validateProjectId(projectId))
+  ));
+  registerHandler('workbench:stop-pet-preview', () => previewController.stop());
+  registerHandler('workbench:get-pet-preview-status', () => previewController.status());
 }
 
 function createWindow() {
@@ -90,7 +123,10 @@ function createWindow() {
   });
   window.once('ready-to-show', () => window?.show());
   window.loadFile(RENDERER_ENTRY);
-  window.on('closed', () => { window = undefined; });
+  window.on('closed', () => {
+    previewController.stop();
+    window = undefined;
+  });
 }
 
 app.whenReady().then(() => {
@@ -108,5 +144,6 @@ app.on('second-instance', () => {
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('before-quit', () => { previewController.stop(); });
 
 module.exports = { assertTrustedSender, publicError };
