@@ -62,6 +62,7 @@ const jobs = createJobController({
   },
 });
 let window;
+let activeProjectId;
 const selectImport = createImportSelectionHandler({
   dialog,
   getWindow: () => window,
@@ -111,13 +112,16 @@ function registerIpc() {
     return bootstrap(activeProject);
   });
   registerHandler('workbench:open-project', async (projectId) => {
-    jobs.cancelProject(store.loadMostRecentProject()?.id);
+    if (activeProjectId && activeProjectId !== projectId) jobs.cancelProject(activeProjectId);
     await previewController.stop();
     const activeProject = store.openProject(projectId);
+    activeProjectId = activeProject.id;
     return bootstrap(activeProject);
   });
   registerHandler('workbench:select-import', async (input) => {
+    if (activeProjectId && activeProjectId !== input.projectId) jobs.cancelProject(activeProjectId);
     await previewController.stop();
+    activeProjectId = input.projectId;
     const result = await selectImport(input);
     return { ...bootstrap(result.project || store.loadProject(input.projectId)), cancelled: result.cancelled };
   });
