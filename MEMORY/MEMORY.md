@@ -59,6 +59,8 @@
 
 ## Phase 6 当前状态
 
+- 2026-09-02 T7 06 Windows 回传的 3 项 npm test 失败确认为 POSIX 测试夹具不可移植；提交 `a93a2e8` 仅更新两个测试文件，132/132 与完整质量门通过。新 macOS 候选为 `release/workbench-candidates/candidate-20260901160713659/`；新仓库内 Windows 全量复验交接为 `release/handoff/phase-6-workbench-windows-recheck-20260902-01/`，未写入 T7，Windows installed mode 等待新 RETURN。
+
 - 2026-09-01 预览 cwd 修复：`src/workbench/preview-controller.js` 在 packaged 模式下将 `app.asar` 的 spawn cwd 解析为真实父目录，同时保留 ASAR 内 `src/main.js` runtime entry；测试 132/132。提交 `87cdb2571af214e0f24444a5112997137f7fa5e9`，候选 `release/workbench-candidates/candidate-20260901142719184/`。macOS packaged runtime smoke 已记录 `studio-ready`、`renderer-ready`、`runtime-ready` 和窗口同步；完整 GUI 预览点击证据仍未收口，Windows RETURN 仍待用户完成。
 
 - 2026-09-01 用户确认“桌宠制作台 MVP”PRD 并创建目标模式，先由 Codex 执行 Phase 6.1–6.4，Kimi 在 Phase 6.5 负责视觉与展示层，最后由 Codex 集成和验证。

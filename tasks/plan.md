@@ -215,6 +215,12 @@ Petdex Desktop 可以脱离 Codex 运行，但下载和社区依赖网络环境�
 
 2026-09-01 用户已统一授权自主完成 Phase 6.2–6.6，不再逐阶段等待确认。Phase 6.2 的已确认最小 PRD 已落盘到 `tasks/phase-6.2-workbench-prd.md`；每阶段仍须通过自动验证、真实运行、审查、证据同步和聚焦本地 checkpoint，不能以静态检查替代后续门禁。
 
+## Phase 6.6 Windows 路径修复复验（2026-09-02）
+
+- T7 06 的 3 项 Windows 原生测试失败记录为测试夹具不可移植，不修改生产路径逻辑。
+- 修复提交 `a93a2e8`：两个测试文件改用 native `path`/`os.tmpdir()`，相关测试 8/8、全量 132/132，完整质量门通过。
+- 新 macOS 候选与仓库内非覆盖 Windows 复验交接已生成；Windows installed mode、DPI、导入预览与生命周期仍待新 RETURN。
+
 ## 主要风险
 
 | 风险 | 影响 | 缓解 |

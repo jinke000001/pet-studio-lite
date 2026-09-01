@@ -136,13 +136,13 @@ Checkpoint 6.4 已完成；任务恢复只在启动时执行一次，轮询不�
 ### Phase 6.6：质量门与可运行软件交付
 
 - [x] 6.6a-1 只读复核 T7 06 Windows 回传，确认 132/132 基线中的 3 项失败均为 POSIX 测试路径夹具不可移植；建立 `tasks/phase-6-workbench-windows-path-repair-plan.md`。
-- [ ] 6.6a-2 修复两个工作台测试夹具并通过相关测试与全量 `npm test`。
-- [ ] 6.6a-3 完成 typecheck、build、lint、source preflight、audit、diff check，并同步证据与 MEMORY。
+- [x] 6.6a-2 修复两个工作台测试夹具并通过相关测试 8/8 与全量 `npm test` 132/132。
+- [x] 6.6a-3 完成 typecheck、build、lint、source preflight、audit、diff check，并同步证据与 MEMORY。
 - [ ] 6.6a 完整自动回归和隔离 macOS 主流程、错误、取消、离线、重复与恢复验证。
 - [x] 6.6b 生成并真实启动可操作、可恢复、可导出的 macOS 工作台候选。
 - [x] 6.6c 建立非覆盖 Windows 验收交接包、PRD、提示词、模板、脚本与 checksums。
 - [ ] 6.6d 完成候选/manifest/哈希/包工厂检查和最终多轴代码审查，修复全部 Critical/Required。
-- [ ] 6.6e 生成新的非覆盖 Windows 复验交接包并完成输入哈希、ZIP UTF-8/元数据/符号链接校验。
+- [x] 6.6e 生成新的非覆盖 Windows 复验交接包并完成输入哈希、ZIP UTF-8/元数据/符号链接校验。
 - [ ] 6.6f 同步 MEMORY、计划、待办、证据与最终报告，创建最终本地 checkpoint，确认工作区干净和零残留进程；Windows installed mode 等待新 RETURN。
 
 Phase 6 不改变商业发布体系暂缓结论；签名、公证、商城、支付、DRM、自动更新和正式发布仍不在当前范围。
