@@ -1,11 +1,50 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import type { PetPreviewStatus, WorkbenchBootstrap, WorkbenchProject, WorkbenchResult } from './types';
+import type { PetPreviewStatus, StepId, StepStatus, WorkbenchBootstrap, WorkbenchProject, WorkbenchResult } from './types';
 import { ProjectWorkspace } from './ProjectWorkspace';
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   }).format(new Date(value));
+}
+
+const stepOrder: StepId[] = ['project', 'import', 'validate', 'preview', 'product', 'export'];
+
+const stepLabels: Record<StepId, string> = {
+  project: '项目',
+  import: '导入素材',
+  validate: '自动检查',
+  preview: '预览',
+  product: '产品信息',
+  export: '导出',
+};
+
+const stepStatusLabels: Record<StepStatus, string> = {
+  pending: '待开始',
+  active: '当前',
+  completed: '已完成',
+  blocked: '被阻断',
+};
+
+function StepsRail({ project }: { project: WorkbenchProject }) {
+  return (
+    <ol className="step-list" aria-label="制作流程六步进度">
+      {stepOrder.map((stepId, index) => {
+        const status = project.steps[stepId]?.status ?? 'pending';
+        const isCurrent = project.activeStep === stepId;
+        return (
+          <li key={stepId} className={isCurrent ? 'current' : status}>
+            <span className="step-number">{String(index + 1).padStart(2, '0')}</span>
+            <div>
+              <h3>{stepLabels[stepId]}</h3>
+              <p>{isCurrent ? '正在这一步工作' : status === 'blocked' ? '需要先解决前置问题' : status === 'completed' ? '本步已完成并保存' : '尚未开始'}</p>
+            </div>
+            <span className={`step-status ${status}`}>{stepStatusLabels[status]}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 function applyResult(result: WorkbenchResult<WorkbenchBootstrap>, setData: (value: WorkbenchBootstrap) => void) {
@@ -24,8 +63,20 @@ export function App() {
   const [isCreating, setIsCreating] = useState(false);
   const [fatalError, setFatalError] = useState('');
   const [actionError, setActionError] = useState('');
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
   const [previewStatus, setPreviewStatus] = useState<PetPreviewStatus>({ status: 'stopped' });
   const nameInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   useEffect(() => {
     window.workbenchApi.getBootstrap()
@@ -104,7 +155,7 @@ export function App() {
             </ul>
           )}
         </nav>
-        <div className="phase-note"><span>Phase 6.2</span><p>导入、检查与真实预览闭环</p></div>
+        <div className="phase-note"><span>Phase 6.5</span><p>内部候选工作台；视觉与状态收口</p></div>
       </aside>
 
       <main className="workspace">
@@ -113,8 +164,14 @@ export function App() {
             <p className="eyebrow">内部制作工具 · 未签名候选流程</p>
             <h1>{isCreating ? '开始一个桌宠制作项目' : data.activeProject?.name ?? '开始一个桌宠制作项目'}</h1>
           </div>
-          {data.activeProject && <span className="saved-state">已安全保存</span>}
+          {data.activeProject && <span className="saved-state">已安全保存 · {formatTime(data.activeProject.updatedAt)}</span>}
         </header>
+
+        {isOffline && (
+          <div className="offline-banner" role="status">
+            当前无网络连接。本地项目与已导入的宠物仍可正常使用；Petdex slug 导入请稍后重试。
+          </div>
+        )}
 
         <div className="live-region" aria-live="polite">{isLoading ? '正在读取项目…' : actionError}</div>
         {actionError && (
@@ -127,19 +184,31 @@ export function App() {
         {fatalError ? (
           <section className="message-panel" role="alert">
             <h2>暂时无法继续</h2><p>{fatalError}</p>
+            <p>已保存的项目、导入素材和历史证据不会被覆盖或丢失。</p>
             <button type="button" onClick={() => window.location.reload()}>重新加载工作台</button>
           </section>
+        ) : isLoading ? (
+          <section className="loading-panel" aria-label="正在读取项目">
+            <h2>正在读取项目</h2>
+            <p>加载完成前不会显示空项目，请稍候。</p>
+            <div className="skeleton-block" aria-hidden="true" />
+            <div className="skeleton-block short" aria-hidden="true" />
+            <div className="skeleton-block" aria-hidden="true" />
+          </section>
         ) : data.activeProject && !isCreating ? (
-          <ProjectWorkspace
-            project={data.activeProject}
-            previewStatus={previewStatus}
-            onProjectChange={(project) => setData((current) => ({
-              ...current,
-              activeProject: project,
-              projects: current.projects.map((candidate) => candidate.id === project.id ? project : candidate),
-            }))}
-            onError={setActionError}
-          />
+          <>
+            <StepsRail project={data.activeProject} />
+            <ProjectWorkspace
+              project={data.activeProject}
+              previewStatus={previewStatus}
+              onProjectChange={(project) => setData((current) => ({
+                ...current,
+                activeProject: project,
+                projects: current.projects.map((candidate) => candidate.id === project.id ? project : candidate),
+              }))}
+              onError={setActionError}
+            />
+          </>
         ) : (
           <section className="welcome-panel" aria-labelledby="welcome-title">
             <div className="welcome-copy">

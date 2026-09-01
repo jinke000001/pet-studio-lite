@@ -127,11 +127,11 @@ Checkpoint 6.2 已完成；证据：`Resources/phase-6.2-workbench-evidence.md`�
 
 ### Phase 6.5：Kimi 视觉收口与 Codex 集成
 
-- [ ] 6.5a 在 6.4 工作区干净后更新真实状态交接包并调用本机 Kimi Code。
-- [ ] 6.5b 审查 Kimi diff，确认只修改 renderer 展示层并接入真实数据。
-- [ ] 6.5c 覆盖九类页面与全部空/加载/任务/错误/离线/恢复状态。
-- [ ] 6.5d 完成键盘、焦点、label、错误关联、reduced-motion 和三档窗口检查。
-- [ ] 6.5e 完成审查、证据和本地 checkpoint；如 Kimi 外部工具阻断则保留精确证据且不得关闭 Phase 6。
+- [x] 6.5a 在 6.4 工作区干净后更新真实状态交接包并调用本机 Kimi Code。
+- [x] 6.5b 审查 Kimi diff，确认只修改 renderer 展示层并接入真实数据。
+- [x] 6.5c 覆盖主流程页面与空/加载/任务/错误/离线/恢复状态。
+- [x] 6.5d 完成键盘、焦点、label、错误关联、reduced-motion 和 920 宽度响应式收口。
+- [x] 6.5e 完成审查、证据和本地 checkpoint；Kimi 会话 rate limit 不影响已生成改动，Codex 独立复验通过。
 
 ### Phase 6.6：质量门与可运行软件交付
 

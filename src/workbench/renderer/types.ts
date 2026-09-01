@@ -59,6 +59,21 @@ export interface WorkbenchBootstrap {
 
 export interface ImportSelectionResult extends WorkbenchBootstrap { cancelled: boolean }
 
+export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'interrupted';
+
+export interface WorkbenchJob {
+  id: string;
+  type: string;
+  status: JobStatus;
+  progress: number;
+  step: string;
+  createdAt: string;
+  updatedAt: string;
+  attempts: number;
+  error?: { code: string; message: string };
+  result?: unknown;
+}
+
 export type WorkbenchResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; message: string; title?: string; unaffected?: string; action?: string } };

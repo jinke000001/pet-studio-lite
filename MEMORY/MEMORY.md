@@ -64,6 +64,7 @@
 - Phase 6.2 已完成：主进程目录/ZIP 选择、授权与安全来源摘要、失败保护、检查层级、联系表/逐帧预览和隔离真实桌宠启停；104/104 回归及 macOS Doraemon 隔离实测通过。证据：`../Resources/phase-6.2-workbench-evidence.md`。
 - Phase 6.3a/6.3b 已实现产品配置校验、持久化和非覆盖可恢复项目包导出；标准包/候选构建任务化与 source/packaged/installed 验证仍待完成。证据：`../Resources/phase-6.3-workbench-evidence.md`。
 - Phase 6.4a 已加入持久化任务基础（六种状态、取消、重试、重启中断识别、任务中心展示）；完整 worker/构建接入仍待完成。证据：`../Resources/phase-6.4-workbench-evidence.md`。
+- Phase 6.5 Kimi 视觉收口已执行：Kimi 仅修改 renderer 四个文件，Codex 完整 diff/类型/106 项回归/构建/lint 审查通过。证据：`../Resources/phase-6.5-workbench-evidence.md`。
 - 实施分支为 `codex/phase-6-1-workbench`，起点提交 `d78de60`；现有五个桌宠、历史候选、证据、原始素材、RETURN 和用户宠物目录保持不变。
 - 完整 PRD 与阶段计划位于 `tasks/phase-6-workbench-prd.md`。商业发布体系继续暂缓，Phase 6 MVP 不包含 AI 动作生成、逐帧编辑、签名、公证、商城、支付、DRM 或自动更新。
 - 验证为 91/91 测试、TypeScript、Vite 生产构建、lint、source preflight、npm audit 0 vulnerabilities 和 macOS 真实“新建 → 完整重启 → 恢复”；下一确认门是用户审查 Phase 6.1 后再进入 Phase 6.2。
