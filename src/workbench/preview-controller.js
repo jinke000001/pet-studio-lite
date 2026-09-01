@@ -125,7 +125,11 @@ function createPreviewController({
       DESKTOP_PET_PREVIEW_USER_DATA: userDataPath,
       DESKTOP_PET_PREVIEW_PARENT_PID: String(parentPid),
     });
-    const child = spawn(electronPath, ['.'], {
+    // A packaged workbench's package.json points at this workbench entry.
+    // Launch the shared transparent-pet runtime explicitly for previews so
+    // the child cannot recurse into another workbench window.
+    const runtimeEntry = path.join(applicationRoot, 'src', 'main.js');
+    const child = spawn(electronPath, [runtimeEntry], {
       cwd: applicationRoot,
       env: environment,
       stdio: 'ignore',

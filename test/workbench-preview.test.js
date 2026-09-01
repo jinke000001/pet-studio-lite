@@ -43,12 +43,13 @@ function makeStore() {
 test('starts only one isolated preview and stops the previous child before replacement', async () => {
   const { store, project } = makeStore();
   const children = [];
-  const spawn = (_command, _args, options) => {
+  const spawn = (_command, args, options) => {
     const child = new EventEmitter();
     child.pid = 4000 + children.length;
     child.exitCode = null;
     child.kill = () => { child.exitCode = 0; child.emit('exit', 0, null); return true; };
     child.options = options;
+    child.args = args;
     children.push(child);
     queueMicrotask(() => child.emit('spawn'));
     return child;
@@ -66,6 +67,7 @@ test('starts only one isolated preview and stops the previous child before repla
   assert.equal(children.length, 1);
   assert.equal(children[0].options.env.DESKTOP_PET_PREVIEW_PARENT_PID, '999');
   assert.equal(children[0].options.env.PET_PRODUCT, undefined);
+  assert.deepEqual(children[0].args, ['/application/src/main.js']);
   await controller.start(project.id);
   assert.equal(children[0].exitCode, 0);
   assert.equal(children.length, 2);
