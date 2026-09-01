@@ -23,16 +23,16 @@
     "lint": "node scripts/check-syntax.js"
   },
   "devDependencies": {
-    "@electron/asar": "^3.4.1",
+    "electron-builder": "26.15.3",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
     "@vitejs/plugin-react": "6.1.1",
     "electron": "43.4.1",
-    "electron-builder": "26.15.3",
     "typescript": "7.0.2",
     "vite": "8.2.2"
   },
   "dependencies": {
+    "@electron/asar": "^3.4.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "yauzl": "3.4.0"

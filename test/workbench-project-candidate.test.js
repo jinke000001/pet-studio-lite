@@ -23,12 +23,16 @@ function harness(authorizationStatus = 'authorized') {
 
 function controllerFor(harnessValue, overrides = {}) {
   let sequence = 0;
+  const applicationRoot = path.resolve(__dirname, '..');
   return createCandidateController({
     store: harnessValue.store,
-    applicationRoot: path.resolve(__dirname, '..'),
+    applicationRoot,
+    builderRoot: applicationRoot,
+    buildAssetsRoot: applicationRoot,
     now: () => new Date('2026-09-01T01:02:03.000Z'),
     randomHex: () => `00000${sequence += 1}`,
     spawnBuilder: async (_command, options) => {
+      assert.equal(options.spawnOptions.env.ELECTRON_RUN_AS_NODE, '1');
       const configPath = options.args[options.args.indexOf('--config') + 1];
       const config = JSON.parse(fs.readFileSync(configPath));
       const artifacts = path.join(config.directories.output);
@@ -61,7 +65,7 @@ test('builds from only the active normalized package and preserves versioned can
   assert.equal(candidates.length, 2);
   assert.notEqual(candidates[0].relativePath, candidates[1].relativePath);
   const config = JSON.parse(fs.readFileSync(value.store.resolveProjectPath(value.project.id, ...candidates[0].relativePath.split('/'), 'build-config.json')));
-  assert.ok(config.files.includes('package.json'));
+  assert.deepEqual(config.files.filter((entry) => typeof entry === 'object' && entry.to === 'package.json').map((entry) => entry.from), [path.resolve(__dirname, '..', 'package.json')]);
   assert.deepEqual(config.files.filter((entry) => typeof entry === 'object' && entry.to === 'config').map((entry) => entry.to), ['config']);
   assert.deepEqual(config.files.filter((entry) => typeof entry === 'object' && entry.to.startsWith('local-pets/')).map((entry) => entry.to), ['local-pets/imported']);
   assert.deepEqual(config.extraMetadata.desktopPetProduct, 'workbench-project');

@@ -1,4 +1,36 @@
-const test = require('node:test'); const assert = require('node:assert/strict'); const path = require('node:path');
+const test = require('node:test'); const assert = require('node:assert/strict'); const fs = require('node:fs'); const os = require('node:os'); const path = require('node:path');
 const { createStudioBuilderConfiguration, candidateId } = require('../src/workbench/candidate-builder');
-test('creates isolated unsigned workbench candidate configuration', () => { const config = createStudioBuilderConfiguration({ outputDirectory: '/tmp/out' }); assert.equal(config.extraMetadata.main, 'src/workbench/main.js'); assert.equal(config.forceCodeSigning, false); assert.equal(config.publish, null); assert.equal(config.mac.identity, null); assert.match(config.directories.output, /artifacts$/); assert.ok(config.files.includes('.workbench-dist/**/*')); });
+const { stageBuilderRuntime } = require('../src/workbench/builder-runtime');
+test('creates isolated unsigned workbench candidate configuration', () => {
+  const config = createStudioBuilderConfiguration({ outputDirectory: '/tmp/out', projectRoot: '/repo', builderPackages: [{ sourceDirectory: '/repo/node_modules/electron-builder', relativePath: 'node_modules/electron-builder' }] });
+  assert.equal(config.extraMetadata.main, 'src/workbench/main.js'); assert.equal(config.forceCodeSigning, false); assert.equal(config.publish, null); assert.equal(config.mac.identity, null); assert.match(config.directories.output, /artifacts$/); assert.equal(config.files[0].to, 'package.json');
+  assert.deepEqual(config.extraResources, [
+    { from: '/repo/node_modules/electron-builder', to: 'workbench-builder/node_modules/electron-builder' },
+    { from: '/repo/package.json', to: 'workbench-build-assets/package.json' },
+    { from: '/repo/src', to: 'workbench-build-assets/src' },
+    { from: '/repo/build', to: 'workbench-build-assets/build' },
+  ]);
+});
 test('creates versioned non-overwriting candidate ids', () => { assert.equal(candidateId(new Date('2026-09-01T01:02:03.000Z')), 'candidate-20260901010203000'); });
+
+test('stages only the electron-builder production dependency closure', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-builder-source-'));
+  const output = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-builder-output-'));
+  function add(name, manifest, extraFile = 'module.exports = true;', parent = root) {
+    const directory = path.join(parent, 'node_modules', ...name.split('/'));
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, 'package.json'), JSON.stringify({ name, version: '1.0.0', main: 'index.js', ...manifest }));
+    fs.writeFileSync(path.join(directory, 'index.js'), extraFile);
+  }
+  add('electron-builder', { dependencies: { required: '1.0.0', nested: '1.0.0' }, devDependencies: { ignored: '1.0.0' } });
+  const electronBuilderDirectory = path.join(root, 'node_modules', 'electron-builder');
+  add('nested', {}, 'module.exports = true;', electronBuilderDirectory);
+  add('required', { optionalDependencies: { optional: '1.0.0' } });
+  add('optional', {});
+  add('ignored', {});
+  const result = stageBuilderRuntime({ projectRoot: root, outputDirectory: output });
+  assert.deepEqual(result.packages.map((entry) => entry.name).sort(), ['electron-builder', 'nested', 'optional', 'required']);
+  assert.equal(fs.existsSync(path.join(output, 'node_modules', 'electron-builder', 'package.json')), true);
+  assert.equal(fs.existsSync(path.join(output, 'node_modules', 'ignored')), false);
+  assert.equal(fs.statSync(path.join(root, 'node_modules', 'electron-builder', 'index.js')).ino, fs.statSync(path.join(output, 'node_modules', 'electron-builder', 'index.js')).ino);
+});

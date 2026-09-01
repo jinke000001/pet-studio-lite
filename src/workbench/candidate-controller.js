@@ -27,6 +27,8 @@ function runBuilder(command, options, context) {
 function createCandidateController({
   store,
   applicationRoot,
+  builderRoot = applicationRoot,
+  buildAssetsRoot = applicationRoot,
   spawnBuilder = runBuilder,
   inspectAsar = inspectPackagedAsar,
   discoverArtifacts = discoverCandidateArtifacts,
@@ -55,16 +57,16 @@ function createCandidateController({
     fs.writeFileSync(profilePath, `${JSON.stringify(profile, null, 2)}\n`);
     const config = createBuilderConfiguration({ selector, profile, outputDirectory: runDirectory, targets });
     config.files = [
-      'package.json',
-      { from: path.join(applicationRoot, 'src'), to: 'src' },
-      { from: path.join(applicationRoot, 'build'), to: 'build' },
+      { from: path.join(buildAssetsRoot, 'package.json'), to: 'package.json' },
+      { from: path.join(buildAssetsRoot, 'src'), to: 'src' },
+      { from: path.join(buildAssetsRoot, 'build'), to: 'build' },
       { from: path.join(generated, 'config'), to: 'config' },
       { from: packageDirectory, to: 'local-pets/imported' },
     ];
     const configPath = path.join(runDirectory, 'build-config.json'); fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
     context.report(20, '装配单宠候选');
-    const cli = path.join(applicationRoot, 'node_modules', 'electron-builder', 'out', 'cli', 'cli.js');
-    const result = await spawnBuilder(process.execPath, { args: [cli, '--publish', 'never', '--config', configPath, ...targets.map((target) => `--${target}`)], spawnOptions: { cwd: applicationRoot, env: { ...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false', ELECTRON_BUILDER_PUBLISH: 'never' }, stdio: ['ignore', 'pipe', 'pipe'] } }, context);
+    const cli = path.join(builderRoot, 'node_modules', 'electron-builder', 'out', 'cli', 'cli.js');
+    const result = await spawnBuilder(process.execPath, { args: [cli, '--publish', 'never', '--config', configPath, ...targets.map((target) => `--${target}`)], spawnOptions: { cwd: buildAssetsRoot, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', CSC_IDENTITY_AUTO_DISCOVERY: 'false', ELECTRON_BUILDER_PUBLISH: 'never' }, stdio: ['ignore', 'pipe', 'pipe'] } }, context);
     fs.writeFileSync(path.join(runDirectory, 'builder.log'), `${result.stdout}${result.stderr}`);
     if (context.isCancelled()) { recordCancelledRun(runDirectory); throw candidateError('BUILD_CANCELLED', '候选构建已取消。'); }
     if (result.code !== 0) {
@@ -75,7 +77,7 @@ function createCandidateController({
     const artifactPaths = discoverArtifacts(runDirectory);
     const asars = artifactPaths.filter((file) => path.basename(file) === 'app.asar').map((asarPath) => ({ path: path.relative(runDirectory, asarPath).replaceAll(path.sep, '/'), ...inspectAsar({ asarPath, selector }) }));
     const petManifest = JSON.parse(fs.readFileSync(path.join(packageDirectory, 'pet.json'), 'utf8'));
-    const manifest = createManifest({ runDirectory, profile, selector, targets, sourceAtlasPath: path.join(packageDirectory, petManifest.spritesheetPath), artifactPaths, packagedResources: asars, toolVersions: { node: process.versions.node, electron: require(path.join(applicationRoot, 'node_modules/electron/package.json')).version, electronBuilder: require(path.join(applicationRoot, 'node_modules/electron-builder/package.json')).version } });
+    const manifest = createManifest({ runDirectory, profile, selector, targets, sourceAtlasPath: path.join(packageDirectory, petManifest.spritesheetPath), artifactPaths, packagedResources: asars, toolVersions: { node: process.versions.node, electron: process.versions.electron || 'external-node', electronBuilder: require(path.join(builderRoot, 'node_modules/electron-builder/package.json')).version } });
     fs.writeFileSync(path.join(runDirectory, 'candidate-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
     const projectDirectory = path.dirname(store.resolveProjectPath(projectId, 'project.json'));
     const relativePath = path.relative(projectDirectory, runDirectory).replaceAll(path.sep, '/');

@@ -103,7 +103,7 @@ export function ProjectWorkspace({
   const [product, setProduct] = useState({ productName: project.product?.productName as string ?? '', version: project.product?.version as string ?? '0.1.0', productId: project.product?.productId as string ?? `${project.id}-product`, appId: project.product?.appId as string ?? `com.jinke.${project.id}`, executableName: project.product?.executableName as string ?? 'DesktopPetCandidate', artifactName: project.product?.artifactName as string ?? 'desktop-pet-candidate', targets: (project.product?.targets as Array<'mac' | 'win'> | undefined) ?? ['mac'] });
   const [jobs, setJobs] = useState<Array<WorkbenchJob>>([]);
   const [petdexSlug, setPetdexSlug] = useState('');
-  const refreshedImports = useRef(new Set<string>());
+  const refreshedJobs = useRef(new Set<string>());
 
   useEffect(() => {
     setPreview(null);
@@ -122,9 +122,9 @@ export function ProjectWorkspace({
       if (!mounted || !result.ok) return;
       const nextJobs = result.value as Array<WorkbenchJob>;
       setJobs(nextJobs);
-      const completedImport = nextJobs.find((job) => ['import', 'petdex-import'].includes(job.type) && job.status === 'succeeded' && !refreshedImports.current.has(job.id));
-      if (completedImport) {
-        refreshedImports.current.add(completedImport.id);
+      const completedJob = nextJobs.find((job) => job.status === 'succeeded' && !refreshedJobs.current.has(job.id));
+      if (completedJob) {
+        refreshedJobs.current.add(completedJob.id);
         const opened = await window.workbenchApi.openProject(project.id);
         if (mounted && opened.ok && opened.value.activeProject) onProjectChange(opened.value.activeProject);
       }

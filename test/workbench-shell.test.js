@@ -26,6 +26,10 @@ test('workbench uses a separate sandboxed Electron entry with narrow IPC', () =>
   assert.match(main, /workbench:start-pet-preview/);
   assert.match(main, /workbench:stop-pet-preview/);
   assert.match(main, /assertTrustedSender/);
+  assert.match(main, /renderer-ready url=/);
+  assert.match(main, /studio-ready/);
+  assert.match(main, /acquireInstanceLock/);
+  assert.doesNotMatch(main, /requestSingleInstanceLock/);
   assert.match(preload, /contextBridge\.exposeInMainWorld\('workbenchApi'/);
   assert.doesNotMatch(preload, /invoke:\s*\(/);
   assert.doesNotMatch(preload, /send:\s*\(/);
@@ -47,10 +51,30 @@ test('workbench renderer declares a strict CSP and accessible project form', () 
   assert.doesNotMatch(app, /dangerouslySetInnerHTML/);
 });
 
+test('task completion refreshes project artifacts, not only import previews', () => {
+  const workspace = read('src/workbench/renderer/ProjectWorkspace.tsx');
+  assert.match(workspace, /job\.status === 'succeeded'/);
+  assert.doesNotMatch(workspace, /\['import', 'petdex-import'\]\.includes\(job\.type\)/);
+  assert.match(workspace, /openProject\(project\.id\)/);
+});
+
+test('background handlers persist compact identifiers instead of nested project snapshots', () => {
+  const main = read('src/workbench/main.js');
+  assert.match(main, /return \{ projectId, importId: project\.latestImport\.id, artifactId: project\.latestImport\.artifactId \}/);
+  assert.match(main, /return \{ projectId, artifactId: project\.artifacts\.at\(-1\)\.id \}/);
+  assert.doesNotMatch(main, /return importController\.importSource\(selected\)/);
+});
+
 test('package exposes workbench build, typecheck, and launch commands', () => {
   const packageJson = JSON.parse(read('package.json'));
   assert.match(packageJson.scripts.studio, /studio:build/);
   assert.ok(packageJson.scripts['studio:build']);
   assert.ok(packageJson.scripts['studio:typecheck']);
   assert.equal(packageJson.main, 'src/main.js');
+});
+
+test('electron-builder stays a development tool instead of an app production dependency', () => {
+  const packageJson = JSON.parse(read('package.json'));
+  assert.equal(packageJson.devDependencies['electron-builder'], '26.15.3');
+  assert.equal(packageJson.dependencies['electron-builder'], undefined);
 });

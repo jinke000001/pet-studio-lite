@@ -13,8 +13,11 @@ const { createProductController } = require('./product-controller');
 const { createJobController } = require('./job-controller');
 const { createCandidateController } = require('./candidate-controller');
 const { createWorkspaceController } = require('./workspace-controller');
+const { acquireInstanceLock } = require('./instance-lock');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+const BUILDER_ROOT = app.isPackaged ? path.join(process.resourcesPath, 'workbench-builder') : PROJECT_ROOT;
+const BUILD_ASSETS_ROOT = app.isPackaged ? path.join(process.resourcesPath, 'workbench-build-assets') : PROJECT_ROOT;
 const RENDERER_ENTRY = path.join(PROJECT_ROOT, '.workbench-dist', 'index.html');
 const TRUSTED_RENDERER_URL = pathToFileURL(RENDERER_ENTRY).href;
 const PUBLIC_ERROR_CODES = new Set([
@@ -30,8 +33,24 @@ const userDataPath = userDataOverride && path.isAbsolute(userDataOverride)
 app.setPath('userData', userDataPath);
 app.setAppUserModelId('com.jinke.desktop-pet.studio');
 
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
-if (!hasSingleInstanceLock) app.quit();
+const logPath = path.join(userDataPath, 'studio.log');
+function log(message) {
+  try {
+    fs.mkdirSync(userDataPath, { recursive: true });
+    fs.appendFileSync(logPath, `${new Date().toISOString()} ${message}\n`);
+  } catch {
+    // Diagnostics must never block the workbench.
+  }
+}
+
+log(`studio-start pid=${process.pid} packaged=${app.isPackaged} userData=${userDataPath}`);
+const releaseInstanceLock = acquireInstanceLock({ directory: userDataPath });
+if (!releaseInstanceLock) {
+  log('single-instance-lock-denied');
+  app.quit();
+} else {
+  log('single-instance-lock-acquired');
+}
 
 const store = createProjectStore({ workspaceRoot: userDataPath });
 store.recoverInterruptedJobs();
@@ -42,7 +61,7 @@ const previewController = createPreviewController({
   applicationRoot: PROJECT_ROOT,
 });
 const productController = createProductController({ store });
-const candidateController = createCandidateController({ store, applicationRoot: PROJECT_ROOT });
+const candidateController = createCandidateController({ store, applicationRoot: PROJECT_ROOT, builderRoot: BUILDER_ROOT, buildAssetsRoot: BUILD_ASSETS_ROOT });
 const workspaceController = createWorkspaceController({ store, reveal: (target) => shell.showItemInFolder(target) });
 const selectedSources = new Map();
 const jobs = createJobController({
@@ -54,10 +73,17 @@ const jobs = createJobController({
         const error = new Error('导入选择已失效，请重新选择素材。'); error.code = 'IMPORT_SELECTION_EXPIRED'; throw error;
       }
       context.report(20, '复制并检查素材');
-      return importController.importSource(selected);
+      const project = await importController.importSource(selected);
+      return { projectId, importId: project.latestImport.id, artifactId: project.latestImport.artifactId };
     },
-    'petdex-import': (projectId, input, context) => importController.importPetdex({ projectId, slug: input.slug, authorizationStatus: input.authorizationStatus }, context),
-    export: (projectId) => productController.exportProject(projectId),
+    'petdex-import': async (projectId, input, context) => {
+      const project = await importController.importPetdex({ projectId, slug: input.slug, authorizationStatus: input.authorizationStatus }, context);
+      return { projectId, importId: project.latestImport.id, artifactId: project.latestImport.artifactId };
+    },
+    export: (projectId) => {
+      const project = productController.exportProject(projectId);
+      return { projectId, artifactId: project.artifacts.at(-1).id };
+    },
     build: (projectId, input, context) => candidateController.build(projectId, input, context),
   },
 });
@@ -168,6 +194,9 @@ function createWindow() {
   window.webContents.on('will-navigate', (event, url) => {
     if (url !== TRUSTED_RENDERER_URL) event.preventDefault();
   });
+  window.webContents.on('did-finish-load', () => log(`renderer-ready url=${window?.webContents.getURL()}`));
+  window.webContents.on('render-process-gone', (_event, details) => log(`renderer-gone reason=${details.reason} exitCode=${details.exitCode}`));
+  window.on('unresponsive', () => log('window-unresponsive'));
   window.once('ready-to-show', () => window?.show());
   window.loadFile(RENDERER_ENTRY);
   window.on('closed', () => {
@@ -177,8 +206,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  if (!releaseInstanceLock) return;
   registerIpc();
   createWindow();
+  log('studio-ready');
   console.log('studio-ready');
   app.on('activate', () => { if (!window) createWindow(); });
 });
@@ -191,6 +222,6 @@ app.on('second-instance', () => {
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => { jobs.shutdown(); selectedSources.clear(); previewController.stop(); });
+app.on('before-quit', () => { log('studio-before-quit'); jobs.shutdown(); selectedSources.clear(); previewController.stop(); releaseInstanceLock?.(); });
 
 module.exports = { assertTrustedSender, publicError };
