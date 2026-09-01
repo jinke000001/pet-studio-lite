@@ -78,6 +78,23 @@ function createPreviewBundle(store, projectId) {
   }
 }
 
+function resolvePreviewSpawnCwd(applicationRoot) {
+  if (typeof applicationRoot !== 'string' || !path.isAbsolute(applicationRoot)) {
+    throw controllerError('PREVIEW_START_FAILED', '预览运行目录无效。');
+  }
+  // In a packaged app, applicationRoot is the app.asar file, not a directory.
+  // Electron still resolves the runtime entry inside the ASAR, but spawn's
+  // cwd must be a real directory (the containing Resources directory).
+  try {
+    if (fs.statSync(applicationRoot).isDirectory()) return applicationRoot;
+  } catch {
+    // Tests and a not-yet-created source path are handled by the suffix rule.
+  }
+  return path.basename(applicationRoot) === 'app.asar'
+    ? path.dirname(applicationRoot)
+    : applicationRoot;
+}
+
 function waitForSpawn(child) {
   return new Promise((resolve, reject) => {
     child.once('spawn', resolve);
@@ -130,7 +147,7 @@ function createPreviewController({
     // the child cannot recurse into another workbench window.
     const runtimeEntry = path.join(applicationRoot, 'src', 'main.js');
     const child = spawn(electronPath, [runtimeEntry], {
-      cwd: applicationRoot,
+      cwd: resolvePreviewSpawnCwd(applicationRoot),
       env: environment,
       stdio: 'ignore',
     });
@@ -152,4 +169,4 @@ function createPreviewController({
   return { start, status, stop };
 }
 
-module.exports = { createPreviewBundle, createPreviewController };
+module.exports = { createPreviewBundle, createPreviewController, resolvePreviewSpawnCwd };

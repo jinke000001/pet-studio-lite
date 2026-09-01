@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { createProjectStore } = require('../src/workbench/project-store');
-const { createPreviewController } = require('../src/workbench/preview-controller');
+const { createPreviewController, resolvePreviewSpawnCwd } = require('../src/workbench/preview-controller');
 
 function makeStore() {
   const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workbench-preview-'));
@@ -73,6 +73,11 @@ test('starts only one isolated preview and stops the previous child before repla
   assert.equal(children.length, 2);
   assert.deepEqual(await controller.stop(), { status: 'stopped' });
   assert.equal(children[1].exitCode, 0);
+});
+
+test('uses a physical cwd when the runtime entry lives inside app.asar', () => {
+  assert.equal(resolvePreviewSpawnCwd('/application/resources/app.asar'), '/application/resources');
+  assert.equal(resolvePreviewSpawnCwd('/application'), '/application');
 });
 
 test('refuses preview when the project has no successful import', async () => {
