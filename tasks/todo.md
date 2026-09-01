@@ -143,6 +143,6 @@ Checkpoint 6.4 已完成；任务恢复只在启动时执行一次，轮询不�
 - [x] 6.6c 建立非覆盖 Windows 验收交接包、PRD、提示词、模板、脚本与 checksums。
 - [ ] 6.6d 完成候选/manifest/哈希/包工厂检查和最终多轴代码审查，修复全部 Critical/Required。
 - [x] 6.6e 生成新的非覆盖 Windows 复验交接包并完成输入哈希、ZIP UTF-8/元数据/符号链接校验。
-- [ ] 6.6f 同步 MEMORY、计划、待办、证据与最终报告，创建最终本地 checkpoint，确认工作区干净和零残留进程；Windows installed mode 等待新 RETURN。
+- [x] 6.6f 同步 MEMORY、计划、待办、证据与最终报告，创建本地 checkpoint（`a93a2e8` 修复、`792113a`/`fb3967a` 证据文档），确认工作区干净；Windows installed mode 等待新 RETURN。
 
 Phase 6 不改变商业发布体系暂缓结论；签名、公证、商城、支付、DRM、自动更新和正式发布仍不在当前范围。
