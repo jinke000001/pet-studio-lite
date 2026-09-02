@@ -1,0 +1,11 @@
+PASS P1-dangling-symlink outcome=EEXIST targetCreated=false
+PASS P2-symlink-to-file outcome=EEXIST content=do-not-touch
+PASS P3-symlink-to-dir outcome=EEXIST
+PASS P4-real-directory outcome=EEXIST
+PASS P5-regular-file outcome=EEXIST
+PASS P6-publish-atomic outcome=acquired leftovers=0
+PASS P7-concurrent-publish acquired=1 eexist=7
+PASS M1-dangling-symlink outcome=EEXIST targetCreated=false
+PASS M2-symlink-to-dir outcome=EEXIST
+PASS M3-dir-lock-legacy-view outcome=acquired legacySeesFile=false
+probe summary: 10/10 pass; probeDirRemoved=true

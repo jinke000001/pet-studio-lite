@@ -1,0 +1,4 @@
+
+> desktop-pet-workflow@0.1.0 studio:typecheck
+> tsc -p tsconfig.workbench.json --noEmit
+

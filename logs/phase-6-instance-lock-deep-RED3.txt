@@ -1,0 +1,135 @@
+✔ allows one workbench instance and releases its lock (17.404417ms)
+✔ rejects a second instance and never touches the live holder lock (10.444958ms)
+✔ recovers a dead owner lock, including the legacy pid-only format (7.97025ms)
+✔ recovers a dead owner written in the current token format (6.856209ms)
+✔ rejects a dangling symbolic-link lock without ever creating its target (real filesystem) (4.033042ms)
+✔ rejects a symlink to an existing file without touching its content or hash (5.928375ms)
+✔ rejects a directory at the lock path (5.002583ms)
+✔ rejects a symlink-to-directory (junction analogue) without writing inside the target (5.007916ms)
+✔ fails closed on corrupt, empty and oversize lock records without deleting them (16.878416ms)
+✔ rethrows EPERM from publish when nothing exists at the lock path (3.793417ms)
+✔ rethrows EACCES from publish unchanged (3.883709ms)
+✔ rethrows EACCES from temp-file creation unchanged (0.428209ms)
+✔ converts publish EPERM into an unsafe-lock error only when a symlink is proven at the lock path (3.50175ms)
+✔ converts publish EPERM into an unsafe-lock error only when an oversize regular lock is proven (4.220708ms)
+✔ release does not delete a lock object that replaced ours after acquisition (2.958209ms)
+✔ release requires both pid and token; same pid with a different token cannot release (4.526792ms)
+✔ release is idempotent and a stale release handle cannot delete a new holder lock (6.649166ms)
+✔ ignores and preserves leftover temp files from a crashed attempt (3.374333ms)
+✖ only one of six real concurrent child processes holds the lock (220.941583ms)
+✔ twenty sequential acquire/release rounds leave no lock or temp residue (82.354791ms)
+✔ processAlive treats only ESRCH as dead and everything else as alive (fail-closed) (0.120459ms)
+✔ converts publish EACCES into an unsafe-lock error when an object is proven at the lock path (3.804792ms)
+✔ rethrows EACCES from publish when the lock path is provably empty (2.688375ms)
+✔ throws instead of returning null when dead-lock recovery is persistently contested (12.6845ms)
+✔ retries transient EBUSY when removing a dead lock and rethrows if persistent (9.958ms)
+✔ refuses to lock when the lock directory itself is a symbolic link (0.566875ms)
+✔ rejects invalid pid input before touching the filesystem (0.394ms)
+✔ publication never opens the lock path; record reads use an explicit no-follow descriptor (11.1415ms)
+✖ retries and eventually acquires when a dead lock vanishes mid-read (concurrent recovery) (3.102875ms)
+✔ preserves the original publish error when the lock path stays empty across retries (4.201541ms)
+✖ exhaustion after contested recovery reports unsafe, not a stale transient error (11.950458ms)
+✖ refuses a dangling directory symlink without creating its target (0.368209ms)
+ℹ Error: Test "only one of six real concurrent child processes holds the lock" at test/workbench-instance-lock.test.js:325:1 generated asynchronous activity after the test ended. This activity created the error "TypeError: chunk.split is not a function" and would have caused the test to fail, but instead triggered an uncaughtException event.
+ℹ Error: Test "only one of six real concurrent child processes holds the lock" at test/workbench-instance-lock.test.js:325:1 generated asynchronous activity after the test ended. This activity created the error "TypeError: chunk.split is not a function" and would have caused the test to fail, but instead triggered an uncaughtException event.
+ℹ Error: Test "only one of six real concurrent child processes holds the lock" at test/workbench-instance-lock.test.js:325:1 generated asynchronous activity after the test ended. This activity created the error "TypeError: chunk.split is not a function" and would have caused the test to fail, but instead triggered an uncaughtException event.
+ℹ Error: Test "only one of six real concurrent child processes holds the lock" at test/workbench-instance-lock.test.js:325:1 generated asynchronous activity after the test ended. This activity created the error "TypeError: chunk.split is not a function" and would have caused the test to fail, but instead triggered an uncaughtException event.
+ℹ Error: Test "only one of six real concurrent child processes holds the lock" at test/workbench-instance-lock.test.js:325:1 generated asynchronous activity after the test ended. This activity created the error "TypeError: chunk.split is not a function" and would have caused the test to fail, but instead triggered an uncaughtException event.
+ℹ tests 32
+ℹ suites 0
+ℹ pass 28
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45217.132834
+
+✖ failing tests:
+
+test at test/workbench-instance-lock.test.js:325:1
+✖ only one of six real concurrent child processes holds the lock (220.941583ms)
+  TypeError: chunk.split is not a function
+      at Socket.<anonymous> (/Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:361:32)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+
+test at test/workbench-instance-lock.test.js:570:1
+✖ retries and eventually acquires when a dead lock vanishes mid-read (concurrent recovery) (3.102875ms)
+  Error: ENOENT
+      at fs.openSync (/Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:579:29)
+      at readLockRecord (/Users/jinke00001/Desktop/pet/src/workbench/instance-lock.js:37:21)
+      at acquireInstanceLock (/Users/jinke00001/Desktop/pet/src/workbench/instance-lock.js:108:22)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:584:23)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    code: 'ENOENT'
+  }
+
+test at test/workbench-instance-lock.test.js:612:1
+✖ exhaustion after contested recovery reports unsafe, not a stale transient error (11.950458ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  Error: EPERM
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:632:14)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: EPERM
+        at fs.unlinkSync (/Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:623:31)
+        at acquireInstanceLock (/Users/jinke00001/Desktop/pet/src/workbench/instance-lock.js:113:12)
+        at /Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:633:15
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:632:14)
+        at Test.runInAsyncScope (node:async_hooks:228:14)
+        at Test.run (node:internal/test_runner/test:1118:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+        at Test.postRun (node:internal/test_runner/test:1247:19),
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:645:1
+✖ refuses a dangling directory symlink without creating its target (0.368209ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /实例锁不安全/. Input:
+  
+  "Error: ENOENT: no such file or directory, mkdir '/var/folders/63/0_30lrbd7zbbk0z8c9x91c2r0000gn/T/studio-lock-6W9Zbs/linked-lock-dir'"
+  
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:651:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: ENOENT: no such file or directory, mkdir '/var/folders/63/0_30lrbd7zbbk0z8c9x91c2r0000gn/T/studio-lock-6W9Zbs/linked-lock-dir'
+        at Object.mkdirSync (node:fs:1349:26)
+        at acquireInstanceLock (/Users/jinke00001/Desktop/pet/src/workbench/instance-lock.js:69:6)
+        at /Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:651:25
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/workbench-instance-lock.test.js:651:12)
+        at Test.runInAsyncScope (node:async_hooks:228:14)
+        at Test.run (node:internal/test_runner/test:1118:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+        at Test.postRun (node:internal/test_runner/test:1247:19),
+    expected: /实例锁不安全/,
+    operator: 'throws',
+    diff: 'simple'
+  }

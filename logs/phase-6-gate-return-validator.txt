@@ -1,0 +1,29 @@
+✔ fully compliant RETURN directory passes with exit code 0 (29.42475ms)
+✔ missing evidence file fails with exit code 1 (27.373334ms)
+✔ forged pass: overallStatus=passed with a failed required gate fails (28.390958ms)
+✔ wrong evidence SHA-256 fails with exit code 1 (29.224334ms)
+✔ passed overall status with a not-executed required gate fails (27.140208ms)
+✔ process gate with exitCode=1 (PowerShell syntax error) fails (27.700958ms)
+✔ residual accepted product process at an expected path fails (27.899958ms)
+✔ display scale mismatch (original=96 final=120) fails (27.485083ms)
+✔ returned-checksums.sha256 with UTF-8 BOM fails (26.245583ms)
+✔ returned-checksums.sha256 with CRLF line endings fails (26.021833ms)
+✔ returned-checksums.sha256 listing itself fails (26.106625ms)
+✔ overallStatus=failed with null firstFailedGate fails (26.601459ms)
+✔ overallStatus=failed with a passed gate after firstFailedGate fails (26.371875ms)
+✔ mismatched sourceCommit fails identity check (27.79925ms)
+✔ mismatched sourceZipSha256 fails identity check (26.647833ms)
+✔ missing acceptance-state.json fails with exit code 1 (26.965708ms)
+✔ corrupt acceptance-state.json fails with exit code 1 (26.147125ms)
+✔ environment-blocked overall status fails with environment-blocked reason (26.395875ms)
+✔ evidence path escaping the RETURN directory (../) fails (27.34675ms)
+✔ --json emits machine readable results for a failing RETURN directory (26.492083ms)
+✔ invocation without arguments exits with usage code 2 (24.322708ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 610.248833

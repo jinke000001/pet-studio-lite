@@ -1,0 +1,41 @@
+✔ allows one workbench instance and releases its lock (6.931542ms)
+✔ rejects a second instance and never touches the live holder lock (8.330833ms)
+✔ recovers a dead owner lock, including the legacy pid-only format (7.180625ms)
+✔ recovers a dead owner written in the current token format (7.631417ms)
+✔ rejects a dangling symbolic-link lock without ever creating its target (real filesystem) (2.859166ms)
+✔ rejects a symlink to an existing file without touching its content or hash (5.051833ms)
+✔ rejects a directory at the lock path (3.05425ms)
+✔ rejects a symlink-to-directory (junction analogue) without writing inside the target (5.055666ms)
+✔ fails closed on corrupt, empty and oversize lock records without deleting them (16.923458ms)
+✔ rethrows EPERM from publish when nothing exists at the lock path (9.552167ms)
+✔ rethrows EACCES from publish unchanged (9.051459ms)
+✔ rethrows EACCES from temp-file creation unchanged (0.298291ms)
+✔ converts publish EPERM into an unsafe-lock error only when a symlink is proven at the lock path (3.506625ms)
+✔ converts publish EPERM into an unsafe-lock error only when an oversize regular lock is proven (3.943542ms)
+✔ release does not delete a lock object that replaced ours after acquisition (4.736125ms)
+✔ release requires both pid and token; same pid with a different token cannot release (3.3005ms)
+✔ release is idempotent and a stale release handle cannot delete a new holder lock (8.410542ms)
+✔ ignores and preserves leftover temp files from a crashed attempt (3.922708ms)
+✔ only one of six real concurrent child processes holds the lock (234.479583ms)
+✔ twenty sequential acquire/release rounds leave no lock or temp residue (78.594875ms)
+✔ processAlive treats only ESRCH as dead and everything else as alive (fail-closed) (0.153333ms)
+✔ converts publish EACCES into an unsafe-lock error when an object is proven at the lock path (4.44925ms)
+✔ rethrows EACCES from publish when the lock path is provably empty (9.914417ms)
+✔ throws instead of returning null when dead-lock recovery is persistently contested (12.56475ms)
+✔ retries transient EBUSY when removing a dead lock and rethrows if persistent (12.76825ms)
+✔ refuses to lock when the lock directory itself is a symbolic link (0.71725ms)
+✔ rejects invalid pid input before touching the filesystem (0.479875ms)
+✔ publication never opens the lock path; record reads use an explicit no-follow descriptor (11.77625ms)
+✔ retries and eventually acquires when a dead lock vanishes mid-read (concurrent recovery) (12.169708ms)
+✔ preserves the original publish error when the lock path stays empty across retries (9.456708ms)
+✔ exhaustion after contested recovery reports unsafe, not a stale transient error (11.801208ms)
+✔ refuses a dangling directory symlink without creating its target (0.609084ms)
+✔ rejects a lock directory symlink even when the path has a trailing separator (0.8185ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 553.964667

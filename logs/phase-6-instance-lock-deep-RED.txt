@@ -1,0 +1,175 @@
+✔ allows one workbench instance and releases its lock (10.218458ms)
+✔ rejects a second instance and never touches the live holder lock (0.59875ms)
+✖ recovers a dead owner lock, including the legacy pid-only format (1.318334ms)
+✔ recovers a dead owner written in the current token format (0.716625ms)
+✔ rejects a dangling symbolic-link lock without ever creating its target (real filesystem) (0.605792ms)
+✖ rejects the lock when the platform follows the dangling symlink (Windows semantics simulated) (0.701375ms)
+✔ rejects a symlink to an existing file without touching its content or hash (2.247084ms)
+✔ rejects a directory at the lock path (0.462875ms)
+✔ rejects a symlink-to-directory (junction analogue) without writing inside the target (1.626417ms)
+✖ fails closed on corrupt, empty and oversize lock records without deleting them (0.552791ms)
+✖ rethrows EPERM from publish when nothing exists at the lock path (0.401375ms)
+✖ rethrows EACCES from publish unchanged (0.431625ms)
+✔ rethrows EACCES from temp-file creation unchanged (0.414667ms)
+✔ converts publish EPERM into an unsafe-lock error only when a symlink is proven at the lock path (0.418958ms)
+✔ converts publish EPERM into an unsafe-lock error only when an oversize regular lock is proven (0.356625ms)
+✖ release does not delete a lock object that replaced ours after acquisition (0.461125ms)
+✖ release requires both pid and token; same pid with a different token cannot release (0.531208ms)
+✔ release is idempotent and a stale release handle cannot delete a new holder lock (0.555209ms)
+✔ ignores and preserves leftover temp files from a crashed attempt (0.537166ms)
+✖ only one of six real concurrent child processes holds the lock (554.487917ms)
+✔ twenty sequential acquire/release rounds leave no lock or temp residue (11.372625ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 13
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 657.878042
+
+✖ failing tests:
+
+test at test/workbench-instance-lock.test.js:63:1
+✖ recovers a dead owner lock, including the legacy pid-only format (1.318334ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'undefined'
+  - 'string'
+  
+      at TestContext.<anonymous> (/private/tmp/instlock-red-3StGST/test/workbench-instance-lock.test.js:71:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'undefined',
+    expected: 'string',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:110:1
+✖ rejects the lock when the platform follows the dangling symlink (Windows semantics simulated) (0.701375ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/private/tmp/instlock-red-3StGST/test/workbench-instance-lock.test.js:127:14)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /实例锁不安全/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:182:1
+✖ fails closed on corrupt, empty and oversize lock records without deleting them (0.552791ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception: corrupt
+      at TestContext.<anonymous> (/private/tmp/instlock-red-3StGST/test/workbench-instance-lock.test.js:193:14)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /实例锁不安全/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:202:1
+✖ rethrows EPERM from publish when nothing exists at the lock path (0.401375ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/private/tmp/instlock-red-3StGST/test/workbench-instance-lock.test.js:207:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:217:1
+✖ rethrows EACCES from publish unchanged (0.431625ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/private/tmp/instlock-red-3StGST/test/workbench-instance-lock.test.js:222:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:284:1
+✖ release does not delete a lock object that replaced ours after acquisition (0.461125ms)
+  Error: ENOENT: no such file or directory, open '/var/folders/63/0_30lrbd7zbbk0z8c9x91c2r0000gn/T/studio-lock-kdnVUm/.studio-instance-lock.json'
+      at Object.readFileSync (node:fs:440:20)
+      at TestContext.<anonymous> (/private/tmp/instlock-red-3StGST/test/workbench-instance-lock.test.js:292:21)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/var/folders/63/0_30lrbd7zbbk0z8c9x91c2r0000gn/T/studio-lock-kdnVUm/.studio-instance-lock.json'
+  }
+
+test at test/workbench-instance-lock.test.js:299:1
+✖ release requires both pid and token; same pid with a different token cannot release (0.531208ms)
+  Error: ENOENT: no such file or directory, open '/var/folders/63/0_30lrbd7zbbk0z8c9x91c2r0000gn/T/studio-lock-ER9CFm/.studio-instance-lock.json'
+      at Object.readFileSync (node:fs:440:20)
+      at TestContext.<anonymous> (/private/tmp/instlock-red-3StGST/test/workbench-instance-lock.test.js:306:21)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/var/folders/63/0_30lrbd7zbbk0z8c9x91c2r0000gn/T/studio-lock-ER9CFm/.studio-instance-lock.json'
+  }
+
+test at test/workbench-instance-lock.test.js:345:1
+✖ only one of six real concurrent child processes holds the lock (554.487917ms)
+  AssertionError [ERR_ASSERTION]: exactly one holder expected: ["acquired","denied","acquired","acquired","acquired",""]
+  
+  4 !== 1
+  
+      at TestContext.<anonymous> (/private/tmp/instlock-red-3StGST/test/workbench-instance-lock.test.js:366:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 4,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

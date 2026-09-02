@@ -1,0 +1,143 @@
+✔ allows one workbench instance and releases its lock (12.227625ms)
+✔ rejects a second instance and never touches the live holder lock (6.187834ms)
+✔ recovers a dead owner lock, including the legacy pid-only format (7.011ms)
+✔ recovers a dead owner written in the current token format (8.656291ms)
+✔ rejects a dangling symbolic-link lock without ever creating its target (real filesystem) (6.097917ms)
+✔ rejects a symlink to an existing file without touching its content or hash (3.963916ms)
+✔ rejects a directory at the lock path (5.002583ms)
+✔ rejects a symlink-to-directory (junction analogue) without writing inside the target (5.164292ms)
+✔ fails closed on corrupt, empty and oversize lock records without deleting them (21.661625ms)
+✔ rethrows EPERM from publish when nothing exists at the lock path (3.9005ms)
+✔ rethrows EACCES from publish unchanged (4.648791ms)
+✔ rethrows EACCES from temp-file creation unchanged (0.339083ms)
+✔ converts publish EPERM into an unsafe-lock error only when a symlink is proven at the lock path (2.825958ms)
+✔ converts publish EPERM into an unsafe-lock error only when an oversize regular lock is proven (4.120625ms)
+✔ release does not delete a lock object that replaced ours after acquisition (4.237041ms)
+✔ release requires both pid and token; same pid with a different token cannot release (3.3715ms)
+✔ release is idempotent and a stale release handle cannot delete a new holder lock (8.754583ms)
+✔ ignores and preserves leftover temp files from a crashed attempt (4.910916ms)
+✔ only one of six real concurrent child processes holds the lock (1732.520875ms)
+✔ twenty sequential acquire/release rounds leave no lock or temp residue (90.391208ms)
+✖ processAlive treats only ESRCH as dead and everything else as alive (fail-closed) (1.863209ms)
+✖ converts publish EACCES into an unsafe-lock error when an object is proven at the lock path (4.835916ms)
+✔ rethrows EACCES from publish when the lock path is provably empty (5.512125ms)
+✖ throws instead of returning null when dead-lock recovery is persistently contested (10.608083ms)
+✔ retries transient EBUSY when removing a dead lock and rethrows if persistent (5.850083ms)
+✖ refuses to lock when the lock directory itself is a symbolic link (5.68625ms)
+✖ rejects invalid pid input before touching the filesystem (4.026084ms)
+✔ never opens the lock path with openSync; publication goes through linkSync only (6.453958ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 23
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2045.538209
+
+✖ failing tests:
+
+test at test/workbench-instance-lock.test.js:387:1
+✖ processAlive treats only ESRCH as dead and everything else as alive (fail-closed) (1.863209ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/private/tmp/instlock-red2-gEPOad/test/workbench-instance-lock.test.js:390:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:397:1
+✖ converts publish EACCES into an unsafe-lock error when an object is proven at the lock path (4.835916ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /实例锁不安全/. Input:
+  
+  'Error: EACCES: permission denied'
+  
+      at TestContext.<anonymous> (/private/tmp/instlock-red2-gEPOad/test/workbench-instance-lock.test.js:405:14)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: EACCES: permission denied
+        at fs.linkSync (/private/tmp/instlock-red2-gEPOad/test/workbench-instance-lock.test.js:403:47)
+        at acquireInstanceLock (/private/tmp/instlock-red2-gEPOad/src/workbench/instance-lock.js:52:10)
+        at /private/tmp/instlock-red2-gEPOad/test/workbench-instance-lock.test.js:405:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/private/tmp/instlock-red2-gEPOad/test/workbench-instance-lock.test.js:405:14)
+        at Test.runInAsyncScope (node:async_hooks:228:14)
+        at Test.run (node:internal/test_runner/test:1118:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+        at Test.postRun (node:internal/test_runner/test:1247:19),
+    expected: /实例锁不安全/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:433:1
+✖ throws instead of returning null when dead-lock recovery is persistently contested (10.608083ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/private/tmp/instlock-red2-gEPOad/test/workbench-instance-lock.test.js:446:14)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /实例锁不安全/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:479:1
+✖ refuses to lock when the lock directory itself is a symbolic link (5.68625ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/private/tmp/instlock-red2-gEPOad/test/workbench-instance-lock.test.js:485:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /实例锁不安全/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at test/workbench-instance-lock.test.js:494:1
+✖ rejects invalid pid input before touching the filesystem (4.026084ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception (TypeError): pid=-1
+      at TestContext.<anonymous> (/private/tmp/instlock-red2-gEPOad/test/workbench-instance-lock.test.js:498:14)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
