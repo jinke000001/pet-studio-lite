@@ -528,3 +528,37 @@ test('required gate passed with empty evidencePaths fails', () => {
     assert.match(result.stdout, /FAIL gate:G4-02-instance-lock/);
   });
 });
+
+// ---- RETURN 证据流程：validator 输出不得进入 checksum 闭环 ----
+
+test('--output writes the validator report to a derived file outside the RETURN directory', () => {
+  withFixture({}, (returnDir) => {
+    const outputPath = path.join(path.dirname(returnDir), `${path.basename(returnDir)}-validator-output.txt`);
+    try {
+      const result = runValidator(returnDir, ['--output', outputPath]);
+      assert.equal(result.status, 0, result.stderr + result.stdout);
+      assert.match(result.stdout, /RESULT PASS/);
+      assert.equal(fs.readFileSync(outputPath, 'utf8'), result.stdout);
+    } finally {
+      fs.rmSync(outputPath, { force: true });
+    }
+  });
+});
+
+test('--output inside the RETURN directory is refused so it cannot enter the checksum closure', () => {
+  withFixture({}, (returnDir) => {
+    const result = runValidator(returnDir, ['--output', path.join(returnDir, 'evidence', 'validator-output.txt')]);
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /inside the RETURN/i);
+  });
+});
+
+test('modifying a persistent evidence file after checksums were frozen fails', () => {
+  withFixture({}, (returnDir) => {
+    fs.appendFileSync(path.join(returnDir, 'automated', 'final-processes.log'), 'tampered\n');
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL returned-checksums:hashes/);
+    assert.match(result.stdout, /FAIL evidence:sha256/);
+  });
+});

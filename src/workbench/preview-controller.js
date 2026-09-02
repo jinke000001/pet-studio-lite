@@ -82,17 +82,13 @@ function resolvePreviewSpawnCwd(applicationRoot) {
   if (typeof applicationRoot !== 'string' || !path.isAbsolute(applicationRoot)) {
     throw controllerError('PREVIEW_START_FAILED', '预览运行目录无效。');
   }
-  // In a packaged app, applicationRoot is the app.asar file, not a directory.
-  // Electron still resolves the runtime entry inside the ASAR, but spawn's
-  // cwd must be a real directory (the containing Resources directory).
-  try {
-    if (fs.statSync(applicationRoot).isDirectory()) return applicationRoot;
-  } catch {
-    // Tests and a not-yet-created source path are handled by the suffix rule.
-  }
-  return path.basename(applicationRoot) === 'app.asar'
-    ? path.dirname(applicationRoot)
-    : applicationRoot;
+  // In a packaged app, applicationRoot is the app.asar archive. Electron's
+  // asar patch makes statSync(app.asar) report a directory, so the decision
+  // must be made on the path name before any filesystem probe: spawn's cwd
+  // needs the real containing directory, while the runtime entry continues
+  // to resolve inside the asar.
+  if (path.basename(applicationRoot) === 'app.asar') return path.dirname(applicationRoot);
+  return applicationRoot;
 }
 
 function waitForSpawn(child) {

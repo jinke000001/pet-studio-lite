@@ -18,7 +18,11 @@ const USAGE = [
   'Usage: node scripts/validate-windows-return.js <returnDir>',
   '  --expect-source-commit <hex40> --expect-source-zip-sha256 <hex64>',
   '  [--expect-candidate-sha256 <hex64>] --required-gates <id1,id2,...>',
-  '  [--expect-process-paths <path1,path2,...>] [--json]',
+  '  [--expect-process-paths <path1,path2,...>] [--output <path>] [--json]',
+  '',
+  '--output writes the validator report to a derived file. The path must be',
+  'outside <returnDir>: validator output is derived data and must never enter',
+  'the RETURN checksum closure.',
 ].join('\n');
 
 const FLAG_TARGETS = {
@@ -27,6 +31,7 @@ const FLAG_TARGETS = {
   '--expect-candidate-sha256': 'expectCandidateSha256',
   '--required-gates': 'requiredGatesCsv',
   '--expect-process-paths': 'expectProcessPathsCsv',
+  '--output': 'outputPath',
 };
 
 function sha256File(filePath) {
@@ -64,9 +69,10 @@ function parseArguments(argv) {
     expectCandidateSha256: null,
     requiredGates: [],
     expectProcessPaths: [],
+    outputPath: null,
     json: false,
   };
-  const raw = { requiredGatesCsv: null, expectProcessPathsCsv: null };
+  const raw = { requiredGatesCsv: null, expectProcessPathsCsv: null, outputPath: null };
   const positionals = [];
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -105,6 +111,18 @@ function parseArguments(argv) {
     .split(',').map((entry) => entry.trim()).filter(Boolean);
   if (!fs.existsSync(options.returnDir) || !fs.statSync(options.returnDir).isDirectory()) {
     throw new Error(`RETURN directory not found: ${options.returnDir}`);
+  }
+  if (raw.outputPath) {
+    // Validator output is a derived result, never persistent RETURN evidence:
+    // writing it inside the RETURN directory would either go un-hashed or
+    // force checksum regeneration loops. Refuse that outright.
+    const returnRoot = path.resolve(options.returnDir);
+    const outputRoot = path.resolve(raw.outputPath);
+    const relative = path.relative(returnRoot, outputRoot);
+    if (!relative || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+      throw new Error(`--output must not be inside the RETURN directory: ${raw.outputPath}`);
+    }
+    options.outputPath = outputRoot;
   }
   return options;
 }
@@ -494,21 +512,27 @@ function runValidator(argv) {
     return 1;
   }
 
+  let report;
   if (options.json) {
-    process.stdout.write(`${JSON.stringify({
+    report = `${JSON.stringify({
       status: result.ok ? 'passed' : 'failed',
       failures: result.checks.filter((check) => !check.ok),
       checks: result.checks,
-    }, null, 2)}\n`);
+    }, null, 2)}\n`;
   } else {
-    for (const check of result.checks) {
+    const lines = result.checks.map((check) => {
       const suffix = check.detail ? ` - ${check.detail}` : '';
-      process.stdout.write(`${check.ok ? 'PASS' : 'FAIL'} ${check.rule}${suffix}\n`);
-    }
+      return `${check.ok ? 'PASS' : 'FAIL'} ${check.rule}${suffix}`;
+    });
     const failedCount = result.checks.filter((check) => !check.ok).length;
-    process.stdout.write(result.ok
-      ? 'RESULT PASS: all checks passed\n'
-      : `RESULT FAIL: ${failedCount} check(s) failed\n`);
+    lines.push(result.ok
+      ? 'RESULT PASS: all checks passed'
+      : `RESULT FAIL: ${failedCount} check(s) failed`);
+    report = `${lines.join('\n')}\n`;
+  }
+  process.stdout.write(report);
+  if (options.outputPath) {
+    fs.writeFileSync(options.outputPath, report, 'utf8');
   }
   return result.ok ? 0 : 1;
 }

@@ -75,6 +75,58 @@ test('starts only one isolated preview and stops the previous child before repla
   assert.equal(children[1].exitCode, 0);
 });
 
+test('resolves a real app.asar directory fixture to its physical parent (electron asar patch shape)', () => {
+  // Inside a packaged app, Electron's asar patch makes statSync(app.asar)
+  // report a directory. A real directory named app.asar reproduces that shape.
+  const resources = fs.mkdtempSync(path.join(os.tmpdir(), 'workbench-resources-'));
+  const asarRoot = path.join(resources, 'app.asar');
+  fs.mkdirSync(asarRoot);
+  assert.equal(fs.statSync(asarRoot).isDirectory(), true);
+  assert.equal(resolvePreviewSpawnCwd(asarRoot), resources);
+});
+
+test('keeps an existing source directory as its own preview cwd', () => {
+  const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workbench-source-'));
+  assert.equal(resolvePreviewSpawnCwd(sourceRoot), sourceRoot);
+});
+
+test('rejects a non-absolute preview application root', () => {
+  assert.throws(() => resolvePreviewSpawnCwd(path.join('relative', 'app.asar')), (error) => error.code === 'PREVIEW_START_FAILED');
+  assert.throws(() => resolvePreviewSpawnCwd(''), (error) => error.code === 'PREVIEW_START_FAILED');
+});
+
+test('spawns a packaged preview with the physical Resources directory as cwd and the asar runtime entry', async () => {
+  const { store, project } = makeStore();
+  const resources = fs.mkdtempSync(path.join(os.tmpdir(), 'workbench-resources-'));
+  const asarRoot = path.join(resources, 'app.asar');
+  fs.mkdirSync(asarRoot);
+  const children = [];
+  const spawn = (_command, args, options) => {
+    const child = new EventEmitter();
+    child.pid = 7000;
+    child.exitCode = null;
+    child.kill = () => { child.exitCode = 0; child.emit('exit', 0, null); return true; };
+    child.args = args;
+    child.options = options;
+    children.push(child);
+    queueMicrotask(() => child.emit('spawn'));
+    return child;
+  };
+  const controller = createPreviewController({
+    store,
+    electronPath: '/electron',
+    applicationRoot: asarRoot,
+    spawn,
+  });
+
+  const started = await controller.start(project.id);
+  assert.equal(started.status, 'running');
+  assert.equal(children.length, 1);
+  assert.equal(children[0].options.cwd, resources);
+  assert.deepEqual(children[0].args, [path.join(asarRoot, 'src', 'main.js')]);
+  assert.deepEqual(await controller.stop(), { status: 'stopped' });
+});
+
 test('uses a physical cwd when the runtime entry lives inside app.asar', () => {
   const applicationRoot = path.resolve(os.tmpdir(), 'application');
   const asarRoot = path.join(applicationRoot, 'resources', 'app.asar');

@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const { inspectPackagedAsar } = require('../build/asar-inspector');
 const { createBuilderConfiguration, createCandidateManifest } = require('../build/build-plan');
 const { discoverCandidateArtifacts } = require('../build/build-runner');
+const { BUILDER_ROOT_ENV } = require('./builder-launcher');
 
 function candidateError(code, message) { const error = new Error(message); error.code = code; return error; }
 
@@ -65,8 +66,14 @@ function createCandidateController({
     ];
     const configPath = path.join(runDirectory, 'build-config.json'); fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
     context.report(20, '装配单宠候选');
-    const cli = path.join(builderRoot, 'node_modules', 'electron-builder', 'out', 'cli', 'cli.js');
-    const result = await spawnBuilder(process.execPath, { args: [cli, '--publish', 'never', '--config', configPath, ...targets.map((target) => `--${target}`)], spawnOptions: { cwd: buildAssetsRoot, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', CSC_IDENTITY_AUTO_DISCOVERY: 'false', ELECTRON_BUILDER_PUBLISH: 'never' }, stdio: ['ignore', 'pipe', 'pipe'] } }, context);
+    const builderRootAbsolute = path.resolve(builderRoot);
+    const cli = path.join(builderRootAbsolute, 'node_modules', 'electron-builder', 'out', 'cli', 'cli.js');
+    // Spawn the Electron binary through the repo-internal launcher instead of
+    // pointing ELECTRON_RUN_AS_NODE directly at the cli: yargs' hideBin would
+    // misread the Electron-as-Node argv shape and keep the cli path as a bogus
+    // positional ("Unknown argument: .../cli.js").
+    const launcher = path.join(applicationRoot, 'src', 'workbench', 'builder-launcher.js');
+    const result = await spawnBuilder(process.execPath, { args: [launcher, cli, '--publish', 'never', '--config', configPath, ...targets.map((target) => `--${target}`)], spawnOptions: { cwd: buildAssetsRoot, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', CSC_IDENTITY_AUTO_DISCOVERY: 'false', ELECTRON_BUILDER_PUBLISH: 'never', [BUILDER_ROOT_ENV]: builderRootAbsolute }, stdio: ['ignore', 'pipe', 'pipe'] } }, context);
     fs.writeFileSync(path.join(runDirectory, 'builder.log'), `${result.stdout}${result.stderr}`);
     if (context.isCancelled()) { recordCancelledRun(runDirectory); throw candidateError('BUILD_CANCELLED', '候选构建已取消。'); }
     if (result.code !== 0) {
@@ -88,4 +95,4 @@ function createCandidateController({
   return { build };
 }
 
-module.exports = { createCandidateController, recordCancelledRun };
+module.exports = { createCandidateController, recordCancelledRun, runBuilder };
