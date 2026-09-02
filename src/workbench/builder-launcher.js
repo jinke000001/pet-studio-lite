@@ -11,6 +11,10 @@
 // positional and electron-builder aborts with "Unknown argument: .../cli.js".
 // This launcher rewrites process.argv so yargs' slice leaves exactly the
 // builder arguments, then loads the controlled electron-builder cli entry.
+// It also disables Electron's asar patch: the patch stays active in
+// ELECTRON_RUN_AS_NODE children and intercepts electron-builder's writes to
+// default_app.asar inside the extracted dist template ("Invalid package").
+// Plain Node has no such patch; disabling it makes the child behave like Node.
 
 const path = require('node:path');
 
@@ -31,6 +35,9 @@ function normalizeBuilderArgv({ execPath, cliPath, args, electron, defaultApp })
 }
 
 function launch(argv, env) {
+  // Neutralize the Electron asar fs patch before electron-builder runs; plain
+  // Node ignores this property.
+  process.noAsar = true;
   const builderRoot = env[BUILDER_ROOT_ENV];
   if (!builderRoot || !path.isAbsolute(builderRoot)) {
     throw new Error(`${BUILDER_ROOT_ENV} must be the absolute controlled builder root`);

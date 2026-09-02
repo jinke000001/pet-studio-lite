@@ -10,6 +10,7 @@ const electronPath = require('electron');
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const LAUNCHER = path.join(PROJECT_ROOT, 'src', 'workbench', 'builder-launcher.js');
 const FIXTURE = path.join(PROJECT_ROOT, 'test', 'helpers', 'builder-cli-fixture.js');
+const ASAR_FIXTURE = path.join(PROJECT_ROOT, 'test', 'helpers', 'builder-cli-asar-fixture.js');
 const YARGS_ENTRY = require.resolve('yargs');
 const REAL_CLI = path.join(PROJECT_ROOT, 'node_modules', 'electron-builder', 'out', 'cli', 'cli.js');
 
@@ -125,4 +126,20 @@ test('launcher drives the real electron-builder cli past argv parsing under elec
   // The build must fail on the empty sandbox project, never on argv parsing.
   assert.doesNotMatch(output, /Unknown argument|无法识别的选项/);
   assert.match(output, /loaded configuration/);
+});
+
+// electron-builder overwrites default_app.asar from the extracted Electron
+// dist template during packaging. Electron's asar patch (active even in
+// ELECTRON_RUN_AS_NODE children) intercepts that write and fails with
+// "Invalid package". The launcher must disable the patch.
+test('launcher disables the electron asar patch so builder asar writes succeed', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'workbench-builder-root-'));
+  const cliDirectory = path.join(root, 'node_modules', 'electron-builder', 'out', 'cli');
+  fs.mkdirSync(cliDirectory, { recursive: true });
+  const cliPath = path.join(cliDirectory, 'cli.js');
+  fs.copyFileSync(ASAR_FIXTURE, cliPath);
+  const result = spawnElectronAsNode([LAUNCHER, cliPath], { env: { DESKTOP_PET_BUILDER_ROOT: root } });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /WRITE_OK/);
+  assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /Invalid package/);
 });
