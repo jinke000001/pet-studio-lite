@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const asar = require('@electron/asar');
+const childProcess = require('node:child_process');
+const electronPath = require('electron');
 
 const {
   inspectPackagedAsar,
@@ -75,4 +77,16 @@ test('validates one selected ASAR before inspecting another archive', async (con
   await context.test('rejects an ASAR containing another product profile', () => {
     assert.throws(() => inspectPackagedAsar({ asarPath: mixedArchive, selector: 'sample' }), /exactly one product profile/);
   });
+});
+
+test('inspectPackagedAsar works inside an Electron process with the asar fs patch active', async () => {
+  const archive = await makeAsar();
+  const child = path.resolve(__dirname, 'helpers', 'inspect-asar-child.js');
+  const result = childProcess.spawnSync(electronPath, [child, archive], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    encoding: 'utf8',
+    timeout: 60000,
+  });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /INSPECT_OK sample-desktop-pet/);
 });

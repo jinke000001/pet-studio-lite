@@ -38,6 +38,21 @@ function safePackageFile(baseDirectory, relativePath, field) {
 }
 
 function inspectPackagedAsar({ asarPath, selector }) {
+  // Inside an Electron process the asar fs patch is active and intercepts
+  // reads whose path ends in .asar (statSync reports a directory, reads fail
+  // with "ENOENT,  not found in ..."). The inspector must treat the candidate
+  // app.asar as a plain file, so disable the patch for this synchronous
+  // section and restore it immediately afterwards.
+  const previousNoAsar = process.noAsar;
+  process.noAsar = true;
+  try {
+    return inspectPackagedAsarUnlocked({ asarPath, selector });
+  } finally {
+    process.noAsar = previousNoAsar;
+  }
+}
+
+function inspectPackagedAsarUnlocked({ asarPath, selector }) {
   const entries = asar.listPackage(asarPath).map(normalizeArchiveEntry);
   const productProfiles = entries.filter((entry) => /^config\/products\/[^/]+\.json$/.test(entry));
   if (productProfiles.length !== 1 || productProfiles[0] !== `config/products/${selector}.json`) {
