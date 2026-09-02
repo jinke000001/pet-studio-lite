@@ -153,3 +153,4 @@ Phase 6 不改变商业发布体系暂缓结论；签名、公证、商城、支
 - [ ] 6.6i `-03` Windows 全量复验（待用户搬运 T7 并回传含 acceptance-state.json 的 RETURN）。
 - [x] 6.6h-复审修复：原生 Electron 单实例权威锁、三进程暂停竞态回归、main.js 拒锁真实替身验证已完成；当前未提交，`-03` 旧交接不含修复。
 - [x] 6.6h-复审收口：checkpoint `75b3021`、macOS 候选 `candidate-20260902064710422` 和 `release/handoff/phase-6-workbench-windows-recheck-20260902-04/` 已生成；未写入 T7，Windows RETURN 待实机验收。
+- [x] 6.6i 最终本地收口记录：代码 checkpoint `75b3021`、记录证据提交 `49b6592`；候选 `candidate-20260902065319454` 与非覆盖 `release/handoff/phase-6-workbench-windows-recheck-20260902-05/` 均绑定 `49b6592`，6/6 哈希通过，未写入 T7。
