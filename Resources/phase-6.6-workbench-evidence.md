@@ -18,8 +18,8 @@
 
 - 代码 checkpoint `75b3021`，记录与证据提交 `49b6592`；工作台以 Electron `app.requestSingleInstanceLock()` 为唯一权威单实例机制，文件锁仅作 fail-closed 诊断/回归。
 - 三进程暂停竞态：旧实现 RED（A/B/C 均 acquired），修复后 GREEN（最多一个 acquired）；main.js 拒锁真实替身确认 store、恢复、controller、IPC、窗口均为 0。
-- 最新候选 `release/workbench-candidates/candidate-20260902065319454/`：manifest SHA-256 `687a3a3c57b8ad7fb11b37439c4e8dcf83e130bd777af4e00649c7ba0da10511`，app.asar SHA-256 `1a047e3b92afd849510220833699393f73c17c3fc4e77861862116db211282f7`；隔离 smoke `runs/phase-6.6-instance-lock-smoke-20260902-05/` 通过 studio-start/native lock acquired/studio-ready/renderer-ready/second denied/before-quit/进程 0/无不安全锁残留。
-- 最新仓库交接 `release/handoff/phase-6-workbench-windows-recheck-20260902-05/`：source ZIP SHA-256 `2f27e24719ec7fcd792d3b843239ddfad7b41bb26d2e1e37fac4c873b16139d8`，checksums SHA-256 `4087044759d373a99d4832d5754ccda2c4f592430fd711dc4dbe48a94c139ae4`，6/6 输入通过，RETURN 为空，未写入 T7。
+- 最新候选 `release/workbench-candidates/candidate-20260902070108743/`：manifest SHA-256 `473da626db18dfada60a16ca15e9f60419f3e493772f0bbb61f72c93d4d2b178`，app.asar SHA-256 `1a047e3b92afd849510220833699393f73c17c3fc4e77861862116db211282f7`；隔离 smoke `runs/phase-6.6-instance-lock-smoke-20260902-06/` 通过 studio-start/native lock acquired/studio-ready/renderer-ready/second denied/before-quit/进程 0/无不安全锁残留。
+- 最新仓库交接 `release/handoff/phase-6-workbench-windows-recheck-20260902-06/`：source ZIP SHA-256 `d0c11b8f47d4168c6ffacbf38d5172155329546ecb013814bddb029c90e149d6`，checksums SHA-256 `b271a731edb1ec0f400cbca1954010b339b25147069872d069146d1db3509387`，6/6 输入通过，RETURN 为空，未写入 T7。
 - macOS packaged smoke 未启动真实预览子进程，不证明 runtime-ready 或完整 GUI；Windows source、win-unpacked、installed mode、100/125/150% DPI、动态 DPI、卸载/重装及最终 RETURN 仍待实机。
 
 自动门：132/132、typecheck、build、lint、source preflight、npm audit 通过。

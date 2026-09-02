@@ -63,6 +63,7 @@
 
 - 当前 HEAD `49b6592`（代码 checkpoint `75b3021` + 记录证据提交），`dfb2cde` 仅为历史基线；工作台唯一权威锁为 Electron 原生单实例锁，文件锁仅 fail-closed 诊断/回归。
 - 最新候选为 `release/workbench-candidates/candidate-20260902065319454/`，最新仓库交接为 `release/handoff/phase-6-workbench-windows-recheck-20260902-05/`，均绑定 `49b6592`，未写入 T7；Windows RETURN 尚为空。
+- 记录提交后最终候选更新为 `candidate-20260902070108743`，最终交接更新为 `release/handoff/phase-6-workbench-windows-recheck-20260902-06/`，均绑定 `1e96e32`；未写入 T7，Windows RETURN 尚为空。
 
 - 2026-09-02 独立复审后更正：`dfb2cde` 仅代表历史已提交基线，不包含本轮未提交的原生锁切换、实例锁测试或验证器现场修改；`-03` 交接仍是旧源码 ZIP，未生成 `-04`、未写入 T7、未完成 Windows 验收。
 
