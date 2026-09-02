@@ -29,6 +29,15 @@ Windows 独立验收交接已更新至非覆盖目录：`release/handoff/phase-6
 
 ## 2026-09-02 实例锁 Windows EPERM 修复
 
+## 2026-09-02 独立复审收口（75b3021）
+
+- checkpoint：`75b30212bbcfa401a9c60df498101b5fd1f39554`，仅包含本轮实例锁、main 拒锁边界、验证器对抗测试、记录和 RED 证据；未 push/merge/tag。
+- 聚焦验证：实例锁 37/37、工作台 shell 6/6、Windows RETURN 验证器 33/33；全量 `npm test` 200/200，typecheck/build/lint/source preflight/audit(0 vulnerabilities)/diff-check 全部通过。
+- 三进程暂停回归先以旧实现得到 RED（A/B/C 均 acquired），修复后 GREEN（最多一个 acquired）。工作台改用 Electron `app.requestSingleInstanceLock()` 为唯一权威锁；文件锁不参与工作台权威判定。
+- 新 macOS arm64 候选：`release/workbench-candidates/candidate-20260902064710422/`，manifest SHA-256 `4528e47243d8941b9af3017e5e8e0287b9fee87a721c27d84986542e7560a146`，app.asar SHA-256 `1a047e3b92afd849510220833699393f73c17c3fc4e77861862116db211282f7`。隔离 smoke：`runs/phase-6.6-instance-lock-smoke-20260902-04/`，包含 native lock acquired、studio-ready、renderer-ready、第二实例 denied、退出和无锁残留；未启动真实宠物预览，不宣称 runtime-ready。
+- 新仓库内非覆盖交接：`release/handoff/phase-6-workbench-windows-recheck-20260902-04/`；绑定提交 `75b3021`，source ZIP SHA-256 `361db0d3f28df027d54590b98e797dad3e77af64cc268b53c9af0e057cd5aef0`，checksums SHA-256 `ce4711564bb5ea3168e5fa022444b7a4b36bb9959b4186bcb9838d063b97be4c`，6/6 校验通过，单一 ZIP 顶层、UTF-8/LF、零 AppleDouble/.DS_Store、零符号链接、空 RETURN；未写入 T7。
+- `-03` 与历史交接保持不变；Windows source、win-unpacked、installed mode、100/125/150% DPI、动态 DPI、完整 GUI、卸载/重装和最终 RETURN 仍待 Windows 实机执行。
+
 - T7 `-01` 回传（`RETURN/20260902-092429/`，Windows 验收失败）确诊：Windows 对已有符号链接 `fs.openSync(lockPath, 'wx')` 返回 EPERM，`src/workbench/instance-lock.js` 只处理 EEXIST，受控“工作台实例锁不安全”错误无法触发。
 - 修复（D-027 临时授权，仅 `src/workbench/instance-lock.js` 与 `test/workbench-instance-lock.test.js`）：EPERM 仅在 `lstatSync` 证明锁路径为不安全对象（符号链接、非普通文件、超 1024 字节）时转换为受控错误；路径不存在或无法证明不安全时原样重抛原始 EPERM。fail-closed 不变，不读取符号链接目标，不删除不安全锁。
 - 新增 4 个确定性 EPERM 回归测试（stub `fs.openSync`，try/finally 恢复）；聚焦 6/6、全量 136/136、typecheck/build/lint/source preflight/npm audit（0 vulnerabilities）/diff check 全部通过，日志位于 `logs/phase-6.6-instance-lock-repair-*.txt`。

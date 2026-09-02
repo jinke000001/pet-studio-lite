@@ -152,3 +152,4 @@ Phase 6 不改变商业发布体系暂缓结论；签名、公证、商城、支
 - [x] 6.6h 实例锁深度修复（-03 轮）：linkSync 原子发布 + token 协议、三轮对抗审查、184/184 与全部质量门、候选 `candidate-20260902044902114` 隔离 smoke、非覆盖交接 `release/handoff/phase-6-workbench-windows-recheck-20260902-03/`（6/6 哈希、未写 T7）；提交 `dfb2cde`。
 - [ ] 6.6i `-03` Windows 全量复验（待用户搬运 T7 并回传含 acceptance-state.json 的 RETURN）。
 - [x] 6.6h-复审修复：原生 Electron 单实例权威锁、三进程暂停竞态回归、main.js 拒锁真实替身验证已完成；当前未提交，`-03` 旧交接不含修复。
+- [x] 6.6h-复审收口：checkpoint `75b3021`、macOS 候选 `candidate-20260902064710422` 和 `release/handoff/phase-6-workbench-windows-recheck-20260902-04/` 已生成；未写入 T7，Windows RETURN 待实机验收。
