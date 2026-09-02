@@ -72,15 +72,20 @@ function listFilesRecursive(directory, prefix = '') {
 
 function writeChecksums(returnDir, mode) {
   if (mode === 'missing') return;
-  const lines = listFilesRecursive(returnDir)
-    .filter((relativePath) => relativePath !== 'returned-checksums.sha256')
-    .map((relativePath) => {
-      const digest = crypto.createHash('sha256')
-        .update(fs.readFileSync(path.join(returnDir, ...relativePath.split('/'))))
-        .digest('hex');
-      return `${digest}  ${relativePath}`;
-    });
+  let entries = listFilesRecursive(returnDir)
+    .filter((relativePath) => relativePath !== 'returned-checksums.sha256');
+  if (mode === 'omit-evidence') {
+    entries = entries.filter((relativePath) => relativePath !== 'automated/final-processes.log');
+  }
+  const lines = entries.map((relativePath) => {
+    const digest = crypto.createHash('sha256')
+      .update(fs.readFileSync(path.join(returnDir, ...relativePath.split('/'))))
+      .digest('hex');
+    return `${digest}  ${relativePath}`;
+  });
   if (mode === 'self') lines.push(`${'0'.repeat(64)}  returned-checksums.sha256`);
+  if (mode === 'duplicate') lines.push(lines[0]);
+  if (mode === 'directory-entry') lines.push(`${'1'.repeat(64)}  automated`);
   let content = `${lines.join('\n')}\n`;
   if (mode === 'crlf') content = content.replace(/\n/g, '\r\n');
   if (mode === 'bom') content = '\uFEFF' + content;
@@ -95,6 +100,13 @@ function createFixture(options = {}) {
     if (options.mutateState) options.mutateState(state);
     for (const [relativePath, content] of Object.entries(evidence)) {
       if ((options.missingEvidence || []).includes(relativePath)) continue;
+      if ((options.symlinkEvidence || []).includes(relativePath)) {
+        const target = path.join(returnDir, 'automated', 'symlink-target.txt');
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, content, 'utf8');
+        fs.symlinkSync(target, path.join(returnDir, ...relativePath.split('/')));
+        continue;
+      }
       writeEvidence(returnDir, relativePath, content);
     }
     const stateMode = options.acceptanceState || 'ok';
@@ -373,4 +385,146 @@ test('invocation without arguments exits with usage code 2', () => {
   const result = childProcess.spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8' });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Usage: node scripts\/validate-windows-return\.js/);
+});
+
+// ---- Codex 复查阻塞项：验证器硬门（A4） ----
+
+test('required gate marked passed but with exitCode=1 fails', () => {
+  withFixture({
+    mutateState(state) {
+      state.gates[1].exitCode = 1; // G4-02-instance-lock：普通门，不含 process/cleanup
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL gate:G4-02-instance-lock/);
+    assert.match(result.stdout, /exitCode=1/);
+  });
+});
+
+test('duplicate required gate id fails', () => {
+  withFixture({
+    mutateState(state) {
+      state.gates.push({ ...state.gates[1] });
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL gates:unique-ids/);
+  });
+});
+
+test('overallStatus=passed with a failed non-required gate fails', () => {
+  withFixture({
+    mutateState(state) {
+      state.gates.push({
+        id: 'G9-optional-extra',
+        status: 'failed',
+        command: 'run extra',
+        startedAt: '2026-09-01T09:57:00.000Z',
+        endedAt: '2026-09-01T09:58:00.000Z',
+        exitCode: 1,
+        evidencePaths: [],
+        evidenceSha256: {},
+      });
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL status:all-gates-passed-on-pass/);
+  });
+});
+
+test('overallStatus=passed with non-null firstFailedGate fails', () => {
+  withFixture({
+    mutateState(state) {
+      state.firstFailedGate = 'G4-02-instance-lock';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL status:firstFailedGate-null-on-pass/);
+  });
+});
+
+test('evidencePath without a matching evidenceSha256 entry fails', () => {
+  withFixture({
+    mutateState(state) {
+      delete state.gates[1].evidenceSha256['automated/02-instance-lock-focused.log'];
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL evidence:path-sha256-correspondence/);
+  });
+});
+
+test('evidenceSha256 key without a matching evidencePath fails', () => {
+  withFixture({
+    mutateState(state) {
+      state.gates[1].evidenceSha256['automated/02-instance-lock-focused.log'] = state.gates[1].evidenceSha256['automated/02-instance-lock-focused.log'];
+      state.gates[1].evidenceSha256['automated/extra.log'] = 'f'.repeat(64);
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL evidence:path-sha256-correspondence/);
+  });
+});
+
+test('returned-checksums omitting a RETURN file fails', () => {
+  withFixture({ checksums: 'omit-evidence' }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL returned-checksums:coverage/);
+  });
+});
+
+test('returned-checksums with a duplicate entry fails', () => {
+  withFixture({ checksums: 'duplicate' }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL returned-checksums:no-duplicates/);
+  });
+});
+
+test('symbolic-link evidence file fails even with a matching hash', () => {
+  withFixture({ symlinkEvidence: ['automated/02-instance-lock-focused.log'] }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL evidence:regular-files/);
+  });
+});
+
+test('returned-checksums entry pointing at a directory fails', () => {
+  withFixture({ checksums: 'directory-entry' }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL returned-checksums:hashes/);
+  });
+});
+
+test('required gate passed with endedAt before startedAt fails', () => {
+  withFixture({
+    mutateState(state) {
+      state.gates[1].endedAt = '2026-09-01T09:00:00.000Z';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL gate:G4-02-instance-lock/);
+  });
+});
+
+test('required gate passed with empty evidencePaths fails', () => {
+  withFixture({
+    mutateState(state) {
+      state.gates[1].evidencePaths = [];
+      state.gates[1].evidenceSha256 = {};
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL gate:G4-02-instance-lock/);
+  });
 });

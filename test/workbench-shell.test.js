@@ -28,8 +28,8 @@ test('workbench uses a separate sandboxed Electron entry with narrow IPC', () =>
   assert.match(main, /assertTrustedSender/);
   assert.match(main, /renderer-ready url=/);
   assert.match(main, /studio-ready/);
-  assert.match(main, /acquireInstanceLock/);
-  assert.doesNotMatch(main, /requestSingleInstanceLock/);
+  assert.match(main, /requestSingleInstanceLock\(\)/);
+  assert.match(main, /releaseSingleInstanceLock\(\)/);
   assert.match(preload, /contextBridge\.exposeInMainWorld\('workbenchApi'/);
   assert.doesNotMatch(preload, /invoke:\s*\(/);
   assert.doesNotMatch(preload, /send:\s*\(/);

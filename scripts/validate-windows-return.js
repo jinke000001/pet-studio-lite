@@ -233,6 +233,15 @@ function checkEvidence(returnDir, state, record) {
     missing.length > 0 ? `missing files: ${missing.join(', ')}` : null,
   ].filter(Boolean).join('; '));
 
+  const correspondenceProblems = [];
+  for (const gate of state.gates) {
+    const paths = new Set(gate.evidencePaths);
+    const hashes = new Set(Object.keys(gate.evidenceSha256));
+    for (const evidencePath of paths) if (!hashes.has(evidencePath)) correspondenceProblems.push(`${gate.id}: ${evidencePath} has no SHA-256`);
+    for (const evidencePath of hashes) if (!paths.has(evidencePath)) correspondenceProblems.push(`${gate.id}: ${evidencePath} is not listed in evidencePaths`);
+  }
+  record('evidence:path-sha256-correspondence', correspondenceProblems.length === 0, correspondenceProblems.join('; '));
+
   const hashProblems = [];
   for (const gate of state.gates) {
     for (const [relativePath, expected] of Object.entries(gate.evidenceSha256)) {
@@ -241,15 +250,33 @@ function checkEvidence(returnDir, state, record) {
         hashProblems.push(`${relativePath}: missing or unsafe path`);
         continue;
       }
+      let stats;
+      try { stats = fs.lstatSync(absolutePath); } catch (error) { hashProblems.push(`${relativePath}: ${error.message}`); continue; }
+      if (!stats.isFile() || stats.isSymbolicLink()) {
+        hashProblems.push(`${relativePath}: must be a regular file`);
+        continue;
+      }
       const actual = sha256File(absolutePath);
       if (actual !== expected) hashProblems.push(`${relativePath}: expected ${expected}, got ${actual}`);
     }
   }
+  record('evidence:regular-files', hashProblems.every((problem) => !problem.includes('must be a regular file')), hashProblems.filter((problem) => problem.includes('must be a regular file')).join('; '));
   record('evidence:sha256', hashProblems.length === 0, hashProblems.join('; '));
 }
 
 function checkGateOutcomes(state, options, record) {
+  const ids = state.gates.map((gate) => gate.id);
+  record('gates:unique-ids', new Set(ids).size === ids.length, 'gate ids must be unique');
+  state.gates.forEach((gate) => {
+    const problems = [];
+    if (gate.endedAt && gate.startedAt && Date.parse(gate.endedAt) < Date.parse(gate.startedAt)) problems.push('endedAt is before startedAt');
+    if (gate.status === 'passed' && gate.exitCode !== 0) problems.push(`passed gate must have exitCode=0 (exitCode=${gate.exitCode})`);
+    if (gate.status === 'passed' && gate.evidencePaths.length === 0) problems.push('passed gate must include evidencePaths');
+    record(`gate:${gate.id}`, problems.length === 0, problems.join('; '));
+  });
   if (state.overallStatus === 'passed') {
+    record('status:all-gates-passed-on-pass', state.gates.every((gate) => gate.status === 'passed'), 'overallStatus=passed requires every gate to be passed');
+    record('status:firstFailedGate-null-on-pass', state.firstFailedGate === null, 'overallStatus=passed requires firstFailedGate=null');
     for (const gateId of options.requiredGates) {
       const gate = state.gates.find((entry) => entry.id === gateId);
       if (!gate) {
@@ -376,6 +403,9 @@ function checkReturnedChecksums(returnDir, record) {
     selfEntries.length > 0 ? `${CHECKSUMS_FILE} must not list itself` : null);
 
   const hashProblems = [];
+  const duplicatePaths = entries.map((entry) => entry.relativePath).filter((entry, index, all) => all.indexOf(entry) !== index);
+  record('returned-checksums:no-duplicates', duplicatePaths.length === 0,
+    duplicatePaths.length > 0 ? `duplicate entries: ${[...new Set(duplicatePaths)].join(', ')}` : null);
   for (const entry of entries) {
     if (entry.relativePath === CHECKSUMS_FILE) continue;
     const absolutePath = resolveInside(returnDir, entry.relativePath);
@@ -385,6 +415,12 @@ function checkReturnedChecksums(returnDir, record) {
     }
     if (!fs.existsSync(absolutePath)) {
       hashProblems.push(`${entry.relativePath}: file is missing`);
+      continue;
+    }
+    let stats;
+    try { stats = fs.lstatSync(absolutePath); } catch (error) { hashProblems.push(`${entry.relativePath}: ${error.message}`); continue; }
+    if (!stats.isFile() || stats.isSymbolicLink()) {
+      hashProblems.push(`${entry.relativePath}: must be a regular file`);
       continue;
     }
     const actual = sha256File(absolutePath);
@@ -397,6 +433,24 @@ function checkReturnedChecksums(returnDir, record) {
   const coversState = entries.some((entry) => entry.relativePath === STATE_FILE);
   record('returned-checksums:covers-acceptance-state', coversState,
     coversState ? null : `${STATE_FILE} is not covered by ${CHECKSUMS_FILE}`);
+
+  const actualFiles = [];
+  const walk = (directory, prefix = '') => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (relativePath === CHECKSUMS_FILE) continue;
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) walk(absolutePath, relativePath);
+      else if (entry.isFile()) actualFiles.push(relativePath);
+      else actualFiles.push(relativePath);
+    }
+  };
+  walk(returnDir);
+  const listedFiles = entries.map((entry) => entry.relativePath);
+  const missingEntries = actualFiles.filter((file) => !listedFiles.includes(file));
+  const extraEntries = listedFiles.filter((file) => !actualFiles.includes(file));
+  record('returned-checksums:coverage', missingEntries.length === 0 && extraEntries.length === 0,
+    [...(missingEntries.length ? [`missing: ${missingEntries.join(', ')}`] : []), ...(extraEntries.length ? [`extra: ${extraEntries.join(', ')}`] : [])].join('; '));
 }
 
 function validateReturnDirectory(returnDir, options) {

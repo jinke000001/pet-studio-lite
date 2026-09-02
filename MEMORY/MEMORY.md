@@ -59,6 +59,10 @@
 
 ## Phase 6 当前状态
 
+- 2026-09-02 独立复审后更正：`dfb2cde` 仅代表历史已提交基线，不包含本轮未提交的原生锁切换、实例锁测试或验证器现场修改；`-03` 交接仍是旧源码 ZIP，未生成 `-04`、未写入 T7、未完成 Windows 验收。
+
+- 2026-09-02 经用户确认，已删除 T7 上被 `phase-6-workbench-windows-acceptance-20260901-06/` 取代且 RETURN 为空的旧交接包 `phase-6-workbench-windows-acceptance-20260901-05/`（约 1.5 MiB）；未触碰回收站及任何含 RETURN 的交接包。
+
 - 2026-09-02 实例锁 Windows EPERM 修复：T7 `-01` 回传确诊 Windows 对已有符号链接 `openSync 'wx'` 返回 EPERM 导致受控错误逃逸；修复仅在 lstat 证明不安全对象时转换错误，其余 EPERM 原样抛出，fail-closed 不变。仅修改 `src/workbench/instance-lock.js` 与 `test/workbench-instance-lock.test.js`（D-027 临时授权）；聚焦 6/6、全量 136/136 与完整质量门通过，修复提交 `5ac8528`。directory-importer 偶发 rename EPERM 保留为观察项。新 macOS 候选 `release/workbench-candidates/candidate-20260902020633351/` 隔离 smoke 通过（`studio-ready`/`renderer-ready`，进程清零）；新仓库内交接 `release/handoff/phase-6-workbench-windows-recheck-20260902-02/` 6/6 输入哈希通过，未写入 T7；Windows installed mode 仍待新 RETURN。
 
 - 2026-09-02 T7 06 Windows 回传的 3 项 npm test 失败确认为 POSIX 测试夹具不可移植；提交 `a93a2e8` 仅更新两个测试文件，132/132 与完整质量门通过。新 macOS 候选为 `release/workbench-candidates/candidate-20260901160713659/`；新仓库内 Windows 全量复验交接为 `release/handoff/phase-6-workbench-windows-recheck-20260902-01/`，未写入 T7，Windows installed mode 等待新 RETURN。
@@ -113,3 +117,4 @@
 - `../release/handoff/xiaofuxing-v1-windows-recheck-0.1.4-20260830-01/`：0.1.4 source、win-unpacked、NSIS、修复说明、0.1.3 失败报告副本、重排后的 PRD/报告模板/Kimi 提示词；该交付后续已搬运并就地更新为 0.1.5。
 - `/Volumes/T7 Shield/xiaofuxing-v1-windows-recheck-0.1.4-20260830-01/RETURN/windows-install-recheck-0.1.5-20260831-110759/WINDOWS-INSTALL-RECHECK-REPORT.md`：0.1.5 Windows A–G 安装生命周期验收报告；514/514 回传哈希已在 Mac 侧独立复核通过。
 - `../release/windows-recheck/xiaofuxing-v1-windows-recheck-0.1.5-20260831-01/`：0.1.5 Windows RETURN 的本机非覆盖归档；515 个文件与 T7 原件逐字节一致，清单内 514/514 通过，目录由 `.gitignore` 保持在 Git 之外。
+- 2026-09-02 实例锁深度修复（-03 轮）：T7 `-02` 回传确诊 Windows 跟随悬空符号链接创建 `D:\tmp` 导致锁 fail-open；协议重写为临时文件 + `linkSync` 原子发布 + 随机 ownership token，三轮安全对抗审查全部收口。修复提交 `dfb2cde`；聚焦 33/33、全量 184/184、全部质量门通过。新 macOS 候选 `release/workbench-candidates/candidate-20260902044902114/` 隔离 smoke 通过（含第二实例拒绝、进程清零、无锁残留）。通用 Windows RETURN 验证器 `scripts/validate-windows-return.js` 已补齐伪造、缺失、不一致、越界和覆盖检查。新非覆盖交接 `release/handoff/phase-6-workbench-windows-recheck-20260902-03/` 6/6 哈希通过，未写入 T7；Windows source/win-unpacked/installed/DPI/卸载/重装全部待新 RETURN。`src/workbench/main.js` 已将 store/controller/IPC/window 初始化完全置于成功持锁后的 bootstrap 边界。
