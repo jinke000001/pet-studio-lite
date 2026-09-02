@@ -150,7 +150,9 @@ Checkpoint 6.4 已完成；任务恢复只在启动时执行一次，轮询不�
 
 Phase 6 不改变商业发布体系暂缓结论；签名、公证、商城、支付、DRM、自动更新和正式发布仍不在当前范围。
 - [x] 6.6h 实例锁深度修复（-03 轮）：linkSync 原子发布 + token 协议、三轮对抗审查、184/184 与全部质量门、候选 `candidate-20260902044902114` 隔离 smoke、非覆盖交接 `release/handoff/phase-6-workbench-windows-recheck-20260902-03/`（6/6 哈希、未写 T7）；提交 `dfb2cde`。
-- [ ] 6.6i `-03` Windows 全量复验（待用户搬运 T7 并回传含 acceptance-state.json 的 RETURN）。
+- [x] 6.6i `-03` Windows 全量复验取消：该交接已被后续修复取代，不再作为验收输入。
 - [x] 6.6h-复审修复：原生 Electron 单实例权威锁、三进程暂停竞态回归、main.js 拒锁真实替身验证已完成；早期“当前未提交”描述已由后续 checkpoint 更正。
 - [x] 6.6h-复审收口：checkpoint `75b3021`、macOS 候选 `candidate-20260902064710422` 和 `release/handoff/phase-6-workbench-windows-recheck-20260902-04/` 已生成；未写入 T7，Windows RETURN 待实机验收。
 - [x] 6.6i 最终本地收口记录：代码与记录 checkpoint 已完成；候选/交接以最新 manifest 与 SOURCE-BASELINE 绑定的最终提交为准，6/6 哈希通过，未写入 T7。
+- [x] 6.6j Windows 交接纠偏：`-08` 因错误全量提交哈希及旧 `-03` 文档复用而作废；新建 `phase-6-workbench-windows-recheck-20260902-09/`，更新为聚焦 76/76、全量 200/200 与 Electron 原生权威锁，并完成本地/T7 6/6 哈希和逐字节一致性校验。
+- [ ] 6.6k `-09` Windows 全量复验：等待真实 Windows RETURN，通过机器验证器和 Mac 侧独立哈希复核后再关闭 Phase 6.6。

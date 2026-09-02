@@ -61,9 +61,11 @@
 
 ### 2026-09-02 本地最终收口（当前）
 
-- 历史记录：`49b6592`、`1e96e32` 分别对应早期证据更新；`dfb2cde` 仅为历史基线。当前最终候选与交接以本节末尾最新追加记录及其 manifest/SOURCE-BASELINE 为准，均未写入 T7；Windows RETURN 尚为空。
+- 历史记录：`49b6592`、`1e96e32` 分别对应早期证据更新；`dfb2cde` 仅为历史基线。当前最终候选以最新 manifest 为准；Windows 权威交接已更新为本地及 T7 的 `phase-6-workbench-windows-recheck-20260902-09/`。`-08` 因全量提交哈希错误且复验文档过期而作废并保留；`-09` RETURN 尚为空。
 
 - 2026-09-02 独立复审后历史更正：`dfb2cde` 仅代表旧基线；`-03` 交接不含后续修复，不能作为最终 Windows 输入。
+
+- 2026-09-02 最终 Windows 交接纠偏：`-08` 的源码 ZIP 内容匹配真实 HEAD `50d75ed42d5ec955babf4a801c7bfb78a1e9a94b`，但 `SOURCE-BASELINE.md` 写入不存在的 `50d75ed711a...`，且 PRD/提示词/报告仍复用 `-03` 的 33/33、184/184 与文件锁权威描述，因此整包作废。新建非覆盖 `release/handoff/phase-6-workbench-windows-recheck-20260902-09/` 并复制至 T7 同名目录；权威提交为 `50d75ed42d5ec955babf4a801c7bfb78a1e9a94b`，source ZIP SHA-256 `acc75d7c7ef3498065c93aa794779233c95cc3d4193801dd63cd11eea1d9b519`，checksums SHA-256 `405cf62781ce41d7b6a424f34d6083bd2649d0d58ccd4e6fb09e5e6909bcadbd`，6/6 通过，源/目标逐字节一致，UTF-8/LF、零元数据、零符号链接、空 RETURN。复验契约已更新为聚焦 76/76、全量 200/200 和 Electron 原生权威锁；后续仅记录本次交付的文档提交不改变交接源码身份。
 
 - 2026-09-02 经用户确认，已删除 T7 上被 `phase-6-workbench-windows-acceptance-20260901-06/` 取代且 RETURN 为空的旧交接包 `phase-6-workbench-windows-acceptance-20260901-05/`（约 1.5 MiB）；未触碰回收站及任何含 RETURN 的交接包。
 

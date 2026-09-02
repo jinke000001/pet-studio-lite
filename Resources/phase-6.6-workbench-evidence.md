@@ -65,3 +65,12 @@ Windows 独立验收交接已更新至非覆盖目录：`release/handoff/phase-6
 - `checksums.sha256` 覆盖 6 个输入（排除自身与 RETURN），UTF-8 无 BOM、LF、相对路径，自身 SHA-256 `a59f39d265c308fa8ce360ec1fa032eb4d9b72602313f05283cb6b436bf4cc4e`；macOS 侧 6/6 校验通过。
 - 交接目录递归零元数据、零符号链接，`RETURN/` 为空；未写入或复制到 T7。
 - Windows source、win-unpacked、installed mode、DPI、卸载/重装仍待新 RETURN，Phase 6.6 不提前关闭。
+
+## 2026-09-02 最终 Windows 交接纠偏（-09）
+
+- `-08` 来源链复核失败：`SOURCE-BASELINE.md` 的权威全量提交 `50d75ed711a...` 不存在；其 PRD、执行提示词和报告模板与 `-03` 对应文件逐字一致，仍要求实例锁 33/33、全量 184/184，并把文件锁描述为工作台权威锁。源码 ZIP 本身可由真实 HEAD 确定性重建，但整包不得用于 Windows 验收。
+- 新本地交接：`release/handoff/phase-6-workbench-windows-recheck-20260902-09/`；T7 副本：`/Volumes/T7 Shield/phase-6-workbench-windows-recheck-20260902-09/`。
+- 权威提交及 ZIP 内嵌提交：`50d75ed42d5ec955babf4a801c7bfb78a1e9a94b`；source ZIP SHA-256：`acc75d7c7ef3498065c93aa794779233c95cc3d4193801dd63cd11eea1d9b519`；checksums SHA-256：`405cf62781ce41d7b6a424f34d6083bd2649d0d58ccd4e6fb09e5e6909bcadbd`。
+- 复验文档已更新为聚焦 76/76（实例锁 37、shell 6、RETURN 验证器 33）、全量 200/200，并明确 Electron `app.requestSingleInstanceLock()` 是唯一权威锁、文件锁仅作 fail-closed 诊断/回归。
+- 本地与 T7 的 6/6 输入哈希均通过；ZIP 193 个文件、单一顶层、提交注释正确；文本 UTF-8 无 BOM/LF；零 AppleDouble/`.DS_Store`、零符号链接、RETURN 为空；源/目标 `rsync -nrc --delete --itemize-changes` 无差异。
+- 结论仍为 Windows 验收准备完成、等待 `-09` 外部 RETURN。不得用本轮 macOS/静态证据宣布 Windows source、win-unpacked、installed mode、DPI、完整 GUI、卸载或重装通过。
