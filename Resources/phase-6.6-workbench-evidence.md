@@ -74,3 +74,46 @@ Windows 独立验收交接已更新至非覆盖目录：`release/handoff/phase-6
 - 复验文档已更新为聚焦 76/76（实例锁 37、shell 6、RETURN 验证器 33）、全量 200/200，并明确 Electron `app.requestSingleInstanceLock()` 是唯一权威锁、文件锁仅作 fail-closed 诊断/回归。
 - 本地与 T7 的 6/6 输入哈希均通过；ZIP 193 个文件、单一顶层、提交注释正确；文本 UTF-8 无 BOM/LF；零 AppleDouble/`.DS_Store`、零符号链接、RETURN 为空；源/目标 `rsync -nrc --delete --itemize-changes` 无差异。
 - 结论仍为 Windows 验收准备完成、等待 `-09` 外部 RETURN。不得用本轮 macOS/静态证据宣布 Windows source、win-unpacked、installed mode、DPI、完整 GUI、卸载或重装通过。
+
+## 2026-09-02/03 `-09` RETURN 根因修复与 `-10` 交接
+
+### 回传复核（只读）
+
+- `-09` RETURN（`/Volumes/T7 Shield/phase-6-workbench-windows-recheck-20260902-09/RETURN/20260902-172428/`）：`returned-checksums.sha256` 68/68 通过；验证器重跑仅 `status:overall` 预期失败（`overallStatus=failed`），无其他证据破损。
+- 首个失败门 `G5-04-candidate-export-source`：应用内候选构建报 `Unknown argument: C:\...\electron-builder\out\cli\cli.js`。
+- 另有 win-unpacked 预览 `spawn ... ENOENT`（cwd 落进 `app.asar`）与 `evidence/validator-output.txt` 自引用时序两处确定性问题。历史 RETURN 全程只读，未修改。
+
+### 根因与修复链（提交顺序即层级顺序）
+
+1. `25f5779`：新增仓库内 `src/workbench/builder-launcher.js`。Electron-as-Node 子进程中 `process.versions.electron` 存在且 `process.defaultApp` 为空，yargs 17 `hideBin` 只裁 argv[0]，把 cli 路径留作多余位置参数；launcher 在进入 electron-builder 前把 `process.argv` 规范化为与 hideBin 裁剪一致的形态。launcher 校验 CLI 路径必须等于受控 builderRoot 内的固定位置。同提交修复 packaged 预览 cwd（`resolvePreviewSpawnCwd` 在任何 stat 之前按 basename `app.asar` 判定并返回真实父目录，runtime entry 仍为 `app.asar/src/main.js`）与验证器流程（新增 `--output`，拒绝 RETURN 内路径，validator 输出不再进入 checksum 闭环）。
+2. `7effcfa`：launcher 内设 `process.noAsar = true`。Electron-as-Node 子进程的 ASAR 补丁仍拦截对 `default_app.asar` 的写入（dist 模板解包后 electron-builder 覆写该文件），报 `Invalid package`；探针证实仅当目标已存在时触发。
+3. `8d696ad`：候选 `files` 映射中 `{from: <abs>/package.json, to: 'package.json'}` 文件型 from 永远不会被 electron-builder 的 AppFileWalker 遍历，app.asar 缺 package.json 导致 sanity check 失败；改为 `{ from: buildAssetsRoot, to: '.', filter: ['package.json'] }`，真实 electron-builder 复现验证通过。
+4. `e4eb38c`、`fe6905b`：工作台打包进程内读取候选 `app.asar`（ASAR 检查器 `inspectPackagedAsar` 与 manifest `hashFile`）被 ASAR 补丁拦截为 `ENOENT,  not found in .../app.asar`；两处同步读局部 `process.noAsar` 开关（try/finally 恢复），不全局关闭（`main.js` 仍依赖 asar 读渲染入口）。
+
+### 回归与质量门
+
+- RED→GREEN：launcher 真实 Electron+yargs argv 集成测试（含根因对照）、真实 `app.asar` 目录夹具预览 cwd、packaged builderRoot 协议、构建失败/取消证据、验证器 `--output` 与冻结后篡改失败、ASAR 检查器与 manifest 在真实 Electron 子进程内运行。
+- 聚焦 117/117（实例锁 37、shell 6、验证器 36、launcher 8、预览 7、候选构建 9、ASAR 检查 6、构建计划 8）、全量 222/222、typecheck/build/lint/preflight/audit(0 vulnerabilities)/diff-check 全部通过。
+
+### macOS 候选与 packaged smoke（`candidate-20260902153954972`，绑定 `fe6905b`，worktreeClean）
+
+- 隔离 userData 位于 `~/Desktop/pet-studio-smoke-20260902`（注意：userData 置于 /tmp 会触发 electron-builder 系统路径防护，smoke 环境约束，非产品缺陷）。
+- 启动：`studio-start packaged=true` → `single-instance-lock-acquired` → `studio-ready` → `renderer-ready`（app.asar 内渲染入口）；第二实例 `single-instance-lock-denied` 并退出。
+- 导入 ZIP 宠物包（xiaofuxing，authorized）→ 项目界面正常显示；packaged 真实桌宠预览启动（预览 `runtime-ready product=studio-preview-7cc104 pet=xiaofuxing`）并停止，预览进程清零。
+- 应用内 macOS 候选构建成功：builder 日志 0 次 `Unknown argument`、0 次 `Invalid package`，生成完整 `candidate-manifest.json`（productId、embedded selector、atlas 哈希与源一致、双产物 SHA-256）。
+- 正常退出 `studio-before-quit`，精确进程数 0。
+- 证据目录：`release/workbench-candidates/candidate-20260902153954972/smoke/`（studio/preview/构建日志、manifest、截图、哈希清单 `smoke-hashes.txt` 不含自身）。
+- 过程中的两次应用内构建失败（ASAR 补丁写、缺 package.json）日志保留于同一 smoke 目录作为分层证据。
+
+### Windows x64 交叉候选（仅静态参照）
+
+- `release/workbench-candidates/candidate-20260902161102333/`，绑定 `fe6905b`、worktreeClean；`win-unpacked/DesktopPetStudio.exe` 与未签名 NSIS `desktop-pet-studio-0.1.0-x64.exe` 均已生成，builder 日志无错误。
+- 该候选只证明 macOS 交叉打包链路可用，不代替 Windows 本机构建与验收。
+
+### Windows 复验交接包 -10
+
+- 新非覆盖目录 `release/handoff/phase-6-workbench-windows-recheck-20260902-10/`：SOURCE-BASELINE.md、PRD、执行提示词、报告模板、新版验证器、source ZIP（`pet-workbench-source-fe6905bf2.zip`，199 文件，内嵌提交 `fe6905bf22db925d8f89bf835c262f347cbf37fb`，SHA-256 `695ab3bb940c6d6d7aea7ce792e0e4b41727b4ac55576ee7a9b3944e19330f22`）与空 RETURN/。
+- `checksums.sha256` 6/6 通过，自身 SHA-256 `a12323763724dd41d40ec80d6284e5c67a2cac39687d8c4f9e66dff7413a1851`；文本 UTF-8 无 BOM、LF；零 `.DS_Store`/`._*`、零符号链接。
+- 解压树独立验证：`ditto` 解压（中文文件名完好）→ `npm ci` → 聚焦回归 117/117。
+- 未写入或复制到 T7；`-09` 及更早交接与 RETURN 保持只读。
+- Windows source、win-unpacked、installed mode、DPI、完整 GUI、卸载/重装结论全部等待 `-10` 新 RETURN；不得用本轮 macOS/静态证据宣布任何 Windows 门通过。

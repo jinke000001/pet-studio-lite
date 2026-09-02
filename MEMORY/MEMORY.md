@@ -59,9 +59,18 @@
 
 ## Phase 6 当前状态
 
-### 2026-09-02 本地最终收口（当前）
+### 2026-09-02/03 `-09` RETURN 修复与 `-10` 交接（当前）
 
-- 历史记录：`49b6592`、`1e96e32` 分别对应早期证据更新；`dfb2cde` 仅为历史基线。当前最终候选以最新 manifest 为准；Windows 权威交接已更新为本地及 T7 的 `phase-6-workbench-windows-recheck-20260902-09/`。`-08` 因全量提交哈希错误且复验文档过期而作废并保留；`-09` RETURN 尚为空。
+- `-09` Windows RETURN（T7 `phase-6-workbench-windows-recheck-20260902-09/RETURN/20260902-172428/`）已复核：68/68 哈希通过、验证器仅预期失败，首个失败门 `G5-04-candidate-export-source`。
+- 四层产品修复链：`25f5779`（仓库内 builder launcher 规范化 argv + 预览 app.asar cwd 按名称判定 + 验证器 `--output` 拒绝 RETURN 内路径）→ `7effcfa`（launcher `process.noAsar`）→ `8d696ad`（候选 files 映射改目录+filter）→ `e4eb38c`/`fe6905b`（工作台进程读候选 app.asar 局部关 ASAR 补丁）。聚焦 117/117、全量 222/222、全部质量门通过。
+- 当前最终 macOS 候选：`release/workbench-candidates/candidate-20260902153954972/`（绑定 `fe6905b`，worktreeClean），packaged smoke 全项通过（启动、单实例拒绝、ZIP 导入、预览启停、应用内 macOS 候选构建成功、退出后进程清零），证据在候选 `smoke/` 目录。
+- Windows x64 交叉参考候选：`release/workbench-candidates/candidate-20260902161102333/`（绑定 `fe6905b`；NSIS SHA-256 `d47576eebfbc3b49aa76d95887dcae40a3afe71dd3eb6b64c08822f1eaca0396`）；仅静态参照，不构成 Windows 验收。
+- Windows 权威交接为本地 `release/handoff/phase-6-workbench-windows-recheck-20260902-10/`（绑定 `fe6905b`，source ZIP SHA-256 `695ab3bb940c6d6d7aea7ce792e0e4b41727b4ac55576ee7a9b3944e19330f22`，checksums SHA-256 `a12323763724dd41d40ec80d6284e5c67a2cac39687d8c4f9e66dff7413a1851`，6/6 输入通过，解压树聚焦 117/117，RETURN 为空）；未写入 T7，复制需用户授权。
+- `-09` 及更早交接与 RETURN 保持只读。Windows source、win-unpacked、installed mode、DPI、卸载/重装仍 `pending external RETURN`，等待 `-10` 新回传。
+
+### 2026-09-02 本地最终收口（历史）
+
+- 历史记录：`49b6592`、`1e96e32` 分别对应早期证据更新；`dfb2cde` 仅为历史基线。`-08` 因全量提交哈希错误且复验文档过期而作废并保留。`-09` 已收到失败 RETURN 并被 `-10` 取代（见上节）。
 
 - 2026-09-02 独立复审后历史更正：`dfb2cde` 仅代表旧基线；`-03` 交接不含后续修复，不能作为最终 Windows 输入。
 
