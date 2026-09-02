@@ -225,7 +225,7 @@ Petdex Desktop 可以脱离 Codex 运行，但下载和社区依赖网络环境�
 
 - T7 `-01` 回传确认 Windows 对已有符号链接执行 `fs.openSync(..., 'wx')` 返回 EPERM；实例锁 catch 分支仅在 lstat 证明不安全对象时转换受控错误，其余 EPERM 原样抛出，fail-closed 不变。
 - 修复仅涉及 `src/workbench/instance-lock.js` 与对应测试；directory-importer 偶发 rename EPERM 保留为观察项，不在本轮范围。
-- 聚焦测试 6/6、全量 136/136 与完整质量门通过；新 macOS 候选与 `-02` 仓库内交接包按计划随后生成，Windows installed mode 仍待新 RETURN。
+- 聚焦测试 6/6、全量 136/136 与完整质量门通过；修复提交 `5ac8528`，新 macOS 候选 `candidate-20260902020633351`（隔离 smoke 通过）与 `-02` 仓库内交接包（6/6 输入哈希）已生成；未写入 T7，Windows installed mode 仍待新 RETURN。
 
 ## 主要风险
 

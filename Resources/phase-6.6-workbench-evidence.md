@@ -33,4 +33,19 @@ Windows 独立验收交接已更新至非覆盖目录：`release/handoff/phase-6
 - 修复（D-027 临时授权，仅 `src/workbench/instance-lock.js` 与 `test/workbench-instance-lock.test.js`）：EPERM 仅在 `lstatSync` 证明锁路径为不安全对象（符号链接、非普通文件、超 1024 字节）时转换为受控错误；路径不存在或无法证明不安全时原样重抛原始 EPERM。fail-closed 不变，不读取符号链接目标，不删除不安全锁。
 - 新增 4 个确定性 EPERM 回归测试（stub `fs.openSync`，try/finally 恢复）；聚焦 6/6、全量 136/136、typecheck/build/lint/source preflight/npm audit（0 vulnerabilities）/diff check 全部通过，日志位于 `logs/phase-6.6-instance-lock-repair-*.txt`。
 - directory-importer 偶发 rename EPERM 保留为观察项，不在本轮修复范围。
-- 新 macOS 候选与 `-02` 仓库内交接包结果见下文 Task B/C 记录；Windows installed mode 仍待新 RETURN。
+
+### 修复提交与 macOS 候选（Task A/B）
+
+- 修复提交：`5ac85289aa1dbb47f65b2afca05b792cb8c6550b`（`fix(workbench): handle Windows EPERM for unsafe instance locks`），提交后工作区干净。
+- 新 macOS arm64 未签名内部候选：`release/workbench-candidates/candidate-20260902020633351/`；manifest 绑定提交 `5ac8528`，`worktreeClean: true`，`windowsInstalledMode: pending-external-return`。
+- candidate-manifest.json SHA-256：`355dc11a4ddd89aed1d4657e0c4aa50617d8a7471d26b3df8035b92f30eae2a7`；主程序 SHA-256：`221d5695ab9eb2263b9107e4a5bb3f5780adc35963530e322673d5535e8eeae5`；app.asar SHA-256：`285029f38d02215b58bb62be9fcabb1d4c1b2f78decded9db8737b8ac33efd48`。
+- 应用身份 `com.jinke.desktop-pet.studio` / 桌宠制作台，arm64，adhoc 未签名。
+- 隔离 userData packaged smoke：`studio-start` → `single-instance-lock-acquired` → `studio-ready` → `renderer-ready` → SIGTERM 后 `studio-before-quit`；结束后精确进程数 0，实例锁文件已清理。本轮未启动真实预览桌宠，不宣称 `runtime-ready` 或完整 GUI 预览闭环通过。隔离 userData 保留于 `runs/phase-6.6-instance-lock-smoke-20260902-01/`（Git 忽略），未写入真实用户工作台目录，未递归删除。
+
+### Windows 复验交接包 -02（Task C）
+
+- 新非覆盖交接：`release/handoff/phase-6-workbench-windows-recheck-20260902-02/`（7 个文件，约 352K，含空 `RETURN/`）。
+- source ZIP `source/pet-workbench-source-5ac8528.zip` 由 `git archive` 从提交 `5ac85289aa1dbb47f65b2afca05b792cb8c6550b` 生成：SHA-256 `3758831834ea379171c51ea4ab0ea1409ccad9ae8501e2cede16ce496f808d36`，174 个条目、单一顶层目录、零 `.DS_Store`/`._*`、零符号链接。
+- `checksums.sha256` 覆盖 6 个输入（排除自身与 RETURN），UTF-8 无 BOM、LF、相对路径，自身 SHA-256 `a59f39d265c308fa8ce360ec1fa032eb4d9b72602313f05283cb6b436bf4cc4e`；macOS 侧 6/6 校验通过。
+- 交接目录递归零元数据、零符号链接，`RETURN/` 为空；未写入或复制到 T7。
+- Windows source、win-unpacked、installed mode、DPI、卸载/重装仍待新 RETURN，Phase 6.6 不提前关闭。
