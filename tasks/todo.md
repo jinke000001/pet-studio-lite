@@ -144,5 +144,8 @@ Checkpoint 6.4 已完成；任务恢复只在启动时执行一次，轮询不�
 - [ ] 6.6d 完成候选/manifest/哈希/包工厂检查和最终多轴代码审查，修复全部 Critical/Required。
 - [x] 6.6e 生成新的非覆盖 Windows 复验交接包并完成输入哈希、ZIP UTF-8/元数据/符号链接校验。
 - [x] 6.6f 同步 MEMORY、计划、待办、证据与最终报告，创建本地 checkpoint（`a93a2e8` 修复、`792113a`/`fb3967a` 证据文档），确认工作区干净；Windows installed mode 等待新 RETURN。
+- [x] 6.6g-1 只读复核 T7 `-01` 回传，确诊 Windows 对已有符号链接 `openSync 'wx'` 返回 EPERM 导致实例锁不安全错误逃逸；建立 `tasks/phase-6-workbench-instance-lock-windows-repair-plan.md`。
+- [x] 6.6g-2 修复 `src/workbench/instance-lock.js`：EPERM 仅在 lstat 证明不安全对象时转换受控错误，其余原样抛出；新增 4 个确定性 EPERM 回归测试，聚焦 6/6、全量 136/136 与完整质量门通过。
+- [ ] 6.6g-3 生成新 macOS 候选与隔离 packaged smoke，并建立非覆盖仓库内交接包 `release/handoff/phase-6-workbench-windows-recheck-20260902-02/`；未写入 T7，Windows installed mode 等待新 RETURN。
 
 Phase 6 不改变商业发布体系暂缓结论；签名、公证、商城、支付、DRM、自动更新和正式发布仍不在当前范围。

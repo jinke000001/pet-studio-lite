@@ -26,6 +26,20 @@ function acquireInstanceLock({ directory, pid = process.pid, signal = process.ki
         }
       };
     } catch (error) {
+      if (error.code === 'EPERM') {
+        // Windows returns EPERM instead of EEXIST for 'wx' on some existing
+        // lock objects. Only a lock path proven unsafe (symlink, non-regular
+        // file, oversize) may be converted; anything else rethrows the
+        // original EPERM.
+        let stats;
+        try {
+          stats = fs.lstatSync(lockPath);
+        } catch {
+          throw error;
+        }
+        if (!stats.isFile() || stats.isSymbolicLink() || stats.size > 1024) throw new Error('工作台实例锁不安全。');
+        throw error;
+      }
       if (error.code !== 'EEXIST') throw error;
       const stats = fs.lstatSync(lockPath);
       if (!stats.isFile() || stats.isSymbolicLink() || stats.size > 1024) throw new Error('工作台实例锁不安全。');

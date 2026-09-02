@@ -1,0 +1,14 @@
+✔ allows one workbench instance and releases its lock (8.711917ms)
+✔ recovers a dead owner and rejects a symbolic-link lock (1.027042ms)
+✔ converts Windows-style EPERM on a symbolic-link lock into an unsafe-lock error (0.388042ms)
+✔ converts Windows-style EPERM on an oversize regular lock into an unsafe-lock error (0.505375ms)
+✔ rethrows EPERM that cannot be proven to come from an unsafe lock (0.515417ms)
+✔ rethrows EPERM when the lock path does not exist for lstat (0.84075ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 66.407833

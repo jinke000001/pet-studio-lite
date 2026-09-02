@@ -59,6 +59,8 @@
 
 ## Phase 6 当前状态
 
+- 2026-09-02 实例锁 Windows EPERM 修复：T7 `-01` 回传确诊 Windows 对已有符号链接 `openSync 'wx'` 返回 EPERM 导致受控错误逃逸；修复仅在 lstat 证明不安全对象时转换错误，其余 EPERM 原样抛出，fail-closed 不变。仅修改 `src/workbench/instance-lock.js` 与 `test/workbench-instance-lock.test.js`（D-027 临时授权）；聚焦 6/6、全量 136/136 与完整质量门通过。directory-importer 偶发 rename EPERM 保留为观察项。新 macOS 候选与 `-02` 仓库内交接包按计划生成；Windows installed mode 仍待新 RETURN。
+
 - 2026-09-02 T7 06 Windows 回传的 3 项 npm test 失败确认为 POSIX 测试夹具不可移植；提交 `a93a2e8` 仅更新两个测试文件，132/132 与完整质量门通过。新 macOS 候选为 `release/workbench-candidates/candidate-20260901160713659/`；新仓库内 Windows 全量复验交接为 `release/handoff/phase-6-workbench-windows-recheck-20260902-01/`，未写入 T7，Windows installed mode 等待新 RETURN。
 - 用户确认后，新 Windows 复验交接已复制到 T7 `/Volumes/T7 Shield/phase-6-workbench-windows-recheck-20260902-01/`，6/6 checksums 通过，RETURN 为空；Windows installed mode 仍等待该目录产生新 RETURN。
 

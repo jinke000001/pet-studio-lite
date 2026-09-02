@@ -221,6 +221,12 @@ Petdex Desktop 可以脱离 Codex 运行，但下载和社区依赖网络环境�
 - 修复提交 `a93a2e8`：两个测试文件改用 native `path`/`os.tmpdir()`，相关测试 8/8、全量 132/132，完整质量门通过。
 - 新 macOS 候选与仓库内非覆盖 Windows 复验交接已生成；Windows installed mode、DPI、导入预览与生命周期仍待新 RETURN。
 
+## Phase 6.6 Windows 实例锁 EPERM 修复复验（2026-09-02）
+
+- T7 `-01` 回传确认 Windows 对已有符号链接执行 `fs.openSync(..., 'wx')` 返回 EPERM；实例锁 catch 分支仅在 lstat 证明不安全对象时转换受控错误，其余 EPERM 原样抛出，fail-closed 不变。
+- 修复仅涉及 `src/workbench/instance-lock.js` 与对应测试；directory-importer 偶发 rename EPERM 保留为观察项，不在本轮范围。
+- 聚焦测试 6/6、全量 136/136 与完整质量门通过；新 macOS 候选与 `-02` 仓库内交接包按计划随后生成，Windows installed mode 仍待新 RETURN。
+
 ## 主要风险
 
 | 风险 | 影响 | 缓解 |

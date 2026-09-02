@@ -1,0 +1,4 @@
+
+> desktop-pet-workflow@0.1.0 lint
+> node scripts/check-syntax.js
+

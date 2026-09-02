@@ -26,3 +26,11 @@ Windows 独立验收交接已更新至非覆盖目录：`release/handoff/phase-6
 - 新 macOS arm64 候选：`release/workbench-candidates/candidate-20260901160713659/`；manifest `584ded13c3f029e13cdd2cfca9267b9cef1181eba113fef2edd81011b2ab8ef6`，app.asar `5c057b7dcc8a6da9a30584e4511ec91274c8acc3bec2ff054add0cb2b5e95003`，主程序 `221d5695ab9eb2263b9107e4a5bb3f5780adc35963530e322673d5535e8eeae5`。packaged smoke 出现 `studio-ready`/`renderer-ready`，仅代表 macOS packaged 候选通过。
 - 新仓库内非覆盖交接：`release/handoff/phase-6-workbench-windows-recheck-20260902-01/`；source ZIP `4a9c79bb5c5c3926c18358770ec785982fd5c1cff2a2e2a0f706245df82674c0`，基线 `a93a2e8`，checksums `c0f147f02bb4c675966bdb8cf8c11a0eb6976ae8286127f566bf5d91d055d7e2`，6/6 输入通过、LF/UTF-8、排除自身、RETURN 为空。
 - T7 06 及其 RETURN 未修改；新交接未写入 T7。Windows source、win-unpacked、installed mode、DPI、导入预览、卸载/重装仍待新的 Windows RETURN，Phase 6.6 不提前关闭。
+
+## 2026-09-02 实例锁 Windows EPERM 修复
+
+- T7 `-01` 回传（`RETURN/20260902-092429/`，Windows 验收失败）确诊：Windows 对已有符号链接 `fs.openSync(lockPath, 'wx')` 返回 EPERM，`src/workbench/instance-lock.js` 只处理 EEXIST，受控“工作台实例锁不安全”错误无法触发。
+- 修复（D-027 临时授权，仅 `src/workbench/instance-lock.js` 与 `test/workbench-instance-lock.test.js`）：EPERM 仅在 `lstatSync` 证明锁路径为不安全对象（符号链接、非普通文件、超 1024 字节）时转换为受控错误；路径不存在或无法证明不安全时原样重抛原始 EPERM。fail-closed 不变，不读取符号链接目标，不删除不安全锁。
+- 新增 4 个确定性 EPERM 回归测试（stub `fs.openSync`，try/finally 恢复）；聚焦 6/6、全量 136/136、typecheck/build/lint/source preflight/npm audit（0 vulnerabilities）/diff check 全部通过，日志位于 `logs/phase-6.6-instance-lock-repair-*.txt`。
+- directory-importer 偶发 rename EPERM 保留为观察项，不在本轮修复范围。
+- 新 macOS 候选与 `-02` 仓库内交接包结果见下文 Task B/C 记录；Windows installed mode 仍待新 RETURN。
