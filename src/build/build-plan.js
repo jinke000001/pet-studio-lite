@@ -93,11 +93,21 @@ function reserveBuildDirectory(outputRoot, inputProfile, runId) {
 }
 
 function hashFile(filePath) {
-  const content = fs.readFileSync(filePath);
-  return {
-    size: content.length,
-    sha256: crypto.createHash('sha256').update(content).digest('hex'),
-  };
+  // Candidate artifacts include app.asar. Inside the packaged workbench
+  // process, Electron's asar fs patch intercepts reads of *.asar paths and
+  // fails with ENOENT instead of returning the archive bytes; bypass the
+  // patch for this synchronous read.
+  const previousNoAsar = process.noAsar;
+  process.noAsar = true;
+  try {
+    const content = fs.readFileSync(filePath);
+    return {
+      size: content.length,
+      sha256: crypto.createHash('sha256').update(content).digest('hex'),
+    };
+  } finally {
+    process.noAsar = previousNoAsar;
+  }
 }
 
 function createCandidateManifest({

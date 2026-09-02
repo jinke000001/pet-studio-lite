@@ -10,6 +10,10 @@ const {
   reserveBuildDirectory,
 } = require('../src/build/build-plan');
 
+const childProcess = require('node:child_process');
+const electronPath = require('electron');
+const asar = require('@electron/asar');
+
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 function sampleProfile() {
@@ -170,4 +174,26 @@ test('rejects packaged resources whose selector, atlas or ASAR bytes disagree', 
       { embeddedSelector: 'sample', atlas: { sha256: atlasHash }, asar: { sha256: 'd'.repeat(64) } },
     ],
   }), /ASAR/);
+});
+
+test('createCandidateManifest hashes app.asar bytes inside an Electron process', async () => {
+  // The packaged workbench runs this under Electron's asar fs patch; reading
+  // the candidate app.asar must bypass the patch or it fails with ENOENT.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'manifest-asar-'));
+  const source = path.join(root, 'source');
+  fs.mkdirSync(source, { recursive: true });
+  fs.writeFileSync(path.join(source, 'marker.txt'), 'archive-bytes');
+  const asarPath = path.join(root, 'artifacts', 'mac-arm64', 'Sample.app', 'Contents', 'Resources', 'app.asar');
+  fs.mkdirSync(path.dirname(asarPath), { recursive: true });
+  await asar.createPackage(source, asarPath);
+  const atlasPath = path.join(root, 'atlas.webp');
+  fs.writeFileSync(atlasPath, 'atlas');
+  const child = path.resolve(__dirname, 'helpers', 'manifest-asar-child.js');
+  const result = childProcess.spawnSync(electronPath, [child, root, asarPath, atlasPath], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    encoding: 'utf8',
+    timeout: 60000,
+  });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /MANIFEST_OK [a-f0-9]{64}/);
 });
