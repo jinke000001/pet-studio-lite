@@ -58,7 +58,11 @@ function createCandidateController({
     fs.writeFileSync(profilePath, `${JSON.stringify(profile, null, 2)}\n`);
     const config = createBuilderConfiguration({ selector, profile, outputDirectory: runDirectory, targets });
     config.files = [
-      { from: path.join(buildAssetsRoot, 'package.json'), to: 'package.json' },
+      // electron-builder file mappings must use directory `from` + `filter`:
+      // an object entry whose `from` is a file is never visited by the app
+      // file walker, which silently dropped package.json from app.asar and
+      // failed the packaged-app sanity check.
+      { from: buildAssetsRoot, to: '.', filter: ['package.json'] },
       { from: path.join(buildAssetsRoot, 'src'), to: 'src' },
       { from: path.join(buildAssetsRoot, 'build'), to: 'build' },
       { from: path.join(generated, 'config'), to: 'config' },

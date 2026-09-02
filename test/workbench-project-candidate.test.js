@@ -65,7 +65,12 @@ test('builds from only the active normalized package and preserves versioned can
   assert.equal(candidates.length, 2);
   assert.notEqual(candidates[0].relativePath, candidates[1].relativePath);
   const config = JSON.parse(fs.readFileSync(value.store.resolveProjectPath(value.project.id, ...candidates[0].relativePath.split('/'), 'build-config.json')));
-  assert.deepEqual(config.files.filter((entry) => typeof entry === 'object' && entry.to === 'package.json').map((entry) => entry.from), [path.resolve(__dirname, '..', 'package.json')]);
+  // electron-builder cannot pack object entries whose `from` is a file: the
+  // app file walker never visits it, so package.json silently went missing
+  // from app.asar and the packaged app failed the sanity check. The entry
+  // must use directory form with a filter.
+  assert.deepEqual(config.files.find((entry) => typeof entry === 'object' && Array.isArray(entry.filter)), { from: path.resolve(__dirname, '..'), to: '.', filter: ['package.json'] });
+  assert.equal(config.files.some((entry) => typeof entry === 'object' && entry.to === 'package.json'), false);
   assert.deepEqual(config.files.filter((entry) => typeof entry === 'object' && entry.to === 'config').map((entry) => entry.to), ['config']);
   assert.deepEqual(config.files.filter((entry) => typeof entry === 'object' && entry.to.startsWith('local-pets/')).map((entry) => entry.to), ['local-pets/imported']);
   assert.deepEqual(config.extraMetadata.desktopPetProduct, 'workbench-project');
@@ -171,7 +176,8 @@ test('uses the packaged builderRoot, buildAssetsRoot and launcher location for i
   assert.equal(options.spawnOptions.cwd, buildAssetsRoot);
   assert.equal(options.spawnOptions.env.DESKTOP_PET_BUILDER_ROOT, builderRoot);
   const config = JSON.parse(fs.readFileSync(builderArgs[3]));
-  assert.deepEqual(config.files.filter((entry) => typeof entry === 'object' && entry.to === 'package.json').map((entry) => entry.from), [path.join(buildAssetsRoot, 'package.json')]);
+  assert.deepEqual(config.files.find((entry) => typeof entry === 'object' && Array.isArray(entry.filter)), { from: buildAssetsRoot, to: '.', filter: ['package.json'] });
+  assert.equal(config.files.some((entry) => typeof entry === 'object' && entry.to === 'package.json'), false);
 });
 
 test('preserves builder log and failure evidence when the builder exits non-zero', async () => {
