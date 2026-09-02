@@ -14,12 +14,11 @@
 - Doraemon v1 本地目录导入已通过并落盘安全来源摘要与导入产物。
 - Computer Use 在滚动布局下未形成稳定的 GUI 预览切换/停止点击证据，本轮不宣称完整 GUI 闭环通过。
 
-## 2026-09-02 本地最终收口（49b6592）
+## 2026-09-02 本地最终收口（历史记录）
 
 - 代码 checkpoint `75b3021`，记录与证据提交 `49b6592`；工作台以 Electron `app.requestSingleInstanceLock()` 为唯一权威单实例机制，文件锁仅作 fail-closed 诊断/回归。
 - 三进程暂停竞态：旧实现 RED（A/B/C 均 acquired），修复后 GREEN（最多一个 acquired）；main.js 拒锁真实替身确认 store、恢复、controller、IPC、窗口均为 0。
-- 最新候选 `release/workbench-candidates/candidate-20260902070108743/`：manifest SHA-256 `473da626db18dfada60a16ca15e9f60419f3e493772f0bbb61f72c93d4d2b178`，app.asar SHA-256 `1a047e3b92afd849510220833699393f73c17c3fc4e77861862116db211282f7`；隔离 smoke `runs/phase-6.6-instance-lock-smoke-20260902-06/` 通过 studio-start/native lock acquired/studio-ready/renderer-ready/second denied/before-quit/进程 0/无不安全锁残留。
-- 最新仓库交接 `release/handoff/phase-6-workbench-windows-recheck-20260902-06/`：source ZIP SHA-256 `d0c11b8f47d4168c6ffacbf38d5172155329546ecb013814bddb029c90e149d6`，checksums SHA-256 `b271a731edb1ec0f400cbca1954010b339b25147069872d069146d1db3509387`，6/6 输入通过，RETURN 为空，未写入 T7。
+- 候选与交接均已被后续非覆盖版本取代；请以文档末尾最新追加记录为准。
 - macOS packaged smoke 未启动真实预览子进程，不证明 runtime-ready 或完整 GUI；Windows source、win-unpacked、installed mode、100/125/150% DPI、动态 DPI、卸载/重装及最终 RETURN 仍待实机。
 
 自动门：132/132、typecheck、build、lint、source preflight、npm audit 通过。
