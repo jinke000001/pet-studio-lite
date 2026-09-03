@@ -9,6 +9,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "allowJs": true,
     "types": ["vite/client"]
   },
   "include": ["src/workbench/renderer/**/*.ts", "src/workbench/renderer/**/*.tsx"]

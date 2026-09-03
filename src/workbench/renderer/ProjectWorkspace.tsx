@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createJobCompletionTracker } from './job-refresh';
 import type {
   AuthorizationStatus,
   ImportPreview,
@@ -103,7 +104,6 @@ export function ProjectWorkspace({
   const [product, setProduct] = useState({ productName: project.product?.productName as string ?? '', version: project.product?.version as string ?? '0.1.0', productId: project.product?.productId as string ?? `${project.id}-product`, appId: project.product?.appId as string ?? `com.jinke.${project.id}`, executableName: project.product?.executableName as string ?? 'DesktopPetCandidate', artifactName: project.product?.artifactName as string ?? 'desktop-pet-candidate', targets: (project.product?.targets as Array<'mac' | 'win'> | undefined) ?? ['mac'] });
   const [jobs, setJobs] = useState<Array<WorkbenchJob>>([]);
   const [petdexSlug, setPetdexSlug] = useState('');
-  const refreshedJobs = useRef(new Set<string>());
 
   useEffect(() => {
     setPreview(null);
@@ -118,20 +118,23 @@ export function ProjectWorkspace({
 
   useEffect(() => {
     let mounted = true;
+    // 每个项目单独建立任务状态基线：历史成功任务不触发项目重载，
+    // 只有本会话观察周期内新完成的任务才刷新项目数据。
+    const completionTracker = createJobCompletionTracker();
     const refresh = () => window.workbenchApi.listJobs(project.id).then(async (result) => {
       if (!mounted || !result.ok) return;
       const nextJobs = result.value as Array<WorkbenchJob>;
       setJobs(nextJobs);
-      const completedJob = nextJobs.find((job) => job.status === 'succeeded' && !refreshedJobs.current.has(job.id));
-      if (completedJob) {
-        refreshedJobs.current.add(completedJob.id);
-        const opened = await window.workbenchApi.openProject(project.id);
-        if (mounted && opened.ok && opened.value.activeProject) onProjectChange(opened.value.activeProject);
-      }
+      const completedJob = completionTracker.observe(nextJobs);
+      if (!completedJob || !mounted) return;
+      // 同项目重载在主进程是无副作用的只读刷新；项目切换后 mounted 已为
+      // false，旧的异步响应不会把界面或活动项目切回去。
+      const opened = await window.workbenchApi.openProject(project.id);
+      if (mounted && opened.ok && opened.value.activeProject) onProjectChange(opened.value.activeProject);
     }).catch(() => {});
     refresh(); const timer = window.setInterval(refresh, 1000);
     return () => { mounted = false; window.clearInterval(timer); };
-  }, [project.id, project.updatedAt]);
+  }, [project.id]);
 
   const activeAction = useMemo(
     () => preview?.actions.find((action) => action.name === selectedAction) ?? preview?.actions[0],

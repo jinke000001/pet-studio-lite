@@ -53,9 +53,13 @@ test('workbench renderer declares a strict CSP and accessible project form', () 
 
 test('task completion refreshes project artifacts, not only import previews', () => {
   const workspace = read('src/workbench/renderer/ProjectWorkspace.tsx');
-  assert.match(workspace, /job\.status === 'succeeded'/);
+  const jobRefresh = read('src/workbench/renderer/job-refresh.js');
+  assert.match(jobRefresh, /job\.status === 'succeeded'/);
+  assert.match(jobRefresh, /knownStatuses/);
   assert.doesNotMatch(workspace, /\['import', 'petdex-import'\]\.includes\(job\.type\)/);
   assert.match(workspace, /openProject\(project\.id\)/);
+  assert.match(workspace, /createJobCompletionTracker/);
+  assert.doesNotMatch(workspace, /refreshedJobs/);
 });
 
 test('background handlers persist compact identifiers instead of nested project snapshots', () => {

@@ -18,6 +18,7 @@ const { createImportSelectionHandler } = require('./import-selection');
 const { createPreviewController } = require('./preview-controller');
 const { createProductController } = require('./product-controller');
 const { createJobController } = require('./job-controller');
+const { createProjectLifecycle } = require('./project-lifecycle');
 const { createCandidateController } = require('./candidate-controller');
 const { createWorkspaceController } = require('./workspace-controller');
 
@@ -103,7 +104,7 @@ function bootstrapWorkbench(releaseInstanceLock) {
     },
   });
   let window;
-  let activeProjectId;
+  const lifecycle = createProjectLifecycle({ store, jobs, previewController });
   const selectImport = createImportSelectionHandler({
     dialog,
     getWindow: () => window,
@@ -132,25 +133,30 @@ function bootstrapWorkbench(releaseInstanceLock) {
   }
 
   function registerIpc() {
-    registerHandler('workbench:get-bootstrap', () => ({
-      ...bootstrap(store.loadMostRecentProject()),
-      petPreview: previewController.status(),
-    }));
+    registerHandler('workbench:get-bootstrap', () => {
+      const activeProject = store.loadMostRecentProject();
+      // 启动恢复：界面会把最近项目当作活动项目展示，主进程必须同步
+      // activeProjectId，否则恢复后的第一次同项目刷新会被误认为项目切换。
+      if (activeProject) lifecycle.activateProject(activeProject.id);
+      return {
+        ...bootstrap(activeProject),
+        petPreview: previewController.status(),
+      };
+    });
     registerHandler('workbench:create-project', (input) => {
       const activeProject = store.createProject(input);
+      lifecycle.activateProject(activeProject.id);
       return bootstrap(activeProject);
     });
     registerHandler('workbench:open-project', async (projectId) => {
-      if (activeProjectId && activeProjectId !== projectId) jobs.cancelProject(activeProjectId);
-      await previewController.stop();
-      const activeProject = store.openProject(projectId);
-      activeProjectId = activeProject.id;
+      const activeProject = await lifecycle.openProject(projectId);
       return bootstrap(activeProject);
     });
     registerHandler('workbench:select-import', async (input) => {
-      if (activeProjectId && activeProjectId !== input.projectId) jobs.cancelProject(activeProjectId);
+      const currentActiveProjectId = lifecycle.getActiveProjectId();
+      if (currentActiveProjectId && currentActiveProjectId !== input.projectId) jobs.cancelProject(currentActiveProjectId);
       await previewController.stop();
-      activeProjectId = input.projectId;
+      lifecycle.activateProject(input.projectId);
       const result = await selectImport(input);
       return { ...bootstrap(result.project || store.loadProject(input.projectId)), cancelled: result.cancelled };
     });
