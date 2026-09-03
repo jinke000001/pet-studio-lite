@@ -59,13 +59,24 @@
 
 ## Phase 6 当前状态
 
-### 2026-09-02/03 `-09` RETURN 修复与 `-10` 交接（当前）
+### 2026-09-03 预览刷新缺陷修复与 `-11` 交接（当前）
+
+- `-10` 补验 RETURN（T7 `phase-6-workbench-windows-recheck-20260902-10/RETURN/20260903-194712-supplement/`）overallStatus=failed，首个失败门 `S6-defect-preview-killed-by-job-ack-loop`：打开含历史成功任务的项目后立即启动真实预览，预览被任务刷新静默停止。
+- 根因：`ProjectWorkspace.tsx` 轮询对每个未确认的历史成功任务调用 `openProject(project.id)`；`main.js` 的 `workbench:open-project` 无条件停止预览；`get-bootstrap` 不登记 `activeProjectId`。
+- 修复提交 `e5a69ba2e0573a8cdb362d6ec6bc868c364e2d66`：新增 `project-lifecycle.js`（同项目重开=无副作用只读重载，仅切换项目才取消旧任务/停止它项目预览）；renderer 轮询改用 `job-refresh.js` 观察器（首次轮询只建基线，历史成功任务不再触发项目打开）。未改 IPC/权限/单实例锁/builder/ASAR/运行内核。
+- 回归：新增 12 项行为测试（生命周期 7 + 任务刷新 5），3 项在旧语义下确定性失败；旧代码 `c0ce641` 端到端复现预览约 3 秒被杀；新实现 source/packaged 全场景实测通过（存活、刷新、切换、恢复、显式停止、退出清零）。聚焦 129/129、全量 234/234、全部质量门通过。证据：`Resources/phase-6.6-preview-refresh-repair-evidence.md` 与 `runs/phase-6.6-preview-refresh-repair-20260903-01/`。
+- 新候选：macOS `release/workbench-candidates/candidate-20260903150205539/`、Windows 交叉参照 `candidate-20260903150735869/`（均绑定 `e5a69ba`，worktreeClean）。
+- 新交接 `release/handoff/phase-6-workbench-windows-recheck-20260903-11/` 已非覆盖交付 T7 同名目录：9/9 输入哈希、逐字节一致、零元数据、零符号链接、空 RETURN；`checksums.sha256` SHA-256 `62d003b7411b5dc6b8214259a822de0ef0b38b1245c679f1ee921c357debfd15`。本轮新增 Git bundle（SHA-256 `9093e257576c586c5e9f82a7c88a4c772b21d417e3134f124898d39ce273e8b6`）恢复权威提交，Mac 演练确认 HEAD、干净工作树与 ZIP 解压树逐字节一致；Windows 侧禁止再临时 git init。S6 三模式先行、S7 补做、DPI 与用户确认门均已写入提示词。
+- Windows 验收状态：`pending external RETURN`；Mac 独立核验新 RETURN 前 Phase 6.6 不关闭。
+
+### 2026-09-02/03 `-09` RETURN 修复与 `-10` 交接（历史，RETURN 已失败）
 
 - `-09` Windows RETURN（T7 `phase-6-workbench-windows-recheck-20260902-09/RETURN/20260902-172428/`）已复核：68/68 哈希通过、验证器仅预期失败，首个失败门 `G5-04-candidate-export-source`。
 - 四层产品修复链：`25f5779`（仓库内 builder launcher 规范化 argv + 预览 app.asar cwd 按名称判定 + 验证器 `--output` 拒绝 RETURN 内路径）→ `7effcfa`（launcher `process.noAsar`）→ `8d696ad`（候选 files 映射改目录+filter）→ `e4eb38c`/`fe6905b`（工作台进程读候选 app.asar 局部关 ASAR 补丁）。聚焦 117/117、全量 222/222、全部质量门通过。
 - 当前最终 macOS 候选：`release/workbench-candidates/candidate-20260902153954972/`（绑定 `fe6905b`，worktreeClean），packaged smoke 全项通过（启动、单实例拒绝、ZIP 导入、预览启停、应用内 macOS 候选构建成功、退出后进程清零），证据在候选 `smoke/` 目录。
 - Windows x64 交叉参考候选：`release/workbench-candidates/candidate-20260902161102333/`（绑定 `fe6905b`；NSIS SHA-256 `d47576eebfbc3b49aa76d95887dcae40a3afe71dd3eb6b64c08822f1eaca0396`）；仅静态参照，不构成 Windows 验收。
-- Windows 权威交接为本地 `release/handoff/phase-6-workbench-windows-recheck-20260902-10/`（绑定 `fe6905b`，source ZIP SHA-256 `695ab3bb940c6d6d7aea7ce792e0e4b41727b4ac55576ee7a9b3944e19330f22`，checksums SHA-256 `a12323763724dd41d40ec80d6284e5c67a2cac39687d8c4f9e66dff7413a1851`，6/6 输入通过，解压树聚焦 117/117，RETURN 为空）；未写入 T7，复制需用户授权。
+- Windows 权威交接为本地 `release/handoff/phase-6-workbench-windows-recheck-20260902-10/`（绑定 `fe6905b`，source ZIP SHA-256 `695ab3bb940c6d6d7aea7ce792e0e4b41727b4ac55576ee7a9b3944e19330f22`，checksums SHA-256 `a12323763724dd41d40ec80d6284e5c67a2cac39687d8c4f9e66dff7413a1851`，6/6 输入通过，解压树聚焦 117/117，RETURN 为空）。
+- 2026-09-03 经用户授权完成 `-10` T7 非覆盖交付：目标 `/Volumes/T7 Shield/phase-6-workbench-windows-recheck-20260902-10/` 交付前不存在；目标端 6/6 输入哈希复核通过，`checksums.sha256` 自身 SHA-256 与源一致，`diff -r` 逐字节一致，文件清单与空 RETURN 保留，递归符号链接/`.DS_Store`/`._*` 元数据为 0；T7 上 `-09` 及其他历史交接未改动。
 - `-09` 及更早交接与 RETURN 保持只读。Windows source、win-unpacked、installed mode、DPI、卸载/重装仍 `pending external RETURN`，等待 `-10` 新回传。
 
 ### 2026-09-02 本地最终收口（历史）
@@ -109,6 +120,7 @@
 - `../Resources/project-closeout-20260901.md`：Phase 1–4 与 Task 3.7 最终状态、精确 Windows 证据索引、授权边界、T7 保存策略和下一确认门。
 - `../Resources/phase-6.1-workbench-evidence.md`：Phase 6.1 完成范围、安全边界、91/91 回归、构建、macOS 真实创建/恢复与剩余证据边界。
 - `../Resources/kimi-phase-6-workbench-handoff.md`：Kimi Phase 6.5 页面、字段、状态、错误、职责与不可修改边界。
+- `../Resources/phase-6.6-preview-refresh-repair-evidence.md`：Phase 6.6 预览刷新缺陷（S6）根因、`e5a69ba` 修复、先红后绿回归、Mac source/packaged 实测、候选与 `-11` 交接哈希。
 - `../Resources/phase-6-workbench-mock-data.json`：符合工作台契约的空状态、活动项目和错误模拟数据。
 - `/Volumes/T7 Shield/phase-3-windows-acceptance-20260831-01/`：Task 3.7 受控源码、Windows PRD/提示词、取证工具与 Kimi 最终回传；`RETURN/phase-3-task3.7-windows-20260831-20260831-175125/` 的报告与 1352/1352 哈希已复核通过。
 - `../Resources/xiaofuxing-source-manifest.md`：Phase 4 小福猩五张原始素材、哈希、身份基准与使用边界。
