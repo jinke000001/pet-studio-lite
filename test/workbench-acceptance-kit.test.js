@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { buildAcceptanceKit, createHandoff, createKit, evaluateTestRun, listZipEntries, renderPrompt, renderReportTemplate, runToolPreflight, validateContract, verifyGitCommit } = require('../scripts/workbench-acceptance-kit');
+const { buildAcceptanceKit, createHandoff, createKit, evaluateTestRun, listZipEntries, renderPrompt, renderReportTemplate, runToolPreflight, validateContract, verifyGitCommit, writeToolPreflight } = require('../scripts/workbench-acceptance-kit');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const CONTRACT_PATH = path.join(PROJECT_ROOT, 'tasks', 'phase-6-workbench-acceptance-contract.json');
@@ -123,6 +123,111 @@ test('tool preflight records a successful driven operation only with required ev
   assert.equal(result[0].operationSucceeded, true);
   assert.equal(result[0].classification, 'passed');
   assert.equal(result[0].durationMs, 25);
+});
+
+test('tool preflight uses a fresh run directory and passes it to a real driver', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-preflight-'));
+  const evidenceRoot = path.join(root, 'evidence');
+  const contractPath = path.join(root, 'contract.json');
+  const outputPath = path.join(root, 'tool-preflight.json');
+  const driverPath = path.join(root, 'driver.js');
+  fs.mkdirSync(path.join(evidenceRoot, 'preflight'), { recursive: true });
+  fs.writeFileSync(path.join(evidenceRoot, 'preflight', 'startup.json'), 'old evidence\n');
+  fs.writeFileSync(driverPath, [
+    "const fs = require('node:fs');",
+    "const path = require('node:path');",
+    "if (process.argv[2] === 'write') { const root = process.env.TOOL_PREFLIGHT_EVIDENCE_ROOT; fs.mkdirSync(path.join(root, 'preflight'), { recursive: true }); fs.writeFileSync(path.join(root, 'preflight', 'startup.json'), 'new evidence\\n'); }",
+  ].join('\n'));
+  const contract = { ...minimalContract(), toolPreflight: [{ id: 'startup', driver: { command: process.execPath, path: driverPath, args: [driverPath, 'noop'] }, requiredEvidence: ['preflight/startup.json'] }] };
+  fs.writeFileSync(contractPath, JSON.stringify(contract));
+  try {
+    const first = writeToolPreflight({ contractPath, evidenceRoot, outputPath });
+    assert.equal(first.checks[0].classification, 'evidence-missing');
+    assert.equal(first.checks[0].operationSucceeded, false);
+    assert.notEqual(first.evidenceRoot, path.resolve(evidenceRoot));
+    assert.equal(fs.readFileSync(path.join(evidenceRoot, 'preflight', 'startup.json'), 'utf8'), 'old evidence\n');
+
+    const secondOutputPath = path.join(root, 'tool-preflight-2.json');
+    const secondContract = { ...contract, toolPreflight: [{ ...contract.toolPreflight[0], driver: { ...contract.toolPreflight[0].driver, args: [driverPath, 'write'] } }] };
+    fs.writeFileSync(contractPath, JSON.stringify(secondContract));
+    const second = writeToolPreflight({ contractPath, evidenceRoot, outputPath: secondOutputPath });
+    assert.equal(second.checks[0].classification, 'passed');
+    assert.equal(second.checks[0].operationSucceeded, true);
+    assert.notEqual(second.evidenceRoot, first.evidenceRoot);
+    assert.equal(fs.readFileSync(path.join(evidenceRoot, 'preflight', 'startup.json'), 'utf8'), 'old evidence\n');
+    assert.equal(fs.readFileSync(path.join(second.evidenceRoot, 'preflight', 'startup.json'), 'utf8'), 'new evidence\n');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('tool preflight rejects missing, empty, directory, symlink and traversal evidence', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-preflight-invalid-'));
+  const evidenceRoot = path.join(root, 'run');
+  fs.mkdirSync(evidenceRoot, { recursive: true });
+  const outside = path.join(root, 'outside.txt');
+  fs.writeFileSync(outside, 'outside');
+  fs.mkdirSync(path.join(evidenceRoot, 'directory'), { recursive: true });
+  fs.writeFileSync(path.join(evidenceRoot, 'empty.txt'), '');
+  fs.symlinkSync(outside, path.join(evidenceRoot, 'link.txt'));
+  const checks = [
+    ['missing', 'missing.txt'],
+    ['empty', 'empty.txt'],
+    ['directory', 'directory'],
+    ['symlink', 'link.txt'],
+    ['traversal', '../outside.txt'],
+    ['windows-absolute', 'C:\\outside.txt'],
+  ].map(([id, requiredEvidence]) => ({ id, driver: { command: process.execPath, args: ['-e', ''], timeoutMs: 1000 }, requiredEvidence: [requiredEvidence] }));
+  try {
+    const results = runToolPreflight({ checks, evidenceRoot, commandRunner: () => ({ status: 0 }) });
+    assert.deepEqual(results.map(({ classification }) => classification), checks.map(() => 'evidence-missing'));
+    assert.deepEqual(results.map(({ operationSucceeded }) => operationSucceeded), checks.map(() => false));
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('actual tool preflight entry preserves unavailable, failed, timeout and manual classifications', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-preflight-classifications-'));
+  const evidenceRoot = path.join(root, 'evidence');
+  const contractPath = path.join(root, 'contract.json');
+  const outputPath = path.join(root, 'tool-preflight.json');
+  const driverPath = path.join(root, 'driver.js');
+  fs.writeFileSync(driverPath, "if (process.argv[2] === 'fail') process.exit(7); setInterval(() => {}, 1000);\n");
+  const driver = (mode) => ({ command: process.execPath, path: driverPath, args: [driverPath, mode], timeoutMs: 50 });
+  fs.writeFileSync(contractPath, JSON.stringify({
+    ...minimalContract(),
+    toolPreflight: [
+      { id: 'missing', driver: { command: process.execPath, path: path.join(root, 'missing.js'), args: [] }, requiredEvidence: [] },
+      { id: 'failed', driver: driver('fail'), requiredEvidence: [] },
+      { id: 'timeout', driver: driver('timeout'), requiredEvidence: [] },
+      { id: 'manual', method: 'manual', reason: '真实人工接续' },
+    ],
+  }));
+  try {
+    const report = writeToolPreflight({ contractPath, evidenceRoot, outputPath });
+    assert.deepEqual(report.checks.map(({ classification }) => classification), ['tool-unavailable', 'operation-failed', 'timeout', 'manual-continuation']);
+    assert.deepEqual(report.checks.map(({ operationSucceeded }) => operationSucceeded), [false, false, false, null]);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('tool preflight passes when a driver writes every required evidence file in the received directory', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-preflight-valid-'));
+  const evidenceRoot = path.join(root, 'run');
+  const driverPath = path.join(root, 'driver.js');
+  fs.writeFileSync(driverPath, [
+    "const fs = require('node:fs');",
+    "const path = require('node:path');",
+    "const root = process.env.TOOL_PREFLIGHT_EVIDENCE_ROOT;",
+    "fs.mkdirSync(path.join(root, 'preflight'), { recursive: true });",
+    "for (const file of ['one.json', 'two.png']) fs.writeFileSync(path.join(root, 'preflight', file), 'evidence');",
+  ].join('\n'));
+  try {
+    const [result] = runToolPreflight({
+      checks: [{ id: 'complete', driver: { command: process.execPath, path: driverPath, args: [driverPath] }, requiredEvidence: ['preflight/one.json', 'preflight/two.png'] }],
+      evidenceRoot,
+      driverExists: (candidate) => fs.existsSync(candidate),
+    });
+    assert.equal(result.classification, 'passed');
+    assert.equal(result.operationSucceeded, true);
+    assert.deepEqual(result.missingEvidence, []);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test('tool preflight separates missing command, nonzero exit, timeout and missing evidence', () => {

@@ -110,10 +110,39 @@ function renderPrompt(kit) {
   const gates = kit.requiredGates.map((gate) => `- ${gate.id}: ${gate.title}（${gate.mode}）；${gate.check}；通过=${gate.passCriteria}；证据=${gate.evidence.join('、')}`).join('\n');
   const tools = kit.toolPreflight.map((check) => check.id).join('、');
   const externalFiles = kit.knownExternalAutomationFiles.map((file) => `- ${file}`).join('\n');
-  return `# Windows 续验执行提示词\n\n先复核 source ZIP SHA-256=${kit.source.zipSha256 || '<由清单读取>'}、文件数=${kit.source.fileCount}、源码提交=${kit.source.sourceCommit || '<实际提交>'}；不得复用不同身份的旧通过证据。先执行 “node workbench-acceptance-kit.js preflight acceptance-contract.json <evidence-root> tool-preflight.json” 做工具预检（${tools}）。预检只证明驱动可用且该次操作成功，不代替产品验收；工具未取回/不可访问/未实现必须保持 tool-unavailable 或 not-executed。每个门记录 startedAt、endedAt、durationMs、退出码和要求的截图/日志/进程证据；原生文件对话框失败时可记录真实人工选择为 manual-continuation，但不得直接调用内部控制器或记为预检成功。本轮自动测试必须重跑，不复用旧版本的通过结论。\n\n必需门：\n${gates}\n\n外部 Windows 自动化驱动未回传到本地交接；可取回的核心文件如下，调试辅助文件缺失不得强制重建已有有效驱动：\n${externalFiles}\n\n暂停时写 overallStatus=paused、pauseReason、nextStep、acceptanceContractSha256 和 environmentFingerprint；暂停不是通过。返回目录只使用新时间戳目录，验证器输出放在 RETURN 外。验证器的 --required-gates 直接取 acceptance-checklist.json.requiredGates[].id，不手写门数。候选未构建时 expectCandidateSha256 必须保持 null；实际候选门前必须计算安装包哈希并显式传入 --expect-candidate-sha256，不得留空后判通过。`;
+  return `# Windows 续验执行提示词\n\n先复核 source ZIP SHA-256=${kit.source.zipSha256 || '<由清单读取>'}、文件数=${kit.source.fileCount}、源码提交=${kit.source.sourceCommit || '<实际提交>'}；不得复用不同身份的旧通过证据。先执行 “node workbench-acceptance-kit.js preflight acceptance-contract.json <evidence-root> tool-preflight.json” 做工具预检（${tools}）。每次执行都会在 <evidence-root> 下创建新的非覆盖运行目录，并通过环境变量 TOOL_PREFLIGHT_EVIDENCE_ROOT 传给每个驱动；驱动必须把本次要求的证据写入该目录（契约中的相对路径），预检只检查这个目录内的非空普通文件。预检只证明驱动可用且该次操作成功，不代替产品验收；工具未取回/不可访问/未实现必须保持 tool-unavailable 或 not-executed。每个门记录 startedAt、endedAt、durationMs、退出码和要求的截图/日志/进程证据；原生文件对话框失败时可记录真实人工选择为 manual-continuation，但不得直接调用内部控制器或记为预检成功。本轮自动测试必须重跑，不复用旧版本的通过结论。\n\n必需门：\n${gates}\n\n外部 Windows 自动化驱动未回传到本地交接；可取回的核心文件如下，调试辅助文件缺失不得强制重建已有有效驱动：\n${externalFiles}\n\n暂停时写 overallStatus=paused、pauseReason、nextStep、acceptanceContractSha256 和 environmentFingerprint；暂停不是通过。返回目录只使用新时间戳目录，验证器输出放在 RETURN 外。验证器的 --required-gates 直接取 acceptance-checklist.json.requiredGates[].id，不手写门数。候选未构建时 expectCandidateSha256 必须保持 null；实际候选门前必须计算安装包哈希并显式传入 --expect-candidate-sha256，不得留空后判通过。`;
 }
 
-function runToolPreflight({ checks = [], commandRunner = childProcess.spawnSync, evidenceExists = fs.existsSync, driverExists = fs.existsSync, now = () => new Date() }) {
+const TOOL_PREFLIGHT_EVIDENCE_ENV = 'TOOL_PREFLIGHT_EVIDENCE_ROOT';
+
+function resolveEvidencePath(evidenceRoot, relativePath) {
+  if (typeof relativePath !== 'string' || relativePath.length === 0 || path.isAbsolute(relativePath)) return null;
+  const normalized = relativePath.replace(/\\/g, '/');
+  if (path.win32.isAbsolute(normalized)) return null;
+  if (normalized.split('/').some((part) => part === '..' || part.length === 0)) return null;
+  const root = path.resolve(evidenceRoot);
+  const candidate = path.resolve(root, ...normalized.split('/'));
+  if (candidate !== root && !candidate.startsWith(`${root}${path.sep}`)) return null;
+  return candidate;
+}
+
+function isValidEvidenceFile(evidenceRoot, relativePath) {
+  const candidate = resolveEvidencePath(evidenceRoot, relativePath);
+  if (!candidate) return false;
+  let rootRealPath;
+  let candidateRealPath;
+  try {
+    rootRealPath = fs.realpathSync(evidenceRoot);
+    const stat = fs.lstatSync(candidate);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size === 0) return false;
+    candidateRealPath = fs.realpathSync(candidate);
+  } catch {
+    return false;
+  }
+  return candidateRealPath === rootRealPath || candidateRealPath.startsWith(`${rootRealPath}${path.sep}`);
+}
+
+function runToolPreflight({ checks = [], commandRunner = childProcess.spawnSync, evidenceExists = fs.existsSync, driverExists = fs.existsSync, evidenceRoot = null, now = () => new Date() }) {
   return checks.map((check) => {
     if (check.method === 'manual') {
       return { id: check.id, method: 'manual', driverAvailable: null, operationSucceeded: null, classification: 'manual-continuation', reason: check.reason || null };
@@ -131,10 +160,16 @@ function runToolPreflight({ checks = [], commandRunner = childProcess.spawnSync,
     }
     const result = commandRunner(check.driver.command, check.driver.args || [], {
       encoding: 'utf8', timeout: check.driver.timeoutMs, cwd: check.driver.cwd || undefined,
+      ...(evidenceRoot ? {
+        evidenceRoot,
+        env: { ...process.env, ...(check.driver.env || {}), [TOOL_PREFLIGHT_EVIDENCE_ENV]: evidenceRoot },
+      } : {}),
     });
     const endedAt = now();
     const requiredEvidence = check.requiredEvidence || [];
-    const missingEvidence = requiredEvidence.filter((evidencePath) => !evidenceExists(evidencePath, check));
+    const missingEvidence = requiredEvidence.filter((evidencePath) => evidenceRoot
+      ? !isValidEvidenceFile(evidenceRoot, evidencePath)
+      : !evidenceExists(evidencePath, check));
     const commandMissing = result?.error?.code === 'ENOENT';
     const timedOut = result?.error?.code === 'ETIMEDOUT';
     let classification = 'operation-failed';
@@ -164,13 +199,15 @@ function runToolPreflight({ checks = [], commandRunner = childProcess.spawnSync,
 function writeToolPreflight({ contractPath, evidenceRoot, outputPath, commandRunner }) {
   const contract = validateContract(JSON.parse(fs.readFileSync(contractPath, 'utf8')));
   if (fs.existsSync(outputPath)) throw new Error(`preflight output already exists: ${outputPath}`);
+  fs.mkdirSync(evidenceRoot, { recursive: true });
+  const runEvidenceRoot = fs.mkdtempSync(path.join(path.resolve(evidenceRoot), 'run-'));
   const checks = runToolPreflight({
     checks: contract.toolPreflight || [],
     commandRunner,
-    evidenceExists: (relativePath) => fs.existsSync(path.join(evidenceRoot, ...relativePath.split('/'))),
+    evidenceRoot: runEvidenceRoot,
     driverExists: (relativePath) => fs.existsSync(path.resolve(relativePath)),
   });
-  const report = { schemaVersion: 1, generatedAt: new Date().toISOString(), evidenceRoot: path.resolve(evidenceRoot), checks };
+  const report = { schemaVersion: 1, generatedAt: new Date().toISOString(), evidenceRoot: runEvidenceRoot, checks };
   fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   return report;
 }
