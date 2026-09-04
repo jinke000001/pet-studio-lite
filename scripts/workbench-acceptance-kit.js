@@ -206,7 +206,7 @@ function createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, 
     fs.copyFileSync(sampleZip, sampleTarget);
     const sampleEntries = listZipEntries(sampleTarget, execFile).filter((entry) => !entry.endsWith('/'));
     const sampleHashes = sampleEntries.map((entry) => {
-      const bytes = execFile('unzip', ['-p', sampleTarget, entry]);
+      const bytes = execFile('unzip', ['-p', sampleTarget, entry], { maxBuffer: 64 * 1024 * 1024 });
       return { entry, sha256: crypto.createHash('sha256').update(bytes).digest('hex') };
     });
     fs.writeFileSync(path.join(outputDirectory, 'SAMPLE-PETS.md'), `# 受控样本取得与核验\n\n- 本交接已内置 source/controlled-sample-pets.zip，SHA-256：\`${sha256File(sampleTarget)}\`。\n- 样本仅用于 internal-test，不产生对外授权结论。\n- Windows 本地复制后先校验 ZIP，再解压到新目录并核对：\n\n${sampleHashes.map(({ entry, sha256 }) => `- \`${entry}\`：\`${sha256}\``).join('\n')}\n`, 'utf8');
