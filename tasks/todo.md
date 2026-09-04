@@ -2,6 +2,15 @@
 
 ## 当前检查点
 
+### 2026-09-04 个人自用版收敛：代码精简与 Windows 验收提速
+
+- [x] C0 冻结当前基线、只读复核 T7 `-11` partial-save，并建立本地非覆盖副本；Windows 回传明确为已保存但未完成。
+- [x] C1 旧文件锁移入 `diagnostics/instance-lock/`；默认回归保留原生 Electron 单实例和拒锁零初始化保护；提交 `b834d75`。
+- [x] C2 验证器支持 `paused`、证据有效性和保守身份复用；提交 `a26d10d`。
+- [x] C3 单源验收清单/模板/提示词/计时/工具预检生成器；提交 `d0b9e10`。
+- [x] C4 隔离 worktree 全量质量门和新 macOS 候选构建、source/packaged 启动退出 smoke 完成。
+- [ ] C5 Windows 真实 RETURN：继续从 T7 `-11` 新目录开始，先排查原生文件对话框自动化；source → win-unpacked → installed mode，再执行 DPI、安装/卸载/重装和用户确认；当前仍不得宣称 Windows 验收通过。
+
 - [x] Phase 0 只读盘点完成。
 - [x] Wukong 0.1.9 测试 15/15、lint 和四个关键哈希通过。
 - [x] v1 `doraemon` 与 v2 `dai`、`jokebear-codexpet` 样本就绪。

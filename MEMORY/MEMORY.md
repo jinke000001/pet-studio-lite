@@ -59,6 +59,14 @@
 
 ## Phase 6 当前状态
 
+### 2026-09-04 个人自用版收敛（本轮）
+
+- Checkpoint 0 冻结：当前基线 HEAD=`51b64792c32cf012ffc3d0231d113a02c9a9fa70`，默认回归 234/234；T7 `phase-6-workbench-windows-recheck-20260903-11/RETURN/20260903-1650-partial-save/` 只读复核通过，23 个文件、回传 checksums 与本地非覆盖副本一致。该回传明确为用户中止的部分保存：7 个 G4 自动门已通过、53 个门未执行、`overallStatus=failed` 且 `firstFailedGate=null`，无实际失败门。
+- Checkpoint 1 提交 `b834d75`：旧自写文件锁及 35 项回归迁移到 `diagnostics/instance-lock/`，协议探针独立命令 10/10；生产继续由 Electron `app.requestSingleInstanceLock()` 保护，新增默认回归覆盖拒锁零初始化。默认测试从 234 降至 199 是移除诊断测试，不是性能指标。
+- Checkpoint 2 提交 `a26d10d`：验证器新增明确 `paused` 契约、证据有效性与续验摘要；暂停必须包含 `pauseReason`、`nextStep`、`acceptanceContractSha256`、`environmentFingerprint`，跨源码/契约/环境身份复用会被拒绝。相关验证器测试 40/40。
+- Checkpoint 3 提交 `d0b9e10`：新增 `tasks/phase-6-workbench-acceptance-contract.json` 与 `scripts/workbench-acceptance-kit.js`，从实际 source ZIP 计算文件数和 SHA-256，生成清单、报告模板、提示词、计时与工具预检结构；实际 -11 source ZIP 为 182 文件，SHA-256=`eab1d9f18ccd19aab068b8ccfeef332bccc761c484d7303037e8120fc6386d9a`。
+- Checkpoint 4 本地验证：隔离 worktree 全量 209/209、typecheck/build/lint/preflight/diff check、audit（0 漏洞）通过；新 macOS 候选 `candidate-20260904083047328` 绑定 `d0b9e10`，app.asar 未含旧诊断目录。source 与 packaged 隔离启动/退出日志均记录 `single-instance-lock-acquired`、`studio-ready`、`renderer-ready`、`studio-before-quit`。Windows source/win-unpacked/installed、100%/125%/150% DPI、卸载/重装和用户确认仍 `pending external RETURN`。
+
 ### 2026-09-03 预览刷新缺陷修复与 `-11` 交接（当前）
 
 - `-10` 补验 RETURN（T7 `phase-6-workbench-windows-recheck-20260902-10/RETURN/20260903-194712-supplement/`）overallStatus=failed，首个失败门 `S6-defect-preview-killed-by-job-ack-loop`：打开含历史成功任务的项目后立即启动真实预览，预览被任务刷新静默停止。
