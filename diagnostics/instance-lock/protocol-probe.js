@@ -3,7 +3,7 @@
 //   方案 1：同目录随机临时文件 -> 完整写入 -> linkSync 原子发布（不跟随目标叶节点）。
 //   方案 2：mkdirSync 原子目录锁。
 // 只用唯一临时目录，try/finally 清理；不触碰锁目录外的任何对象。
-// 运行：node test/instance-lock-protocol-probe.js
+// 运行：node diagnostics/instance-lock/protocol-probe.js
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');

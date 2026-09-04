@@ -19,6 +19,7 @@
     "import-pet": "node scripts/import-pet.js",
     "build-pet": "node scripts/build-pet.js",
     "verify-mac-candidate": "node scripts/verify-mac-candidate.js",
+    "diagnostics:legacy-instance-lock": "node --test diagnostics/instance-lock/legacy-instance-lock.test.js && node diagnostics/instance-lock/protocol-probe.js",
     "test": "node --test test/*.test.js",
     "lint": "node scripts/check-syntax.js"
   },

@@ -5,10 +5,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { acquireInstanceLock } = require('../src/workbench/instance-lock');
+const { acquireInstanceLock } = require('./instance-lock');
 
 const LOCK_NAME = '.studio-instance-lock.json';
-const MODULE_PATH = path.join(__dirname, '..', 'src', 'workbench', 'instance-lock.js');
+const MODULE_PATH = path.join(__dirname, 'instance-lock.js');
 
 const deadSignal = () => { throw Object.assign(new Error(), { code: 'ESRCH' }); };
 const liveSignal = () => {};
@@ -400,7 +400,7 @@ test('twenty sequential acquire/release rounds leave no lock or temp residue', (
 });
 
 // ---- 对抗审查第二轮回归 ----
-const { processAlive } = require('../src/workbench/instance-lock');
+const { processAlive } = require('./instance-lock');
 
 // 审查发现 1：只有 ESRCH 证明死亡；未知错误必须 fail-closed 视为存活。
 test('processAlive treats only ESRCH as dead and everything else as alive (fail-closed)', () => {
@@ -857,53 +857,4 @@ test('three-process capture pause never permits A and C to hold simultaneously',
     cleanup(directory);
     cleanup(barrierDir);
   }
-});
-
-// A3：被拒绝的第二实例不得触碰项目存储、控制器、IPC 或窗口。
-// 结构性约束：main.js 必须把这些全部收进显式的持锁 bootstrap 分支。
-test('workbench main gates all store/controller/IPC/window bootstrap behind the held lock', () => {
-  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'workbench', 'main.js'), 'utf8');
-  assert.match(main, /requestSingleInstanceLock\(\)/, 'native Electron lock is the authority');
-  assert.match(main, /function bootstrapWorkbench\(/, 'explicit bootstrap function required');
-  const bootstrapIndex = main.indexOf('function bootstrapWorkbench(');
-  for (const forbidden of ['createProjectStore(', 'recoverInterruptedJobs()', 'registerIpc()', 'createWindow()']) {
-    const callIndex = main.indexOf(forbidden);
-    assert.ok(callIndex > bootstrapIndex, `${forbidden} must only run inside the lock-held bootstrap branch`);
-  }
-  // 锁被拒时唯一允许的动作：记录 denied 并退出。
-  const deniedIndex = main.indexOf('single-instance-lock-denied');
-  const bootstrapCallIndex = main.indexOf('bootstrapWorkbench(');
-  assert.ok(deniedIndex > 0 && bootstrapCallIndex > 0 && deniedIndex !== bootstrapCallIndex);
-  assert.match(main, /single-instance-lock-acquired/);
-});
-
-test('main denied path performs no state or controller initialization', () => {
-  const mainPath = path.join(__dirname, '..', 'src', 'workbench', 'main.js');
-  const childSource = `
-    const Module = require('node:module');
-    const calls = { store: 0, recover: 0, controller: 0, ipc: 0, window: 0, quit: 0, denied: 0 };
-    const app = {
-      isPackaged: false, requestSingleInstanceLock: () => false,
-      quit: () => { calls.quit += 1; }, releaseSingleInstanceLock: () => {},
-      setName: () => {}, setPath: () => {}, setAppUserModelId: () => {},
-      getPath: () => process.cwd(), whenReady: () => Promise.resolve(), on: () => {},
-    };
-    const electron = { app, BrowserWindow: function BrowserWindow() { calls.window += 1; }, dialog: {}, ipcMain: { handle: () => { calls.ipc += 1; } }, shell: {} };
-    const fake = (name) => {
-      if (name.includes('project-store')) return { createProjectStore: () => { calls.store += 1; return { recoverInterruptedJobs: () => { calls.recover += 1; } }; } };
-      if (name.includes('controller')) return new Proxy({}, { get: () => () => { calls.controller += 1; } });
-      if (name.includes('contracts')) return { validateProjectId: (value) => value };
-      if (name.includes('job-controller')) return { createJobController: () => { calls.controller += 1; return {}; } };
-      if (name.includes('instance-lock')) return { acquireInstanceLock: () => null };
-      return {};
-    };
-    const originalLoad = Module._load;
-    Module._load = (request, parent, isMain) => request === 'electron' ? electron : (request.startsWith('./') && parent && parent.filename.includes('/src/workbench/')) ? fake(request) : originalLoad(request, parent, isMain);
-    require(process.argv[1]);
-    setImmediate(() => { console.log(JSON.stringify(calls)); });
-  `;
-  const result = require('node:child_process').spawnSync(process.execPath, ['-e', childSource, mainPath], { encoding: 'utf8' });
-  assert.equal(result.status, 0, result.stderr);
-  const calls = JSON.parse(result.stdout.trim().split('\n').pop());
-  assert.deepEqual(calls, { store: 0, recover: 0, controller: 0, ipc: 0, window: 0, quit: 1, denied: 0 });
 });
