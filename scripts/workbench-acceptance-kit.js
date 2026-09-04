@@ -22,6 +22,15 @@ function listZipEntries(zipPath, execFile = childProcess.execFileSync) {
   return entries.sort();
 }
 
+function listFilesRecursive(directory, prefix = '') {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+    return entry.isDirectory()
+      ? listFilesRecursive(path.join(directory, entry.name), relativePath)
+      : [relativePath];
+  }).sort();
+}
+
 function validateContract(contract) {
   if (!contract || contract.schemaVersion !== 2) {
     throw new Error('acceptance contract schemaVersion must be 2');
@@ -155,6 +164,50 @@ function writeToolPreflight({ contractPath, evidenceRoot, outputPath, commandRun
   return report;
 }
 
+function verifyGitCommit(repoRoot, sourceCommit, execFile = childProcess.execFileSync) {
+  if (!repoRoot || !sourceCommit || !/^[0-9a-f]{40}$/.test(sourceCommit)) {
+    throw new Error('repoRoot and a 40-character sourceCommit are required');
+  }
+  try {
+    const resolved = execFile('git', ['-C', repoRoot, 'rev-parse', '--verify', `${sourceCommit}^{commit}`], { encoding: 'utf8' }).trim();
+    if (resolved !== sourceCommit) throw new Error(`resolved commit ${resolved} does not match ${sourceCommit}`);
+  } catch (error) {
+    throw new Error(`source commit is not available: ${error.message}`);
+  }
+  return sourceCommit;
+}
+
+function createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, sampleZip = null, execFile = childProcess.execFileSync }) {
+  verifyGitCommit(repoRoot, sourceCommit, execFile);
+  if (fs.existsSync(outputDirectory)) throw new Error(`output directory already exists: ${outputDirectory}`);
+  fs.mkdirSync(outputDirectory, { recursive: true });
+  const sourceDirectory = path.join(outputDirectory, 'source');
+  fs.mkdirSync(sourceDirectory, { recursive: true });
+  const shortCommit = sourceCommit.slice(0, 10);
+  const sourceZip = path.join(sourceDirectory, `pet-workbench-source-${shortCommit}.zip`);
+  const bundle = path.join(sourceDirectory, `pet-workbench-git-${shortCommit}.bundle`);
+  const currentHead = execFile('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  if (currentHead !== sourceCommit) throw new Error(`sourceCommit must be the current HEAD (${currentHead})`);
+  const branch = execFile('git', ['-C', repoRoot, 'symbolic-ref', '--short', 'HEAD'], { encoding: 'utf8' }).trim();
+  execFile('git', ['-C', repoRoot, 'archive', '--format=zip', `--prefix=pet-workbench-source-${shortCommit}/`, sourceCommit, '-o', sourceZip]);
+  execFile('git', ['-C', repoRoot, 'bundle', 'create', bundle, branch]);
+  if (sampleZip) fs.copyFileSync(sampleZip, path.join(sourceDirectory, 'controlled-sample-pets.zip'));
+  const contractCopy = path.join(outputDirectory, 'acceptance-contract.json');
+  fs.copyFileSync(contractPath, contractCopy);
+  fs.copyFileSync(path.join(repoRoot, 'scripts', 'validate-windows-return.js'), path.join(outputDirectory, 'validate-windows-return.js'));
+  fs.copyFileSync(path.join(repoRoot, 'scripts', 'workbench-acceptance-kit.js'), path.join(outputDirectory, 'workbench-acceptance-kit.js'));
+  const kit = buildAcceptanceKit({ contract: JSON.parse(fs.readFileSync(contractPath, 'utf8')), contractSha256: sha256File(contractPath), sourceZip, sourceCommit });
+  fs.writeFileSync(path.join(outputDirectory, 'acceptance-checklist.json'), `${JSON.stringify(kit, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(path.join(outputDirectory, 'SOURCE-BASELINE.md'), `# Windows 复验源码基线\n\n- 权威源码提交：\`${sourceCommit}\`\n- source ZIP SHA-256：\`${sha256File(sourceZip)}\`\n- Git bundle SHA-256：\`${sha256File(bundle)}\`\n- 恢复必须使用 bundle 克隆并校验 HEAD；不得用临时 git init/commit 冒充。\n- 本交接只表示输入准备；Windows source/win-unpacked/installed mode、DPI、安装/卸载/重装仍待实机 RETURN。\n`, 'utf8');
+  fs.writeFileSync(path.join(outputDirectory, 'HANDOFF.md'), `# Windows 验收新入口\n\n1. 先核对 checksums.sha256、source ZIP 和 bundle。\n2. 使用 source 目录的 bundle 克隆，确认 HEAD=${sourceCommit}且工作树干净；再与 ZIP 解压树比对。\n3. 在实际 Windows 环境中重跑 acceptance-checklist.json 的全部具体门；候选未生成时 expectCandidateSha256 保持 null，正式候选门前必须填入实测安装包哈希。\n4. 只写入新 RETURN/<timestamp>；旧 -11 RETURN 仅作历史/独立续验，不自动继承通过结论。\n`, 'utf8');
+  fs.writeFileSync(path.join(outputDirectory, 'WINDOWS-WORKBENCH-REPORT.md'), `${renderReportTemplate(kit)}\n`, 'utf8');
+  fs.writeFileSync(path.join(outputDirectory, 'WINDOWS-WORKBENCH-PROMPT.md'), `${renderPrompt(kit)}\n`, 'utf8');
+  fs.writeFileSync(path.join(outputDirectory, 'validator-arguments.json'), `${JSON.stringify({ expectSourceCommit: sourceCommit, expectSourceZipSha256: kit.source.zipSha256, expectCandidateSha256: null, expectContractSha256: kit.acceptanceContractSha256, requiredGates: kit.requiredGates.map(({ id }) => id) }, null, 2)}\n`, 'utf8');
+  const files = listFilesRecursive(outputDirectory).filter((relativePath) => relativePath !== 'checksums.sha256');
+  fs.writeFileSync(path.join(outputDirectory, 'checksums.sha256'), `${files.map((relativePath) => `${sha256File(path.join(outputDirectory, ...relativePath.split('/')))}  ${relativePath}`).join('\n')}\n`, 'utf8');
+  return { outputDirectory, sourceCommit, sourceZip, bundle, sourceZipSha256: kit.source.zipSha256, fileCount: files.length };
+}
+
 function createKit({ contractPath, sourceZip, sourceCommit, candidateSha256, outputDirectory }) {
   const contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
   if (fs.existsSync(outputDirectory)) throw new Error(`output directory already exists: ${outputDirectory}`);
@@ -190,4 +243,4 @@ if (require.main === module) {
   } catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 1; }
 }
 
-module.exports = { buildAcceptanceKit, createKit, evaluateTestRun, listZipEntries, normalizeZipEntry, renderPrompt, renderReportTemplate, runToolPreflight, sha256File, validateContract, writeToolPreflight };
+module.exports = { buildAcceptanceKit, createHandoff, createKit, evaluateTestRun, listZipEntries, normalizeZipEntry, renderPrompt, renderReportTemplate, runToolPreflight, sha256File, validateContract, verifyGitCommit, writeToolPreflight };

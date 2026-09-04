@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { buildAcceptanceKit, createKit, evaluateTestRun, listZipEntries, renderPrompt, renderReportTemplate, runToolPreflight, validateContract } = require('../scripts/workbench-acceptance-kit');
+const { buildAcceptanceKit, createHandoff, createKit, evaluateTestRun, listZipEntries, renderPrompt, renderReportTemplate, runToolPreflight, validateContract, verifyGitCommit } = require('../scripts/workbench-acceptance-kit');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const CONTRACT_PATH = path.join(PROJECT_ROOT, 'tasks', 'phase-6-workbench-acceptance-contract.json');
@@ -150,4 +150,27 @@ test('manual native file selection is recorded as continuation, never as a succe
   assert.equal(result.classification, 'manual-continuation');
   assert.equal(result.driverAvailable, null);
   assert.equal(result.operationSucceeded, null);
+});
+
+test('handoff generation verifies the exact commit and creates independently recoverable source materials', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pet-handoff-'));
+  const output = path.join(root, 'handoff');
+  const commit = require('node:child_process').execFileSync('git', ['rev-parse', 'HEAD'], { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
+  try {
+    assert.equal(verifyGitCommit(PROJECT_ROOT, commit), commit);
+    assert.throws(() => verifyGitCommit(PROJECT_ROOT, '0'.repeat(40)), /not available/);
+    const result = createHandoff({ repoRoot: PROJECT_ROOT, contractPath: CONTRACT_PATH, outputDirectory: output, sourceCommit: commit });
+    assert.equal(result.sourceCommit, commit);
+    assert.equal(fs.existsSync(result.sourceZip), true);
+    assert.equal(fs.existsSync(result.bundle), true);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(output, 'acceptance-checklist.json'))).requiredGates.length, 60);
+    const args = JSON.parse(fs.readFileSync(path.join(output, 'validator-arguments.json')));
+    assert.equal(args.expectSourceCommit, commit);
+    assert.equal(args.expectCandidateSha256, null);
+    assert.match(fs.readFileSync(path.join(output, 'HANDOFF.md'), 'utf8'), /bundle/);
+    assert.match(fs.readFileSync(path.join(output, 'checksums.sha256'), 'utf8'), /acceptance-checklist\.json/);
+    assert.throws(() => createHandoff({ repoRoot: PROJECT_ROOT, contractPath: CONTRACT_PATH, outputDirectory: output, sourceCommit: commit }), /already exists/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
