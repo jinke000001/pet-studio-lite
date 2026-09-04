@@ -65,6 +65,7 @@
 - Checkpoint 1 提交 `b834d75`：旧自写文件锁及 35 项回归迁移到 `diagnostics/instance-lock/`，协议探针独立命令 10/10；生产继续由 Electron `app.requestSingleInstanceLock()` 保护，新增默认回归覆盖拒锁零初始化。默认测试从 234 降至 199 是移除诊断测试，不是性能指标。
 - Checkpoint 2 提交 `a26d10d`：验证器新增明确 `paused` 契约、证据有效性与续验摘要；暂停必须包含 `pauseReason`、`nextStep`、`acceptanceContractSha256`、`environmentFingerprint`，跨源码/契约/环境身份复用会被拒绝。相关验证器测试 40/40。
 - Checkpoint 3 提交 `d0b9e10`：新增 `tasks/phase-6-workbench-acceptance-contract.json` 与 `scripts/workbench-acceptance-kit.js`，从实际 source ZIP 计算文件数和 SHA-256，生成清单、报告模板、提示词、计时与工具预检结构；实际 -11 source ZIP 为 182 文件，SHA-256=`eab1d9f18ccd19aab068b8ccfeef332bccc761c484d7303037e8120fc6386d9a`。
+- 2026-09-04 审查修复：`44cc196` 令显式契约/环境身份对所有状态生效，并按权威 required gates 校验 paused 完整性；`3faff99` 恢复 -11 的 60 个具体门与覆盖映射，将预检改为显式驱动执行；`a9a0f72`、`c1b6980`、`d6d5c48`、`aee4f1d` 建立精确 HEAD、source ZIP、可 clone bundle、样本哈希及自包含交接入口。旧 `-11` 和 RETURN 冻结，不继承为本轮通过证据；Windows 实机仍待执行。
 - Checkpoint 4 本地验证：隔离 worktree 全量 209/209、typecheck/build/lint/preflight/diff check、audit（0 漏洞）通过；新 macOS 候选 `candidate-20260904083047328` 绑定 `d0b9e10`，app.asar 未含旧诊断目录。source 与 packaged 隔离启动/退出日志均记录 `single-instance-lock-acquired`、`studio-ready`、`renderer-ready`、`studio-before-quit`。Windows source/win-unpacked/installed、100%/125%/150% DPI、卸载/重装和用户确认仍 `pending external RETURN`。
 
 ### 2026-09-03 预览刷新缺陷修复与 `-11` 交接（当前）

@@ -10,6 +10,8 @@
 - [x] C3 单源验收清单/模板/提示词/计时/工具预检生成器；提交 `d0b9e10`。
 - [x] C4 隔离 worktree 全量质量门和新 macOS 候选构建、source/packaged 启动退出 smoke 完成。
 - [ ] C5 Windows 真实 RETURN：继续从 T7 `-11` 新目录开始，先排查原生文件对话框自动化；source → win-unpacked → installed mode，再执行 DPI、安装/卸载/重装和用户确认；当前仍不得宣称 Windows 验收通过。
+- [x] C6 审查修复：显式身份对所有状态生效；paused 按权威必需门集合检查；契约恢复 60 个具体门；预检区分驱动不可用、失败、超时、缺证据与人工接续。
+- [x] C7 新交接生成器：验证精确 HEAD，生成可 clone Git bundle、源码 ZIP、契约、验证器、执行说明、样本核验和完整 checksums；候选未生成时 SHA-256 显式为 null。
 
 - [x] Phase 0 只读盘点完成。
 - [x] Wukong 0.1.9 测试 15/15、lint 和四个关键哈希通过。
