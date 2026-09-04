@@ -7,7 +7,7 @@ const path = require('node:path');
 const STATE_FILE = 'acceptance-state.json';
 const CHECKSUMS_FILE = 'returned-checksums.sha256';
 
-const OVERALL_STATUSES = ['passed', 'failed', 'environment-blocked'];
+const OVERALL_STATUSES = ['passed', 'failed', 'environment-blocked', 'paused'];
 const GATE_STATUSES = ['passed', 'failed', 'not-executed', 'environment-blocked'];
 const CLEANUP_STATUSES = ['passed', 'failed'];
 const HEX_40 = /^[0-9a-f]{40}$/;
@@ -18,6 +18,8 @@ const USAGE = [
   'Usage: node scripts/validate-windows-return.js <returnDir>',
   '  --expect-source-commit <hex40> --expect-source-zip-sha256 <hex64>',
   '  [--expect-candidate-sha256 <hex64>] --required-gates <id1,id2,...>',
+  '  [--expect-contract-sha256 <hex64>]',
+  '  [--expect-environment-fingerprint <value>]',
   '  [--expect-process-paths <path1,path2,...>] [--output <path>] [--json]',
   '',
   '--output writes the validator report to a derived file. The path must be',
@@ -31,6 +33,8 @@ const FLAG_TARGETS = {
   '--expect-candidate-sha256': 'expectCandidateSha256',
   '--required-gates': 'requiredGatesCsv',
   '--expect-process-paths': 'expectProcessPathsCsv',
+  '--expect-contract-sha256': 'expectContractSha256',
+  '--expect-environment-fingerprint': 'expectEnvironmentFingerprint',
   '--output': 'outputPath',
 };
 
@@ -67,12 +71,14 @@ function parseArguments(argv) {
     expectSourceCommit: null,
     expectSourceZipSha256: null,
     expectCandidateSha256: null,
+    expectContractSha256: null,
+    expectEnvironmentFingerprint: null,
     requiredGates: [],
     expectProcessPaths: [],
     outputPath: null,
     json: false,
   };
-  const raw = { requiredGatesCsv: null, expectProcessPathsCsv: null, outputPath: null };
+  const raw = { requiredGatesCsv: null, expectProcessPathsCsv: null, expectContractSha256: null, expectEnvironmentFingerprint: null, outputPath: null };
   const positionals = [];
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -101,12 +107,17 @@ function parseArguments(argv) {
   if (raw.expectCandidateSha256 && !HEX_64.test(raw.expectCandidateSha256)) {
     throw new Error('--expect-candidate-sha256 must be 64 lowercase hex characters');
   }
+  if (raw.expectContractSha256 && !HEX_64.test(raw.expectContractSha256)) {
+    throw new Error('--expect-contract-sha256 must be 64 lowercase hex characters');
+  }
   if (!raw.requiredGatesCsv) throw new Error('--required-gates is required');
   options.requiredGates = raw.requiredGatesCsv.split(',').map((gate) => gate.trim()).filter(Boolean);
   if (options.requiredGates.length === 0) throw new Error('--required-gates must list at least one gate id');
   options.expectSourceCommit = raw.expectSourceCommit;
   options.expectSourceZipSha256 = raw.expectSourceZipSha256;
   options.expectCandidateSha256 = raw.expectCandidateSha256 || null;
+  options.expectContractSha256 = raw.expectContractSha256 || null;
+  options.expectEnvironmentFingerprint = raw.expectEnvironmentFingerprint || null;
   options.expectProcessPaths = (raw.expectProcessPathsCsv || '')
     .split(',').map((entry) => entry.trim()).filter(Boolean);
   if (!fs.existsSync(options.returnDir) || !fs.statSync(options.returnDir).isDirectory()) {
@@ -164,6 +175,12 @@ function validateStateShape(state) {
   if (state.candidateSha256 !== null
     && (typeof state.candidateSha256 !== 'string' || !HEX_64.test(state.candidateSha256))) {
     problems.push('candidateSha256 must be null or 64 lowercase hex characters');
+  }
+  if (state.overallStatus === 'paused') {
+    if (typeof state.pauseReason !== 'string' || state.pauseReason.trim().length === 0) problems.push('pauseReason must be a non-empty string when overallStatus=paused');
+    if (typeof state.nextStep !== 'string' || state.nextStep.trim().length === 0) problems.push('nextStep must be a non-empty string when overallStatus=paused');
+    if (typeof state.acceptanceContractSha256 !== 'string' || !HEX_64.test(state.acceptanceContractSha256)) problems.push('acceptanceContractSha256 must be a 64 lowercase hex digest when overallStatus=paused');
+    if (typeof state.environmentFingerprint !== 'string' || state.environmentFingerprint.trim().length === 0) problems.push('environmentFingerprint must be a non-empty string when overallStatus=paused');
   }
   if (!OVERALL_STATUSES.includes(state.overallStatus)) {
     problems.push(`overallStatus must be one of ${OVERALL_STATUSES.join('|')}`);
@@ -228,6 +245,14 @@ function checkIdentity(state, options, record) {
   if (options.expectCandidateSha256) {
     record('identity:candidate-sha256', state.candidateSha256 === options.expectCandidateSha256,
       `state=${state.candidateSha256} expected=${options.expectCandidateSha256}`);
+  }
+  if (options.expectContractSha256 && state.overallStatus === 'paused') {
+    record('identity:acceptance-contract-sha256', state.acceptanceContractSha256 === options.expectContractSha256,
+      `state=${state.acceptanceContractSha256} expected=${options.expectContractSha256}`);
+  }
+  if (options.expectEnvironmentFingerprint && state.overallStatus === 'paused') {
+    record('identity:environment-fingerprint', state.environmentFingerprint === options.expectEnvironmentFingerprint,
+      `state=${state.environmentFingerprint} expected=${options.expectEnvironmentFingerprint}`);
   }
 }
 
@@ -330,6 +355,17 @@ function checkGateOutcomes(state, options, record) {
     }
     record('status:first-failed-gate', problems.length === 0, problems.join('; '));
     record('status:overall', false, 'overallStatus=failed: acceptance did not pass');
+    return;
+  }
+  if (state.overallStatus === 'paused') {
+    const executed = state.gates.filter((gate) => gate.status !== 'not-executed');
+    const unexecuted = state.gates.filter((gate) => gate.status === 'not-executed');
+    const failed = state.gates.filter((gate) => gate.status === 'failed');
+    record('status:paused-no-failed-gates', failed.length === 0,
+      failed.length > 0 ? `paused state cannot contain failed gates: ${failed.map((gate) => gate.id).join(', ')}` : null);
+    record('status:paused-has-unexecuted-gates', unexecuted.length > 0,
+      unexecuted.length > 0 ? `${unexecuted.length} gate(s) remain not-executed` : 'paused state must identify unfinished gates');
+    record('status:overall', false, 'overallStatus=paused: acceptance is incomplete and must not pass');
     return;
   }
   const blockedGates = state.gates.filter((gate) => gate.status === 'environment-blocked');
@@ -492,7 +528,16 @@ function validateReturnDirectory(returnDir, options) {
       'identity, evidence, gate, cleanup and scale checks require a valid acceptance-state.json');
   }
 
-  return { ok: checks.every((check) => check.ok), checks };
+  const ok = checks.every((check) => check.ok);
+  const paused = state?.overallStatus === 'paused';
+  const summary = state ? {
+    completed: state.gates.filter((gate) => gate.status === 'passed').map((gate) => gate.id),
+    unexecuted: state.gates.filter((gate) => gate.status === 'not-executed').map((gate) => gate.id),
+    pauseReason: paused ? state.pauseReason : null,
+    nextStep: paused ? state.nextStep : null,
+  } : null;
+  const evidenceValid = checks.every((check) => check.ok || (paused && check.rule === 'status:overall'));
+  return { ok, acceptancePassed: ok && !paused, evidenceValid, status: paused ? 'paused' : (ok ? 'passed' : 'failed'), checks, summary };
 }
 
 function runValidator(argv) {
@@ -515,7 +560,10 @@ function runValidator(argv) {
   let report;
   if (options.json) {
     report = `${JSON.stringify({
-      status: result.ok ? 'passed' : 'failed',
+      status: result.status,
+      acceptancePassed: result.acceptancePassed,
+      evidenceValid: result.evidenceValid,
+      summary: result.summary,
       failures: result.checks.filter((check) => !check.ok),
       checks: result.checks,
     }, null, 2)}\n`;
@@ -525,9 +573,11 @@ function runValidator(argv) {
       return `${check.ok ? 'PASS' : 'FAIL'} ${check.rule}${suffix}`;
     });
     const failedCount = result.checks.filter((check) => !check.ok).length;
-    lines.push(result.ok
+    lines.push(result.acceptancePassed
       ? 'RESULT PASS: all checks passed'
-      : `RESULT FAIL: ${failedCount} check(s) failed`);
+      : result.status === 'paused'
+        ? `RESULT PAUSED: ${failedCount} check(s) failed; acceptance remains incomplete`
+        : `RESULT FAIL: ${failedCount} check(s) failed`);
     report = `${lines.join('\n')}\n`;
   }
   process.stdout.write(report);

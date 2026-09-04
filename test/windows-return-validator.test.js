@@ -10,6 +10,8 @@ const SCRIPT = path.resolve(__dirname, '..', 'scripts', 'validate-windows-return
 const SOURCE_COMMIT = 'a'.repeat(40);
 const SOURCE_ZIP_SHA256 = 'b'.repeat(64);
 const CANDIDATE_SHA256 = 'c'.repeat(64);
+const CONTRACT_SHA256 = 'd'.repeat(64);
+const ENVIRONMENT_FINGERPRINT = 'windows-10-19045-x64';
 const REQUIRED_GATES = ['G1-01-process-cleanup', 'G4-02-instance-lock'];
 const EXPECTED_PROCESS_PATHS = ['C:\\Acceptance\\Pet\\Pet.exe'];
 
@@ -136,6 +138,8 @@ function runValidator(returnDir, extraArguments = []) {
     '--expect-candidate-sha256', CANDIDATE_SHA256,
     '--required-gates', REQUIRED_GATES.join(','),
     '--expect-process-paths', EXPECTED_PROCESS_PATHS.join(','),
+    '--expect-contract-sha256', CONTRACT_SHA256,
+    '--expect-environment-fingerprint', ENVIRONMENT_FINGERPRINT,
     ...extraArguments,
   ], { encoding: 'utf8' });
 }
@@ -354,6 +358,76 @@ test('environment-blocked overall status fails with environment-blocked reason',
     assert.equal(result.status, 1);
     assert.match(result.stdout, /environment-blocked/);
     assert.match(result.stdout, /FAIL status:overall/);
+  });
+});
+
+test('paused overall status is explicit, fails overall acceptance, and emits a continuation summary', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'paused';
+      state.pauseReason = '用户中止，待继续';
+      state.nextStep = '先排查原生文件对话框';
+      state.acceptanceContractSha256 = 'd'.repeat(64);
+      state.environmentFingerprint = 'windows-10-19045-x64';
+      state.gates[1].status = 'not-executed';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir, ['--json']);
+    assert.equal(result.status, 1);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'paused');
+    assert.equal(report.acceptancePassed, false);
+    assert.equal(report.evidenceValid, true);
+    assert.equal(report.summary.pauseReason, '用户中止，待继续');
+    assert.equal(report.summary.nextStep, '先排查原生文件对话框');
+    assert.match(result.stderr, /^$/);
+  });
+});
+
+test('paused state without reason or next step is rejected as incomplete pause evidence', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'paused';
+      state.gates[1].status = 'not-executed';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL acceptance-state:schema/);
+    assert.match(result.stdout, /pauseReason/);
+  });
+});
+
+test('paused evidence cannot be reused across a different source or candidate identity', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'paused';
+      state.pauseReason = '环境待恢复';
+      state.nextStep = '重新核对输入';
+      state.acceptanceContractSha256 = 'd'.repeat(64);
+      state.environmentFingerprint = 'windows-10-19045-x64';
+      state.sourceCommit = 'd'.repeat(40);
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL identity:source-commit/);
+  });
+});
+
+test('paused evidence cannot be reused when the relevant environment fingerprint changed', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'paused';
+      state.pauseReason = '待继续';
+      state.nextStep = '复核环境';
+      state.acceptanceContractSha256 = CONTRACT_SHA256;
+      state.environmentFingerprint = 'windows-11-different-machine';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL identity:environment-fingerprint/);
   });
 });
 
