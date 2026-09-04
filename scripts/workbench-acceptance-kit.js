@@ -188,9 +188,8 @@ function createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, 
   const bundle = path.join(sourceDirectory, `pet-workbench-git-${shortCommit}.bundle`);
   const currentHead = execFile('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   if (currentHead !== sourceCommit) throw new Error(`sourceCommit must be the current HEAD (${currentHead})`);
-  const branch = execFile('git', ['-C', repoRoot, 'symbolic-ref', '--short', 'HEAD'], { encoding: 'utf8' }).trim();
   execFile('git', ['-C', repoRoot, 'archive', '--format=zip', `--prefix=pet-workbench-source-${shortCommit}/`, sourceCommit, '-o', sourceZip]);
-  execFile('git', ['-C', repoRoot, 'bundle', 'create', bundle, branch]);
+  execFile('git', ['-C', repoRoot, 'bundle', 'create', bundle, 'HEAD']);
   if (sampleZip) fs.copyFileSync(sampleZip, path.join(sourceDirectory, 'controlled-sample-pets.zip'));
   const contractCopy = path.join(outputDirectory, 'acceptance-contract.json');
   fs.copyFileSync(contractPath, contractCopy);
