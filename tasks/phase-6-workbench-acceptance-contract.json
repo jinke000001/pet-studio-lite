@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "name": "phase-6-workbench-windows-recheck",
+  "requiredGates": [
+    { "id": "G4-01-focused-tests", "title": "聚焦自动回归", "mode": "automated" },
+    { "id": "G4-02-npm-test", "title": "全量 npm test", "mode": "automated" },
+    { "id": "G4-03-typecheck", "title": "工作台类型检查", "mode": "automated" },
+    { "id": "G4-04-build", "title": "工作台构建", "mode": "automated" },
+    { "id": "G4-05-lint", "title": "语法与 lint", "mode": "automated" },
+    { "id": "G4-06-preflight", "title": "源码预检", "mode": "automated" },
+    { "id": "G4-07-audit", "title": "依赖审计", "mode": "automated" },
+    { "id": "S6-source", "title": "source 预览刷新缺陷回归", "mode": "windows" },
+    { "id": "S6-unpacked", "title": "win-unpacked 预览刷新缺陷回归", "mode": "windows" },
+    { "id": "S6-installed", "title": "installed mode 预览刷新缺陷回归", "mode": "windows" },
+    { "id": "G5-installed-lifecycle", "title": "installed mode 完整制作生命周期", "mode": "windows" },
+    { "id": "G6-dpi", "title": "100%/125%/150% 与动态 DPI", "mode": "windows" },
+    { "id": "G7-installation", "title": "安装、卸载、重装", "mode": "windows" },
+    { "id": "S7-cancel", "title": "取消与重复操作", "mode": "windows" },
+    { "id": "U8-user-confirmation", "title": "拖动与动画用户确认", "mode": "user" }
+  ],
+  "toolPreflight": ["startup", "button-operation", "native-file-dialog", "screenshot", "exit-cleanup"],
+  "knownExternalAutomationFiles": [
+    "acceptance-tools/lib/cdp.js",
+    "acceptance-tools/lib/lab.js",
+    "acceptance-tools/lib/flow.js",
+    "acceptance-tools/lib/gates.js",
+    "acceptance-tools/ps/dialog-fill.ps1",
+    "acceptance-tools/smoke.js",
+    "acceptance-tools/s6.js",
+    "acceptance-tools/config.json",
+    "acceptance-tools/run-config.json",
+    "acceptance-tools/debug-import.js",
+    "acceptance-tools/debug-import2.js"
+  ]
+}

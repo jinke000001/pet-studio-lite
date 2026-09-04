@@ -20,6 +20,7 @@
     "build-pet": "node scripts/build-pet.js",
     "verify-mac-candidate": "node scripts/verify-mac-candidate.js",
     "diagnostics:legacy-instance-lock": "node --test diagnostics/instance-lock/legacy-instance-lock.test.js && node diagnostics/instance-lock/protocol-probe.js",
+    "acceptance:kit": "node scripts/workbench-acceptance-kit.js",
     "test": "node --test test/*.test.js",
     "lint": "node scripts/check-syntax.js"
   },
