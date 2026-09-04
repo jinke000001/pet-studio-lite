@@ -110,15 +110,25 @@ function renderPrompt(kit) {
   const gates = kit.requiredGates.map((gate) => `- ${gate.id}: ${gate.title}（${gate.mode}）；${gate.check}；通过=${gate.passCriteria}；证据=${gate.evidence.join('、')}`).join('\n');
   const tools = kit.toolPreflight.map((check) => check.id).join('、');
   const externalFiles = kit.knownExternalAutomationFiles.map((file) => `- ${file}`).join('\n');
-  return `# Windows 续验执行提示词\n\n先复核 source ZIP SHA-256=${kit.source.zipSha256 || '<由清单读取>'}、文件数=${kit.source.fileCount}、源码提交=${kit.source.sourceCommit || '<实际提交>'}；不得复用不同身份的旧通过证据。先执行 “node scripts\\workbench-acceptance-kit.js preflight acceptance-contract.json <evidence-root> tool-preflight.json” 做工具预检（${tools}）。预检只证明驱动可用且该次操作成功，不代替产品验收；工具未取回/不可访问/未实现必须保持 tool-unavailable 或 not-executed。每个门记录 startedAt、endedAt、durationMs、退出码和要求的截图/日志/进程证据；原生文件对话框失败时可记录真实人工选择为 manual-continuation，但不得直接调用内部控制器或记为预检成功。本轮自动测试必须重跑，不复用旧版本的通过结论。\n\n必需门：\n${gates}\n\n外部 Windows 自动化驱动未回传到本地交接；可取回的核心文件如下，调试辅助文件缺失不得强制重建已有有效驱动：\n${externalFiles}\n\n暂停时写 overallStatus=paused、pauseReason、nextStep、acceptanceContractSha256 和 environmentFingerprint；暂停不是通过。返回目录只使用新时间戳目录，验证器输出放在 RETURN 外。验证器的 --required-gates 直接取 acceptance-checklist.json.requiredGates[].id，不手写门数。候选未构建时 expectCandidateSha256 必须保持 null；实际候选门前必须计算安装包哈希并显式传入 --expect-candidate-sha256，不得留空后判通过。`;
+  return `# Windows 续验执行提示词\n\n先复核 source ZIP SHA-256=${kit.source.zipSha256 || '<由清单读取>'}、文件数=${kit.source.fileCount}、源码提交=${kit.source.sourceCommit || '<实际提交>'}；不得复用不同身份的旧通过证据。先执行 “node workbench-acceptance-kit.js preflight acceptance-contract.json <evidence-root> tool-preflight.json” 做工具预检（${tools}）。预检只证明驱动可用且该次操作成功，不代替产品验收；工具未取回/不可访问/未实现必须保持 tool-unavailable 或 not-executed。每个门记录 startedAt、endedAt、durationMs、退出码和要求的截图/日志/进程证据；原生文件对话框失败时可记录真实人工选择为 manual-continuation，但不得直接调用内部控制器或记为预检成功。本轮自动测试必须重跑，不复用旧版本的通过结论。\n\n必需门：\n${gates}\n\n外部 Windows 自动化驱动未回传到本地交接；可取回的核心文件如下，调试辅助文件缺失不得强制重建已有有效驱动：\n${externalFiles}\n\n暂停时写 overallStatus=paused、pauseReason、nextStep、acceptanceContractSha256 和 environmentFingerprint；暂停不是通过。返回目录只使用新时间戳目录，验证器输出放在 RETURN 外。验证器的 --required-gates 直接取 acceptance-checklist.json.requiredGates[].id，不手写门数。候选未构建时 expectCandidateSha256 必须保持 null；实际候选门前必须计算安装包哈希并显式传入 --expect-candidate-sha256，不得留空后判通过。`;
 }
 
-function runToolPreflight({ checks = [], commandRunner = childProcess.spawnSync, evidenceExists = fs.existsSync, now = () => new Date() }) {
+function runToolPreflight({ checks = [], commandRunner = childProcess.spawnSync, evidenceExists = fs.existsSync, driverExists = fs.existsSync, now = () => new Date() }) {
   return checks.map((check) => {
     if (check.method === 'manual') {
       return { id: check.id, method: 'manual', driverAvailable: null, operationSucceeded: null, classification: 'manual-continuation', reason: check.reason || null };
     }
     const startedAt = now();
+    if (check.driver.path && !driverExists(check.driver.path, check)) {
+      const endedAt = now();
+      return {
+        id: check.id, method: 'driver', driver: check.driver, driverAvailable: false,
+        operationSucceeded: false, classification: 'tool-unavailable', exitCode: null, signal: null,
+        startedAt: startedAt.toISOString(), endedAt: endedAt.toISOString(), durationMs: endedAt - startedAt,
+        requiredEvidence: check.requiredEvidence || [], missingEvidence: check.requiredEvidence || [],
+        reason: `driver path is missing: ${check.driver.path}`,
+      };
+    }
     const result = commandRunner(check.driver.command, check.driver.args || [], {
       encoding: 'utf8', timeout: check.driver.timeoutMs, cwd: check.driver.cwd || undefined,
     });
@@ -158,6 +168,7 @@ function writeToolPreflight({ contractPath, evidenceRoot, outputPath, commandRun
     checks: contract.toolPreflight || [],
     commandRunner,
     evidenceExists: (relativePath) => fs.existsSync(path.join(evidenceRoot, ...relativePath.split('/'))),
+    driverExists: (relativePath) => fs.existsSync(path.resolve(relativePath)),
   });
   const report = { schemaVersion: 1, generatedAt: new Date().toISOString(), evidenceRoot: path.resolve(evidenceRoot), checks };
   fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
@@ -190,7 +201,16 @@ function createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, 
   if (currentHead !== sourceCommit) throw new Error(`sourceCommit must be the current HEAD (${currentHead})`);
   execFile('git', ['-C', repoRoot, 'archive', '--format=zip', `--prefix=pet-workbench-source-${shortCommit}/`, sourceCommit, '-o', sourceZip]);
   execFile('git', ['-C', repoRoot, 'bundle', 'create', bundle, 'HEAD']);
-  if (sampleZip) fs.copyFileSync(sampleZip, path.join(sourceDirectory, 'controlled-sample-pets.zip'));
+  if (sampleZip) {
+    const sampleTarget = path.join(sourceDirectory, 'controlled-sample-pets.zip');
+    fs.copyFileSync(sampleZip, sampleTarget);
+    const sampleEntries = listZipEntries(sampleTarget, execFile).filter((entry) => !entry.endsWith('/'));
+    const sampleHashes = sampleEntries.map((entry) => {
+      const bytes = execFile('unzip', ['-p', sampleTarget, entry]);
+      return { entry, sha256: crypto.createHash('sha256').update(bytes).digest('hex') };
+    });
+    fs.writeFileSync(path.join(outputDirectory, 'SAMPLE-PETS.md'), `# 受控样本取得与核验\n\n- 本交接已内置 source/controlled-sample-pets.zip，SHA-256：\`${sha256File(sampleTarget)}\`。\n- 样本仅用于 internal-test，不产生对外授权结论。\n- Windows 本地复制后先校验 ZIP，再解压到新目录并核对：\n\n${sampleHashes.map(({ entry, sha256 }) => `- \`${entry}\`：\`${sha256}\``).join('\n')}\n`, 'utf8');
+  }
   const contractCopy = path.join(outputDirectory, 'acceptance-contract.json');
   fs.copyFileSync(contractPath, contractCopy);
   fs.copyFileSync(path.join(repoRoot, 'scripts', 'validate-windows-return.js'), path.join(outputDirectory, 'validate-windows-return.js'));
@@ -232,8 +252,12 @@ if (require.main === module) {
   try {
     if (args[0] === 'preflight') {
       const [, contractPath, evidenceRoot, outputPath] = args;
-      if (!contractPath || !evidenceRoot || !outputPath) throw new Error('Usage: node scripts/workbench-acceptance-kit.js preflight <contract.json> <evidence-root> <new-output.json>');
+      if (!contractPath || !evidenceRoot || !outputPath) throw new Error('Usage: node workbench-acceptance-kit.js preflight <contract.json> <evidence-root> <new-output.json>');
       process.stdout.write(`${JSON.stringify(writeToolPreflight({ contractPath, evidenceRoot, outputPath }), null, 2)}\n`);
+    } else if (args[0] === 'handoff') {
+      const [, contractPath, outputDirectory, sourceCommit, sampleZip, repoRoot = process.cwd()] = args;
+      if (!contractPath || !outputDirectory || !sourceCommit) throw new Error('Usage: node scripts/workbench-acceptance-kit.js handoff <contract.json> <new-output-dir> <sourceCommit> [sample.zip] [repoRoot]');
+      process.stdout.write(`${JSON.stringify(createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, sampleZip: sampleZip || null }), null, 2)}\n`);
     } else {
       const [contractPath, sourceZip, outputDirectory, sourceCommit] = args;
       if (!contractPath || !sourceZip || !outputDirectory) throw new Error('Usage: node scripts/workbench-acceptance-kit.js <contract.json> <source.zip> <new-output-dir> [sourceCommit]');

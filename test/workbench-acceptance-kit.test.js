@@ -145,6 +145,18 @@ test('tool preflight separates missing command, nonzero exit, timeout and missin
   assert.deepEqual(result.map(({ operationSucceeded }) => operationSucceeded), [false, false, false, false]);
 });
 
+test('tool preflight rejects a missing external driver path before invoking its host command', () => {
+  let invoked = false;
+  const [result] = runToolPreflight({
+    checks: [{ id: 'startup', driver: { command: 'node', path: 'acceptance-tools/smoke.js', args: [] }, requiredEvidence: [] }],
+    driverExists: () => false,
+    commandRunner: () => { invoked = true; return { status: 0 }; },
+  });
+  assert.equal(invoked, false);
+  assert.equal(result.classification, 'tool-unavailable');
+  assert.equal(result.driverAvailable, false);
+});
+
 test('manual native file selection is recorded as continuation, never as a successful preflight', () => {
   const [result] = runToolPreflight({ checks: [{ id: 'native-file-dialog-manual', method: 'manual', reason: '驱动未取回' }] });
   assert.equal(result.classification, 'manual-continuation');
