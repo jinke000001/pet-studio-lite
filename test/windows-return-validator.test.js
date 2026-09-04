@@ -39,6 +39,8 @@ function baseState(evidence) {
     sourceCommit: SOURCE_COMMIT,
     sourceZipSha256: SOURCE_ZIP_SHA256,
     candidateSha256: CANDIDATE_SHA256,
+    acceptanceContractSha256: CONTRACT_SHA256,
+    environmentFingerprint: ENVIRONMENT_FINGERPRINT,
     overallStatus: 'passed',
     firstFailedGate: null,
     originalDisplayScale: '96',
@@ -140,6 +142,19 @@ function runValidator(returnDir, extraArguments = []) {
     '--expect-process-paths', EXPECTED_PROCESS_PATHS.join(','),
     '--expect-contract-sha256', CONTRACT_SHA256,
     '--expect-environment-fingerprint', ENVIRONMENT_FINGERPRINT,
+    ...extraArguments,
+  ], { encoding: 'utf8' });
+}
+
+function runLegacyValidator(returnDir, extraArguments = []) {
+  return childProcess.spawnSync(process.execPath, [
+    SCRIPT,
+    returnDir,
+    '--expect-source-commit', SOURCE_COMMIT,
+    '--expect-source-zip-sha256', SOURCE_ZIP_SHA256,
+    '--expect-candidate-sha256', CANDIDATE_SHA256,
+    '--required-gates', REQUIRED_GATES.join(','),
+    '--expect-process-paths', EXPECTED_PROCESS_PATHS.join(','),
     ...extraArguments,
   ], { encoding: 'utf8' });
 }
@@ -331,6 +346,67 @@ test('mismatched sourceZipSha256 fails identity check', () => {
   });
 });
 
+test('passed report with a mismatched explicitly expected contract identity fails', () => {
+  withFixture({
+    mutateState(state) {
+      state.acceptanceContractSha256 = 'e'.repeat(64);
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL identity:acceptance-contract-sha256/);
+  });
+});
+
+test('passed report with a mismatched explicitly expected environment identity fails', () => {
+  withFixture({
+    mutateState(state) {
+      state.environmentFingerprint = 'windows-11-different-machine';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL identity:environment-fingerprint/);
+  });
+});
+
+test('passed report missing explicitly expected contract and environment identities fails', () => {
+  withFixture({
+    mutateState(state) {
+      delete state.acceptanceContractSha256;
+      delete state.environmentFingerprint;
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL identity:acceptance-contract-sha256/);
+    assert.match(result.stdout, /FAIL identity:environment-fingerprint/);
+  });
+});
+
+test('passed report with correct explicit identities passes', () => {
+  withFixture({}, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 0, result.stderr + result.stdout);
+    assert.match(result.stdout, /PASS identity:acceptance-contract-sha256/);
+    assert.match(result.stdout, /PASS identity:environment-fingerprint/);
+  });
+});
+
+test('legacy invocation remains compatible when optional identity expectations are omitted', () => {
+  withFixture({
+    mutateState(state) {
+      delete state.acceptanceContractSha256;
+      delete state.environmentFingerprint;
+    },
+  }, (returnDir) => {
+    const result = runLegacyValidator(returnDir);
+    assert.equal(result.status, 0, result.stderr + result.stdout);
+    assert.doesNotMatch(result.stdout, /identity:acceptance-contract-sha256/);
+    assert.doesNotMatch(result.stdout, /identity:environment-fingerprint/);
+  });
+});
+
 test('missing acceptance-state.json fails with exit code 1', () => {
   withFixture({ acceptanceState: 'missing' }, (returnDir) => {
     const result = runValidator(returnDir);
@@ -380,7 +456,103 @@ test('paused overall status is explicit, fails overall acceptance, and emits a c
     assert.equal(report.evidenceValid, true);
     assert.equal(report.summary.pauseReason, '用户中止，待继续');
     assert.equal(report.summary.nextStep, '先排查原生文件对话框');
+    assert.deepEqual(report.summary.completed, ['G1-01-process-cleanup']);
+    assert.deepEqual(report.summary.unexecuted, ['G4-02-instance-lock']);
+    assert.deepEqual(report.summary.missingRequired, []);
     assert.match(result.stderr, /^$/);
+  });
+});
+
+test('paused report missing a required gate is invalid and names it in the continuation summary', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'paused';
+      state.pauseReason = '待继验';
+      state.nextStep = '执行剩余必需门';
+      state.gates.pop();
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir, ['--json']);
+    assert.equal(result.status, 1);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'failed');
+    assert.equal(report.evidenceValid, false);
+    assert.deepEqual(report.summary.missingRequired, ['G4-02-instance-lock']);
+    assert.ok(report.failures.some((check) => check.rule === 'gates:required-coverage'));
+  });
+});
+
+test('an unrelated not-executed gate cannot replace a missing required paused gate', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'paused';
+      state.pauseReason = '待继验';
+      state.nextStep = '执行剩余必需门';
+      state.gates[1].id = 'G9-unrelated-not-executed';
+      state.gates[1].status = 'not-executed';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir, ['--json']);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'failed');
+    assert.equal(report.evidenceValid, false);
+    assert.deepEqual(report.summary.unexecuted, []);
+    assert.deepEqual(report.summary.missingRequired, ['G4-02-instance-lock']);
+  });
+});
+
+test('paused report with a duplicate required gate is invalid', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'paused';
+      state.pauseReason = '待继验';
+      state.nextStep = '执行剩余必需门';
+      state.gates[1].status = 'not-executed';
+      state.gates.push({ ...state.gates[1] });
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir, ['--json']);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'failed');
+    assert.equal(report.evidenceValid, false);
+    assert.ok(report.failures.some((check) => check.rule === 'gates:unique-ids'));
+  });
+});
+
+test('paused report cannot hide a failed required gate', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'paused';
+      state.pauseReason = '待继验';
+      state.nextStep = '先处理失败门';
+      state.gates[0].status = 'failed';
+      state.gates[0].exitCode = 1;
+      state.gates[1].status = 'not-executed';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir, ['--json']);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'failed');
+    assert.equal(report.evidenceValid, false);
+    assert.ok(report.failures.some((check) => check.rule === 'status:paused-no-failed-gates'));
+  });
+});
+
+test('paused report with damaged evidence is invalid', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'paused';
+      state.pauseReason = '待继验';
+      state.nextStep = '修复证据后继续';
+      state.gates[1].status = 'not-executed';
+      state.gates[0].evidenceSha256['automated/final-processes.log'] = '0'.repeat(64);
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir, ['--json']);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'failed');
+    assert.equal(report.evidenceValid, false);
+    assert.ok(report.failures.some((check) => check.rule === 'evidence:sha256'));
   });
 });
 

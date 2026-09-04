@@ -246,11 +246,11 @@ function checkIdentity(state, options, record) {
     record('identity:candidate-sha256', state.candidateSha256 === options.expectCandidateSha256,
       `state=${state.candidateSha256} expected=${options.expectCandidateSha256}`);
   }
-  if (options.expectContractSha256 && state.overallStatus === 'paused') {
+  if (options.expectContractSha256) {
     record('identity:acceptance-contract-sha256', state.acceptanceContractSha256 === options.expectContractSha256,
       `state=${state.acceptanceContractSha256} expected=${options.expectContractSha256}`);
   }
-  if (options.expectEnvironmentFingerprint && state.overallStatus === 'paused') {
+  if (options.expectEnvironmentFingerprint) {
     record('identity:environment-fingerprint', state.environmentFingerprint === options.expectEnvironmentFingerprint,
       `state=${state.environmentFingerprint} expected=${options.expectEnvironmentFingerprint}`);
   }
@@ -310,6 +310,14 @@ function checkEvidence(returnDir, state, record) {
 function checkGateOutcomes(state, options, record) {
   const ids = state.gates.map((gate) => gate.id);
   record('gates:unique-ids', new Set(ids).size === ids.length, 'gate ids must be unique');
+  const requiredIds = options.requiredGates;
+  const missingRequired = requiredIds.filter((id) => !ids.includes(id));
+  const duplicateRequired = requiredIds.filter((id) => ids.filter((entry) => entry === id).length > 1);
+  record('gates:required-coverage', missingRequired.length === 0 && duplicateRequired.length === 0,
+    [
+      missingRequired.length > 0 ? `missing required gates: ${missingRequired.join(', ')}` : null,
+      duplicateRequired.length > 0 ? `duplicate required gates: ${[...new Set(duplicateRequired)].join(', ')}` : null,
+    ].filter(Boolean).join('; '));
   state.gates.forEach((gate) => {
     const problems = [];
     if (gate.endedAt && gate.startedAt && Date.parse(gate.endedAt) < Date.parse(gate.startedAt)) problems.push('endedAt is before startedAt');
@@ -358,13 +366,20 @@ function checkGateOutcomes(state, options, record) {
     return;
   }
   if (state.overallStatus === 'paused') {
-    const executed = state.gates.filter((gate) => gate.status !== 'not-executed');
-    const unexecuted = state.gates.filter((gate) => gate.status === 'not-executed');
     const failed = state.gates.filter((gate) => gate.status === 'failed');
+    const requiredGates = requiredIds
+      .map((id) => state.gates.find((gate) => gate.id === id))
+      .filter(Boolean);
+    const requiredMissing = requiredIds.filter((id) => !state.gates.some((gate) => gate.id === id));
+    const requiredUnexecuted = requiredGates.filter((gate) => gate.status === 'not-executed').map((gate) => gate.id);
     record('status:paused-no-failed-gates', failed.length === 0,
       failed.length > 0 ? `paused state cannot contain failed gates: ${failed.map((gate) => gate.id).join(', ')}` : null);
-    record('status:paused-has-unexecuted-gates', unexecuted.length > 0,
-      unexecuted.length > 0 ? `${unexecuted.length} gate(s) remain not-executed` : 'paused state must identify unfinished gates');
+    record('status:paused-has-unexecuted-gates', requiredUnexecuted.length > 0,
+      requiredUnexecuted.length > 0
+        ? `required gates remain not-executed: ${requiredUnexecuted.join(', ')}`
+        : 'paused state must identify unfinished required gates');
+    record('status:paused-required-gates-listed', requiredMissing.length === 0,
+      requiredMissing.length > 0 ? `required gates missing from report: ${requiredMissing.join(', ')}` : null);
     record('status:overall', false, 'overallStatus=paused: acceptance is incomplete and must not pass');
     return;
   }
@@ -530,14 +545,16 @@ function validateReturnDirectory(returnDir, options) {
 
   const ok = checks.every((check) => check.ok);
   const paused = state?.overallStatus === 'paused';
+  const requiredGateSet = new Set(options.requiredGates);
   const summary = state ? {
-    completed: state.gates.filter((gate) => gate.status === 'passed').map((gate) => gate.id),
-    unexecuted: state.gates.filter((gate) => gate.status === 'not-executed').map((gate) => gate.id),
+    completed: state.gates.filter((gate) => requiredGateSet.has(gate.id) && gate.status === 'passed').map((gate) => gate.id),
+    unexecuted: state.gates.filter((gate) => requiredGateSet.has(gate.id) && gate.status === 'not-executed').map((gate) => gate.id),
+    missingRequired: options.requiredGates.filter((id) => !state.gates.some((gate) => gate.id === id)),
     pauseReason: paused ? state.pauseReason : null,
     nextStep: paused ? state.nextStep : null,
   } : null;
   const evidenceValid = checks.every((check) => check.ok || (paused && check.rule === 'status:overall'));
-  return { ok, acceptancePassed: ok && !paused, evidenceValid, status: paused ? 'paused' : (ok ? 'passed' : 'failed'), checks, summary };
+  return { ok, acceptancePassed: ok && !paused, evidenceValid, status: paused && evidenceValid ? 'paused' : (ok ? 'passed' : 'failed'), checks, summary };
 }
 
 function runValidator(argv) {
