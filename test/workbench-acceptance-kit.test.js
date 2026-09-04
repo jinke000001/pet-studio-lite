@@ -3,14 +3,44 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { buildAcceptanceKit, createKit, evaluateTestRun, listZipEntries, renderPrompt, renderReportTemplate, runToolPreflight } = require('../scripts/workbench-acceptance-kit');
+const { buildAcceptanceKit, createKit, evaluateTestRun, listZipEntries, renderPrompt, renderReportTemplate, runToolPreflight, validateContract } = require('../scripts/workbench-acceptance-kit');
+
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const CONTRACT_PATH = path.join(PROJECT_ROOT, 'tasks', 'phase-6-workbench-acceptance-contract.json');
+const EXPECTED_REQUIRED_GATE_IDS = [
+  'G4-01-focused-tests', 'G4-02-npm-test', 'G4-03-typecheck', 'G4-04-build', 'G4-05-lint', 'G4-06-preflight', 'G4-07-audit',
+  ...['source', 'unpacked', 'installed'].flatMap((mode) => [
+    `S6-${mode}-01-immediate-preview-start`, `S6-${mode}-02-preview-survives-history-refresh`, `S6-${mode}-03-job-refresh-keeps-preview`,
+    `S6-${mode}-04-switch-stops-preview`, `S6-${mode}-05-restart-recovery`, `S6-${mode}-06-explicit-stop-cleanup`,
+  ]),
+  'G5-01-single-instance-source', 'G5-02-single-instance-unpacked', 'G5-03-single-instance-installed',
+  'G5-04-v1-directory-import', 'G5-05-v2-zip-import', 'G5-06-malicious-zip-blocked',
+  'G5-07-contact-sheet-action-preview', 'G5-08-real-pet-preview-start-stop', 'G5-09-product-config',
+  'G5-10-standard-package-export', 'G5-11-project-archive-export', 'G5-12-candidate-build-source',
+  'G5-13-candidate-build-unpacked', 'G5-14-job-failure-retry', 'G5-15-offline-isolation', 'G5-16-general-restart-recovery',
+  ...['source', 'unpacked', 'installed'].flatMap((mode) => [
+    `G6-${mode}-dpi-cold-100`, `G6-${mode}-dpi-cold-125`, `G6-${mode}-dpi-cold-150`, `G6-${mode}-dynamic-dpi`,
+  ]),
+  'G7-01-install', 'G7-02-official-uninstall', 'G7-03-reinstall-same-package',
+  'S7-01-running-build-cancel', 'S7-02-duplicate-operation-rejected',
+  'U8-01-drag-feel-user-confirmation', 'U8-02-animation-experience-user-confirmation',
+];
+
+function minimalContract() {
+  return {
+    schemaVersion: 2,
+    requiredGates: [{ id: 'G1', title: '启动', mode: 'windows', check: '启动应用', passCriteria: '窗口可见', evidence: ['screenshot'] }],
+    coverageGroups: [{ id: 'group', title: '启动', gateIds: ['G1'] }],
+    toolPreflight: [],
+  };
+}
 
 test('acceptance kit derives file count and hashes from the source ZIP input', () => {
   const zipPath = path.join(os.tmpdir(), '桌宠 source.zip');
   fs.writeFileSync(zipPath, 'zip bytes');
   try {
     const kit = buildAcceptanceKit({
-      contract: { schemaVersion: 1, requiredGates: [{ id: 'G1', title: '启动', mode: 'windows' }], toolPreflight: ['startup'] },
+      contract: minimalContract(),
       sourceZip: zipPath,
       sourceCommit: 'a'.repeat(40),
       execFile: (_command, _args) => 'src/index.js\nsrc/中文.txt\nsrc/dir/\n',
@@ -28,7 +58,7 @@ test('kit generation supports spaces and Chinese paths and refuses overwrite', (
   const contractPath = path.join(root, '验收 contract.json');
   const zipPath = path.join(root, 'source package.zip');
   const output = path.join(root, 'new kit');
-  fs.writeFileSync(contractPath, JSON.stringify({ schemaVersion: 1, requiredGates: [{ id: 'G1', title: '启动', mode: 'windows' }] }));
+  fs.writeFileSync(contractPath, JSON.stringify(minimalContract()));
   fs.writeFileSync(zipPath, 'zip bytes');
   const original = require('node:child_process').execFileSync;
   require('node:child_process').execFileSync = () => 'src/中文.txt\n';
@@ -54,7 +84,7 @@ test('test run acceptance checks exit code, failures, skips and expected coverag
 });
 
 test('kit rejects an unsupported contract version', () => {
-  assert.throws(() => buildAcceptanceKit({ contract: { schemaVersion: 2, requiredGates: [{ id: 'G1' }] } }), /contract/);
+  assert.throws(() => buildAcceptanceKit({ contract: { schemaVersion: 1, requiredGates: [{ id: 'G1' }] } }), /schemaVersion/);
 });
 
 test('zip entries normalize separators, reject traversal and reject duplicate names', () => {
@@ -62,10 +92,62 @@ test('zip entries normalize separators, reject traversal and reject duplicate na
   assert.throws(() => listZipEntries('ignored', () => 'a\na\n'), /duplicate paths/);
 });
 
-test('tool preflight classifies unavailable tools separately from product failures', () => {
-  const result = runToolPreflight({ checks: ['startup', 'dialog-fill'], commandRunner: (_command, args) => ({ status: args[0] === 'startup' ? 0 : 1 }) });
-  assert.deepEqual(result, [
-    { name: 'startup', available: true, classification: 'available' },
-    { name: 'dialog-fill', available: false, classification: 'tool-unavailable' },
-  ]);
+test('authoritative contract preserves all 60 concrete -11 requirements with complete coverage mappings', () => {
+  const contract = JSON.parse(fs.readFileSync(CONTRACT_PATH, 'utf8'));
+  assert.deepEqual(contract.requiredGates.map(({ id }) => id), EXPECTED_REQUIRED_GATE_IDS);
+  assert.equal(contract.requiredGates.length, 60);
+  assert.doesNotThrow(() => validateContract(contract));
+  assert.ok(contract.requiredGates.every((gate) => gate.mode && gate.check && gate.passCriteria && gate.evidence.length > 0));
+  assert.match(contract.requiredGates.find(({ id }) => id === 'G4-01-focused-tests').check, /workbench-single-instance\.test\.js/);
+  assert.doesNotMatch(contract.requiredGates.find(({ id }) => id === 'G4-01-focused-tests').check, /workbench-instance-lock\.test\.js/);
+});
+
+test('contract coverage cannot omit or duplicate a concrete required gate', () => {
+  const contract = JSON.parse(fs.readFileSync(CONTRACT_PATH, 'utf8'));
+  const missing = structuredClone(contract);
+  missing.requiredGates = missing.requiredGates.filter(({ id }) => id !== 'G5-06-malicious-zip-blocked');
+  assert.throws(() => validateContract(missing), /coverage.*G5-06-malicious-zip-blocked/);
+  const duplicate = structuredClone(contract);
+  duplicate.coverageGroups[0].gateIds.push(duplicate.coverageGroups[0].gateIds[0]);
+  assert.throws(() => validateContract(duplicate), /coverage.*duplicate/);
+});
+
+test('tool preflight records a successful driven operation only with required evidence', () => {
+  const result = runToolPreflight({
+    checks: [{ id: 'startup', driver: { command: 'node', args: ['smoke.js', '--startup'], timeoutMs: 1000 }, requiredEvidence: ['startup.json'] }],
+    commandRunner: (command, args) => ({ status: 0, stdout: `${command} ${args.join(' ')}` }),
+    evidenceExists: () => true,
+    now: (() => { let ms = 0; return () => new Date(ms += 25); })(),
+  });
+  assert.equal(result[0].driverAvailable, true);
+  assert.equal(result[0].operationSucceeded, true);
+  assert.equal(result[0].classification, 'passed');
+  assert.equal(result[0].durationMs, 25);
+});
+
+test('tool preflight separates missing command, nonzero exit, timeout and missing evidence', () => {
+  const checks = ['missing', 'nonzero', 'timeout', 'no-evidence'].map((id) => ({
+    id,
+    driver: { command: `${id}.exe`, args: [], timeoutMs: 1000 },
+    requiredEvidence: [`${id}.json`],
+  }));
+  const result = runToolPreflight({
+    checks,
+    commandRunner: (command) => {
+      if (command === 'missing.exe') return { status: null, error: { code: 'ENOENT', message: 'not found' } };
+      if (command === 'nonzero.exe') return { status: 7, stderr: 'driver failed' };
+      if (command === 'timeout.exe') return { status: null, signal: 'SIGTERM', error: { code: 'ETIMEDOUT', message: 'timed out' } };
+      return { status: 0 };
+    },
+    evidenceExists: () => false,
+  });
+  assert.deepEqual(result.map(({ classification }) => classification), ['tool-unavailable', 'operation-failed', 'timeout', 'evidence-missing']);
+  assert.deepEqual(result.map(({ operationSucceeded }) => operationSucceeded), [false, false, false, false]);
+});
+
+test('manual native file selection is recorded as continuation, never as a successful preflight', () => {
+  const [result] = runToolPreflight({ checks: [{ id: 'native-file-dialog-manual', method: 'manual', reason: '驱动未取回' }] });
+  assert.equal(result.classification, 'manual-continuation');
+  assert.equal(result.driverAvailable, null);
+  assert.equal(result.operationSucceeded, null);
 });
