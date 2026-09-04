@@ -246,6 +246,12 @@ function checkIdentity(state, options, record) {
     record('identity:candidate-sha256', state.candidateSha256 === options.expectCandidateSha256,
       `state=${state.candidateSha256} expected=${options.expectCandidateSha256}`);
   }
+  if (options.expectContractSha256 && state.overallStatus === 'passed') {
+    record('identity:candidate-sha256-required', Boolean(options.expectCandidateSha256),
+      options.expectCandidateSha256
+        ? 'new-contract passed evidence has an explicit candidate expectation'
+        : '--expect-candidate-sha256 is required for passed evidence under an explicit acceptance contract');
+  }
   if (options.expectContractSha256) {
     record('identity:acceptance-contract-sha256', state.acceptanceContractSha256 === options.expectContractSha256,
       `state=${state.acceptanceContractSha256} expected=${options.expectContractSha256}`);

@@ -159,6 +159,20 @@ function runLegacyValidator(returnDir, extraArguments = []) {
   ], { encoding: 'utf8' });
 }
 
+function runContractValidatorWithoutCandidate(returnDir, extraArguments = []) {
+  return childProcess.spawnSync(process.execPath, [
+    SCRIPT,
+    returnDir,
+    '--expect-source-commit', SOURCE_COMMIT,
+    '--expect-source-zip-sha256', SOURCE_ZIP_SHA256,
+    '--required-gates', REQUIRED_GATES.join(','),
+    '--expect-process-paths', EXPECTED_PROCESS_PATHS.join(','),
+    '--expect-contract-sha256', CONTRACT_SHA256,
+    '--expect-environment-fingerprint', ENVIRONMENT_FINGERPRINT,
+    ...extraArguments,
+  ], { encoding: 'utf8' });
+}
+
 function withFixture(options, assertion) {
   const returnDir = createFixture(options);
   try {
@@ -404,6 +418,14 @@ test('legacy invocation remains compatible when optional identity expectations a
     assert.equal(result.status, 0, result.stderr + result.stdout);
     assert.doesNotMatch(result.stdout, /identity:acceptance-contract-sha256/);
     assert.doesNotMatch(result.stdout, /identity:environment-fingerprint/);
+  });
+});
+
+test('new-contract passed evidence cannot omit the explicit candidate expectation', () => {
+  withFixture({}, (returnDir) => {
+    const result = runContractValidatorWithoutCandidate(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL identity:candidate-sha256-required/);
   });
 });
 
