@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { buildAcceptanceKit, createHandoff, createKit, evaluateTestRun, listZipEntries, renderPrompt, renderReportTemplate, runToolPreflight, validateContract, verifyGitCommit, writeToolPreflight } = require('../scripts/workbench-acceptance-kit');
+const { readZipEntry } = require('../scripts/zip-reader');
+const { writeZip } = require('./helpers/zip-fixture');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const CONTRACT_PATH = path.join(PROJECT_ROOT, 'tasks', 'phase-6-workbench-acceptance-contract.json');
@@ -59,9 +61,7 @@ test('kit generation supports spaces and Chinese paths and refuses overwrite', (
   const zipPath = path.join(root, 'source package.zip');
   const output = path.join(root, 'new kit');
   fs.writeFileSync(contractPath, JSON.stringify(minimalContract()));
-  fs.writeFileSync(zipPath, 'zip bytes');
-  const original = require('node:child_process').execFileSync;
-  require('node:child_process').execFileSync = () => 'src/中文.txt\n';
+  writeZip(zipPath, [{ name: 'src/中文.txt', data: 'content' }]);
   try {
     const kit = createKit({ contractPath, sourceZip: zipPath, sourceCommit: 'a'.repeat(40), outputDirectory: output });
     assert.equal(kit.source.fileCount, 1);
@@ -70,7 +70,6 @@ test('kit generation supports spaces and Chinese paths and refuses overwrite', (
     assert.equal(JSON.parse(fs.readFileSync(path.join(output, 'validator-arguments.json'))).requiredGates[0], 'G1');
     assert.throws(() => createKit({ contractPath, sourceZip: zipPath, outputDirectory: output }), /already exists/);
   } finally {
-    require('node:child_process').execFileSync = original;
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
@@ -90,6 +89,18 @@ test('kit rejects an unsupported contract version', () => {
 test('zip entries normalize separators, reject traversal and reject duplicate names', () => {
   assert.deepEqual(listZipEntries('ignored', () => 'a\n../escape\nb\\c\n'), ['a', 'b/c']);
   assert.throws(() => listZipEntries('ignored', () => 'a\na\n'), /duplicate paths/);
+});
+
+test('portable ZIP reader lists and extracts entries without the system unzip command', () => {
+  const zipPath = path.join(os.tmpdir(), 'portable-acceptance-kit.zip');
+  writeZip(zipPath, [
+    { name: 'wrapped/', data: '' },
+    { name: 'wrapped/中文.txt', data: 'portable content' },
+  ]);
+  try {
+    assert.deepEqual(listZipEntries(zipPath), ['wrapped/中文.txt']);
+    assert.equal(readZipEntry(zipPath, 'wrapped/中文.txt').toString('utf8'), 'portable content');
+  } finally { fs.rmSync(zipPath, { force: true }); }
 });
 
 test('authoritative contract preserves all 60 concrete -11 requirements with complete coverage mappings', () => {
@@ -190,7 +201,7 @@ test('actual tool preflight entry preserves unavailable, failed, timeout and man
   const outputPath = path.join(root, 'tool-preflight.json');
   const driverPath = path.join(root, 'driver.js');
   fs.writeFileSync(driverPath, "if (process.argv[2] === 'fail') process.exit(7); setInterval(() => {}, 1000);\n");
-  const driver = (mode) => ({ command: process.execPath, path: driverPath, args: [driverPath, mode], timeoutMs: 50 });
+  const driver = (mode) => ({ command: process.execPath, path: driverPath, args: [driverPath, mode], timeoutMs: mode === 'timeout' ? 50 : 1000 });
   fs.writeFileSync(contractPath, JSON.stringify({
     ...minimalContract(),
     toolPreflight: [

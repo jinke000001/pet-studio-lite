@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const childProcess = require('node:child_process');
+const { readZipEntries, readZipEntry } = require('./zip-reader');
 
 function sha256File(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
@@ -15,9 +16,11 @@ function normalizeZipEntry(entry) {
   return normalized;
 }
 
-function listZipEntries(zipPath, execFile = childProcess.execFileSync) {
-  const output = execFile('unzip', ['-Z1', zipPath], { encoding: 'utf8' });
-  const entries = output.split(/\r?\n/).map(normalizeZipEntry).filter(Boolean);
+function listZipEntries(zipPath, execFile = null) {
+  const rawEntries = execFile
+    ? execFile('unzip', ['-Z1', zipPath], { encoding: 'utf8' }).split(/\r?\n/)
+    : readZipEntries(zipPath).map(({ rawName }) => rawName);
+  const entries = rawEntries.map(normalizeZipEntry).filter(Boolean);
   if (new Set(entries).size !== entries.length) throw new Error('source ZIP contains duplicate paths');
   return entries.sort();
 }
@@ -241,9 +244,9 @@ function createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, 
   if (sampleZip) {
     const sampleTarget = path.join(sourceDirectory, 'controlled-sample-pets.zip');
     fs.copyFileSync(sampleZip, sampleTarget);
-    const sampleEntries = listZipEntries(sampleTarget, execFile).filter((entry) => !entry.endsWith('/'));
+    const sampleEntries = listZipEntries(sampleTarget).filter((entry) => !entry.endsWith('/'));
     const sampleHashes = sampleEntries.map((entry) => {
-      const bytes = execFile('unzip', ['-p', sampleTarget, entry], { maxBuffer: 64 * 1024 * 1024 });
+      const bytes = readZipEntry(sampleTarget, entry);
       return { entry, sha256: crypto.createHash('sha256').update(bytes).digest('hex') };
     });
     fs.writeFileSync(path.join(outputDirectory, 'SAMPLE-PETS.md'), `# 受控样本取得与核验\n\n- 本交接已内置 source/controlled-sample-pets.zip，SHA-256：\`${sha256File(sampleTarget)}\`。\n- 样本仅用于 internal-test，不产生对外授权结论。\n- Windows 本地复制后先校验 ZIP，再解压到新目录并核对：\n\n${sampleHashes.map(({ entry, sha256 }) => `- \`${entry}\`：\`${sha256}\``).join('\n')}\n`, 'utf8');
