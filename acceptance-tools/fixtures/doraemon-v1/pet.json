@@ -1,0 +1,7 @@
+{
+  "id": "doraemon",
+  "name": "Doraemon",
+  "version": 1,
+  "authorization": "internal-test",
+  "atlas": "spritesheet.webp"
+}
