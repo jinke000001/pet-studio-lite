@@ -255,6 +255,7 @@ function createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, 
   fs.copyFileSync(contractPath, contractCopy);
   fs.copyFileSync(path.join(repoRoot, 'scripts', 'validate-windows-return.js'), path.join(outputDirectory, 'validate-windows-return.js'));
   fs.copyFileSync(path.join(repoRoot, 'scripts', 'workbench-acceptance-kit.js'), path.join(outputDirectory, 'workbench-acceptance-kit.js'));
+  fs.copyFileSync(path.join(repoRoot, 'scripts', 'zip-reader.js'), path.join(outputDirectory, 'zip-reader.js'));
   const kit = buildAcceptanceKit({ contract: JSON.parse(fs.readFileSync(contractPath, 'utf8')), contractSha256: sha256File(contractPath), sourceZip, sourceCommit });
   fs.writeFileSync(path.join(outputDirectory, 'acceptance-checklist.json'), `${JSON.stringify(kit, null, 2)}\n`, 'utf8');
   fs.writeFileSync(path.join(outputDirectory, 'SOURCE-BASELINE.md'), `# Windows 复验源码基线\n\n- 权威源码提交：\`${sourceCommit}\`\n- source ZIP SHA-256：\`${sha256File(sourceZip)}\`\n- Git bundle SHA-256：\`${sha256File(bundle)}\`\n- 恢复必须使用 bundle 克隆并校验 HEAD；不得用临时 git init/commit 冒充。\n- 本交接只表示输入准备；Windows source/win-unpacked/installed mode、DPI、安装/卸载/重装仍待实机 RETURN。\n`, 'utf8');

@@ -291,6 +291,7 @@ test('handoff generation verifies the exact commit and creates independently rec
     assert.equal(result.sourceCommit, commit);
     assert.equal(fs.existsSync(result.sourceZip), true);
     assert.equal(fs.existsSync(result.bundle), true);
+    assert.equal(fs.existsSync(path.join(output, 'zip-reader.js')), true);
     assert.equal(JSON.parse(fs.readFileSync(path.join(output, 'acceptance-checklist.json'))).requiredGates.length, 60);
     const args = JSON.parse(fs.readFileSync(path.join(output, 'validator-arguments.json')));
     assert.equal(args.expectSourceCommit, commit);
