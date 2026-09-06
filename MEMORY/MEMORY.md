@@ -117,6 +117,10 @@
 - 完整 PRD 与阶段计划位于 `tasks/phase-6-workbench-prd.md`。商业发布体系继续暂缓，Phase 6 MVP 不包含 AI 动作生成、逐帧编辑、签名、公证、商城、支付、DRM 或自动更新。
 - 验证为 91/91 测试、TypeScript、Vite 生产构建、lint、source preflight、npm audit 0 vulnerabilities 和 macOS 真实“新建 → 完整重启 → 恢复”；下一确认门是用户审查 Phase 6.1 后再进入 Phase 6.2。
 
+## 2026-09-06 Phase 6.6 Windows 复验修复交付
+
+- 针对 T7 `phase-6-workbench-windows-recheck-20260905-01` 暂停回传，验收工具改用内置 `scripts/zip-reader.js` 并修正 Windows timeout 夹具；提交 `e758f8f`、`80198bc`，本地 231/231 与全部质量门通过。新 Windows x64 候选 `release/workbench-candidates/candidate-20260906000328071/` 绑定 `80198bc`；新交接 `release/handoff/phase-6-workbench-windows-recheck-20260906-02/` 已复制至 T7 同名目录，15/15 checksums 通过。Windows 实机全量 60 门仍待新 RETURN。
+
 ## 文件索引
 
 - `决策点.md`：已确认的产品、架构和阶段决策。
