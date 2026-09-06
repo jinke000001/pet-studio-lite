@@ -34,6 +34,17 @@ function listFilesRecursive(directory, prefix = '') {
   }).sort();
 }
 
+function copyDirectory(source, target) {
+  fs.mkdirSync(target, { recursive: true });
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    const from = path.join(source, entry.name);
+    const to = path.join(target, entry.name);
+    if (entry.isDirectory()) copyDirectory(from, to);
+    else if (entry.isFile()) fs.copyFileSync(from, to);
+    else throw new Error(`handoff refuses non-regular resource: ${from}`);
+  }
+}
+
 function validateContract(contract) {
   if (!contract || contract.schemaVersion !== 2) {
     throw new Error('acceptance contract schemaVersion must be 2');
@@ -256,6 +267,13 @@ function createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, 
   fs.copyFileSync(path.join(repoRoot, 'scripts', 'validate-windows-return.js'), path.join(outputDirectory, 'validate-windows-return.js'));
   fs.copyFileSync(path.join(repoRoot, 'scripts', 'workbench-acceptance-kit.js'), path.join(outputDirectory, 'workbench-acceptance-kit.js'));
   fs.copyFileSync(path.join(repoRoot, 'scripts', 'zip-reader.js'), path.join(outputDirectory, 'zip-reader.js'));
+  const acceptanceToolsSource = path.join(repoRoot, 'acceptance-tools');
+  if (!fs.existsSync(acceptanceToolsSource)) throw new Error(`acceptance-tools directory is missing: ${acceptanceToolsSource}`);
+  copyDirectory(acceptanceToolsSource, path.join(outputDirectory, 'acceptance-tools'));
+  const materialsRoot = path.join(repoRoot, 'release', 'handoff', 'phase-6-workbench-windows-recheck-20260902-02-materials-01', 'fixtures');
+  if (fs.existsSync(materialsRoot)) copyDirectory(materialsRoot, path.join(outputDirectory, 'fixtures'));
+  fs.mkdirSync(path.join(outputDirectory, 'RETURN'));
+  fs.writeFileSync(path.join(outputDirectory, 'fixtures', 'README.md'), '# 受控样本\n\n- v1/doraemon-v1：内部兼容测试样本。\n- v2/dai-v2.zip：内部兼容测试样本。\n- dangerous-traversal.zip：安全阻断夹具，禁止写出工作区。\n- 样本仅用于 internal-test，不代表对外授权。\n', 'utf8');
   const kit = buildAcceptanceKit({ contract: JSON.parse(fs.readFileSync(contractPath, 'utf8')), contractSha256: sha256File(contractPath), sourceZip, sourceCommit });
   fs.writeFileSync(path.join(outputDirectory, 'acceptance-checklist.json'), `${JSON.stringify(kit, null, 2)}\n`, 'utf8');
   fs.writeFileSync(path.join(outputDirectory, 'SOURCE-BASELINE.md'), `# Windows 复验源码基线\n\n- 权威源码提交：\`${sourceCommit}\`\n- source ZIP SHA-256：\`${sha256File(sourceZip)}\`\n- Git bundle SHA-256：\`${sha256File(bundle)}\`\n- 恢复必须使用 bundle 克隆并校验 HEAD；不得用临时 git init/commit 冒充。\n- 本交接只表示输入准备；Windows source/win-unpacked/installed mode、DPI、安装/卸载/重装仍待实机 RETURN。\n`, 'utf8');

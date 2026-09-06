@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "modes": ["source", "win-unpacked", "installed"],
+  "requiredEvidence": ["process-json", "window-title", "physical-screenshot", "dpi-log"],
+  "platformPolicy": "Windows-only operations return platform-unavailable outside win32"
+}

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "sourceCommit": null,
+    "sourceZipSha256": null,
+    "acceptanceContractSha256": null,
+    "environmentFingerprint": null,
+    "candidateSha256": null
+  },
+  "evidenceRoot": "RETURN"
+}
