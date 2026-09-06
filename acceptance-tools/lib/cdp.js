@@ -50,14 +50,14 @@ async function connectCdp(options = {}) {
       else resolve(message.result);
     } else if (message.method) for (const listener of events.get(message.method) || []) listener(message.params || {});
   };
-  socket.addEventListener?.('message', (event) => onMessage(event));
-  socket.onmessage = (event) => onMessage(event);
+  if (socket.addEventListener) socket.addEventListener('message', (event) => onMessage(event));
+  else socket.onmessage = (event) => onMessage(event);
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new CdpError(`CDP connect timed out after ${timeoutMs}ms`, 'CDP_TIMEOUT')), timeoutMs);
     const open = () => { clearTimeout(timer); resolve(); };
     const error = (event) => { clearTimeout(timer); reject(new CdpError(event?.message || 'CDP connection failed', 'CDP_CONNECTION')); };
-    socket.addEventListener?.('open', open); socket.addEventListener?.('error', error);
-    socket.onopen = open; socket.onerror = error;
+    if (socket.addEventListener) { socket.addEventListener('open', open); socket.addEventListener('error', error); }
+    else { socket.onopen = open; socket.onerror = error; }
   });
   const send = (method, params = {}) => new Promise((resolve, reject) => {
     const id = nextId++; const timer = setTimeout(() => { pending.delete(id); reject(new CdpError(`CDP command timed out: ${method}`, 'CDP_TIMEOUT')); }, timeoutMs);

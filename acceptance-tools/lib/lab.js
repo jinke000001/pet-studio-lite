@@ -31,8 +31,9 @@ function displaySnapshot() {
 }
 function captureScreenshot(outputPath, windowHandle = null) {
   if (process.platform !== 'win32') return platformResult('screenshot', { outputPath });
-  const script = windowHandle ? `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen.Bounds` : '$null';
-  const result = run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `if (-not (Test-Path -LiteralPath '${String(outputPath).replace(/'/g, "''")}')) { exit 2 }; ${script}`]);
+  const escaped = String(outputPath).replace(/'/g, "''");
+  const script = "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Drawing; Add-Type -AssemblyName System.Windows.Forms; $b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height; $g=[System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size); $bmp.Save('" + escaped + "',[System.Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose()";
+  const result = run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script]);
   if (result.status !== 0) return { operation: 'screenshot', status: 'operation-failed', exitCode: result.status, stderr: result.stderr || null };
   return fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0 ? { operation: 'screenshot', status: 'ok', outputPath, sha256: sha256File(outputPath) } : { operation: 'screenshot', status: 'operation-failed', error: 'screenshot file is missing or empty' };
 }

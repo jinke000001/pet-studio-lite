@@ -73,5 +73,5 @@
     {"id":"exit-cleanup","driver":{"command":"node","path":"acceptance-tools/smoke.js","args":["acceptance-tools/smoke.js","--operation","exit-cleanup"],"timeoutMs":30000},"requiredEvidence":["preflight/exit-cleanup.json","preflight/final-processes.json"]},
     {"id":"native-file-dialog-manual","method":"manual","reason":"驱动未取回时允许真实人工选择作为局部接续，但不算预检通过"}
   ],
-  "knownExternalAutomationFiles":["acceptance-tools/lib/cdp.js","acceptance-tools/lib/lab.js","acceptance-tools/lib/flow.js","acceptance-tools/lib/gates.js","acceptance-tools/ps/dialog-fill.ps1","acceptance-tools/smoke.js","acceptance-tools/s6.js","acceptance-tools/config.json","acceptance-tools/run-config.json"]
+  "knownExternalAutomationFiles":["acceptance-tools/lib/cdp.js","acceptance-tools/lib/lab.js","acceptance-tools/lib/flow.js","acceptance-tools/lib/gates.js","acceptance-tools/ps/dialog-fill.ps1","acceptance-tools/smoke.js","acceptance-tools/s6.js","acceptance-tools/run.js","acceptance-tools/config.json","acceptance-tools/run-config.json"]
 }
