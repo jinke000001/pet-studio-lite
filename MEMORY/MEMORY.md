@@ -59,6 +59,12 @@
 
 ## Phase 6 当前状态
 
+### 2026-09-06 阶段 A-C Windows 验收基础设施
+
+- 已新增版本受控、自包含 `acceptance-tools/` 与严格单一 run 状态机；阶段 A/B 聚焦提交为 `d2c6530`、`6d393fc`，审查/可复现性修复提交为 `da94a26`、`caed93e`、`64ece28`、`3f8691b`。
+- 正式新交接为 `release/handoff/phase-6-workbench-windows-recheck-20260906-05/`，绑定 `3f8691b121d42d007ec7381029dac6e9384f702e`。隔离 bundle clone、source ZIP 逐文件一致、npm ci、专项 75/75、全量 238/238 与全部质量门通过；31 个交接文件 checksums 通过、无符号链接、RETURN 为空。
+- 先前生成尝试 `-03-partial`、`-03`、`-04` 均保留但不作为正式输入。历史 `-02` 与 T7 完全未改；Windows source/win-unpacked/installed、真实 DPI、物理截图、安装/卸载/重装和用户确认保持 `pending external RETURN`。
+
 ### 2026-09-04 个人自用版收敛（本轮）
 
 - Checkpoint 0 冻结：当前基线 HEAD=`51b64792c32cf012ffc3d0231d113a02c9a9fa70`，默认回归 234/234；T7 `phase-6-workbench-windows-recheck-20260903-11/RETURN/20260903-1650-partial-save/` 只读复核通过，23 个文件、回传 checksums 与本地非覆盖副本一致。该回传明确为用户中止的部分保存：7 个 G4 自动门已通过、53 个门未执行、`overallStatus=failed` 且 `firstFailedGate=null`，无实际失败门。

@@ -174,3 +174,4 @@ Phase 6 不改变商业发布体系暂缓结论；签名、公证、商城、支
 - [x] 6.6m-3 新交接 `release/handoff/phase-6-workbench-windows-recheck-20260903-11/`：绑定 `e5a69ba`，新增 Git bundle 恢复权威提交（Mac 演练 HEAD/干净工作树/ZIP 逐字节一致）、受控样本包、S6 三模式先行 + S7 补做 + DPI + 用户确认门提示词；9/9 输入哈希通过，已非覆盖交付 T7 同名目录（逐字节一致、零元数据、空 RETURN）。
 - [ ] 6.6m-4 `-11` Windows 全量复验：等待真实 Windows 从头重跑的新 RETURN；通过机器验证器和 Mac 侧独立哈希复核前，Phase 6.6 不关闭，状态保持 `pending external RETURN`。
 - [x] 6.6m-5 修复工具预检证据复用漏洞：每次运行使用新隔离目录并通过 `TOOL_PREFLIGHT_EVIDENCE_ROOT` 传给驱动，严格校验非空普通文件与路径边界；专项/全量质量门通过，Windows 实机仍待外部 RETURN。
+- [x] 6.6n 阶段 A-C（2026-09-06）：新增 `acceptance-tools/` 自包含驱动与状态机，handoff 生成器自动复制工具/样本/空 RETURN；提交 `d2c6530`、`6d393fc`、`da94a26`、`caed93e`、`64ece28`、`3f8691b`，正式交接 `release/handoff/phase-6-workbench-windows-recheck-20260906-05/`。Windows 60/60 实机 RETURN 仍待外部完成。
