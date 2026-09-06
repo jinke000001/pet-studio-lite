@@ -273,6 +273,7 @@ function createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, 
   const materialsRoot = path.join(repoRoot, 'release', 'handoff', 'phase-6-workbench-windows-recheck-20260902-02-materials-01', 'fixtures');
   fs.mkdirSync(path.join(outputDirectory, 'fixtures'), { recursive: true });
   if (fs.existsSync(materialsRoot)) copyDirectory(materialsRoot, path.join(outputDirectory, 'fixtures'));
+  else if (fs.existsSync(path.join(repoRoot, 'local-pets', 'doraemon'))) copyDirectory(path.join(repoRoot, 'local-pets', 'doraemon'), path.join(outputDirectory, 'fixtures', 'doraemon-v1'));
   fs.mkdirSync(path.join(outputDirectory, 'RETURN'));
   fs.writeFileSync(path.join(outputDirectory, 'fixtures', 'README.md'), '# 受控样本\n\n- v1/doraemon-v1：内部兼容测试样本。\n- v2/dai-v2.zip：内部兼容测试样本。\n- dangerous-traversal.zip：安全阻断夹具，禁止写出工作区。\n- 样本仅用于 internal-test，不代表对外授权。\n', 'utf8');
   const kit = buildAcceptanceKit({ contract: JSON.parse(fs.readFileSync(contractPath, 'utf8')), contractSha256: sha256File(contractPath), sourceZip, sourceCommit });

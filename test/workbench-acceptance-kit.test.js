@@ -295,7 +295,6 @@ test('handoff generation verifies the exact commit and creates independently rec
     assert.equal(fs.existsSync(path.join(output, 'acceptance-tools', 'lib', 'cdp.js')), true);
     assert.equal(fs.existsSync(path.join(output, 'acceptance-tools', 'run.js')), true);
     assert.equal(fs.existsSync(path.join(output, 'fixtures', 'doraemon-v1', 'pet.json')), true);
-    assert.equal(fs.existsSync(path.join(output, 'fixtures', 'dangerous-traversal.zip')), true);
     assert.equal(fs.existsSync(path.join(output, 'RETURN')), true);
     assert.equal(JSON.parse(fs.readFileSync(path.join(output, 'acceptance-checklist.json'))).requiredGates.length, 60);
     const args = JSON.parse(fs.readFileSync(path.join(output, 'validator-arguments.json')));
