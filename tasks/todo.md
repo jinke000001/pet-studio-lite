@@ -9,10 +9,11 @@
 - [x] C2 验证器支持 `paused`、证据有效性和保守身份复用；提交 `a26d10d`。
 - [x] C3 单源验收清单/模板/提示词/计时/工具预检生成器；提交 `d0b9e10`。
 - [x] C4 隔离 worktree 全量质量门和新 macOS 候选构建、source/packaged 启动退出 smoke 完成。
-- [ ] C5 Windows 真实 RETURN：继续从 T7 `-11` 新目录开始，先排查原生文件对话框自动化；source → win-unpacked → installed mode，再执行 DPI、安装/卸载/重装和用户确认；当前仍不得宣称 Windows 验收通过。
+- [ ] C5 Windows 真实 RETURN：使用当前正式交接 `phase-6-workbench-windows-recheck-20260907-02` 在本地 NTFS 新目录从头执行；source → win-unpacked → installed mode，再执行 DPI、安装/卸载/重装和用户确认；当前仍不得宣称 Windows 验收通过。
 - [x] C6 审查修复：显式身份对所有状态生效；paused 按权威必需门集合检查；契约恢复 60 个具体门；预检区分驱动不可用、失败、超时、缺证据与人工接续。
 - [x] C7 新交接生成器：验证精确 HEAD，生成可 clone Git bundle、源码 ZIP、契约、验证器、执行说明、样本核验和完整 checksums；候选未生成时 SHA-256 显式为 null。
 - [x] C8 新契约通过门：显式新契约下 overallStatus=passed 必须传入实测候选 SHA-256；旧调用方式继续兼容。
+- [x] C9 可续验证据加固：提交 `d77252e`、`e9678be`，修复运行中进程误判、attempt 覆盖、恢复身份缺失、历史证据篡改、截图/退出证据缺口与 finalize checksum 闭环；正式交接更新为本地 `20260907-02`，`20260907-01` 因夹具不完整仅保留为非正式尝试。
 
 - [x] Phase 0 只读盘点完成。
 - [x] Wukong 0.1.9 测试 15/15、lint 和四个关键哈希通过。
@@ -175,3 +176,4 @@ Phase 6 不改变商业发布体系暂缓结论；签名、公证、商城、支
 - [ ] 6.6m-4 `-11` Windows 全量复验：等待真实 Windows 从头重跑的新 RETURN；通过机器验证器和 Mac 侧独立哈希复核前，Phase 6.6 不关闭，状态保持 `pending external RETURN`。
 - [x] 6.6m-5 修复工具预检证据复用漏洞：每次运行使用新隔离目录并通过 `TOOL_PREFLIGHT_EVIDENCE_ROOT` 传给驱动，严格校验非空普通文件与路径边界；专项/全量质量门通过，Windows 实机仍待外部 RETURN。
 - [x] 6.6n 阶段 A-C（2026-09-06）：新增 `acceptance-tools/` 自包含驱动与状态机，handoff 生成器自动复制工具/样本/空 RETURN；提交 `d2c6530`、`6d393fc`、`da94a26`、`caed93e`、`64ece28`、`3f8691b`，正式交接 `release/handoff/phase-6-workbench-windows-recheck-20260906-05/`。Windows 60/60 实机 RETURN 仍待外部完成。
+- [x] 6.6o 续验工具加固（2026-09-07）：全量 243/243 与全部质量门通过；正式交接 `release/handoff/phase-6-workbench-windows-recheck-20260907-02/` 绑定 `e9678be`，31/31 checksums、完整 bundle、60 门身份配置和全套夹具均验证通过，RETURN 为空且未写 T7。Windows 60/60 实机 RETURN 仍待外部完成。

@@ -59,6 +59,12 @@
 
 ## Phase 6 当前状态
 
+### 2026-09-07 可续验状态与物理截图证据加固
+
+- 接管 CLI 未完成改动并提交 `d77252e`、`e9678be`：子进程 `exitCode=null` 只表示仍在运行；gate 重试证据复制到唯一 attempt 目录且不覆盖历史；暂停恢复必须逐项匹配完整身份并复核既有证据哈希；finalize 只接受权威 60 门、候选哈希、缩放恢复和进程清零，并在最终状态/报告落盘后生成完整 `returned-checksums.sha256`。截图预检现在真实写入 PNG 与元数据，退出清理同时写入最终进程证据；非 Windows 保持 `platform-unavailable`。
+- 全量本地质量门通过：`npm test` 243/243，`studio:typecheck`、`studio:build`、`lint`、`source:preflight`、`npm audit --omit=dev`（0 vulnerabilities）和 `git diff --check` 均通过。正式新交接为 `release/handoff/phase-6-workbench-windows-recheck-20260907-02/`，绑定 `e9678bef313bb32635bd078713f76cf43e96d862`，source ZIP SHA-256=`9699071501046919b95a4b3259e794d423a3486b8a3d9512ad734c64dd863dab`，checksums 自身 SHA-256=`3620d29d2084a5615a62a91a0798090f1efc11962010c6d8d85991f66dc43342`；31/31 输入校验通过，bundle 完整、60 门配置已绑定、v1/v2/危险 ZIP 夹具齐全、RETURN 为空、零元数据。`20260907-01` 因生成时漏传完整受控样本，仅保留为非正式尝试，不得用于 Windows。
+- 本轮未写 T7。Windows source/win-unpacked/installed、真实 DPI、安装/卸载/重装和 U8 用户确认继续为 `pending external RETURN`。
+
 ### 2026-09-06 阶段 A-C Windows 验收基础设施
 
 - 已新增版本受控、自包含 `acceptance-tools/` 与严格单一 run 状态机；阶段 A/B 聚焦提交为 `d2c6530`、`6d393fc`，审查/可复现性修复提交为 `da94a26`、`caed93e`、`64ece28`、`3f8691b`。
