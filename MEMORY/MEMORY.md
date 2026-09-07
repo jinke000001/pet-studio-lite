@@ -59,6 +59,12 @@
 
 ## Phase 6 当前状态
 
+### 2026-09-07 官方卸载复验修复与新交接
+
+- Windows 报告首个失败门为 `G7-02-official-uninstall`：固定等待 5 秒后 HKCU 卸载注册项仍存在，但安装目录、快捷方式和进程已清零。修复提交 `fcd10851e979e73ab524593a63e53861197102f2` 固定 NSIS GUID `980c4302-3a05-517b-ba38-6c71a752ed15` 和卸载显示名，并新增 `acceptance-tools/ps/official-uninstall.ps1`：只调用 HKCU 官方 `UninstallString`，等待卸载结束后要求 32/64 位注册项、安装目录、快捷方式与精确进程连续 3 次清零；不手工删除注册表。
+- 干净隔离 worktree 的 `npm test` 246/246、`studio:typecheck`、`studio:build`、`lint`、`source:preflight`、`npm audit --omit=dev`（0 vulnerabilities）全部通过。Windows x64 候选 `release/workbench-candidates/candidate-20260907150456543/` 绑定该提交；NSIS SHA-256=`06be0bd9091ece90a3dd0a554d2812962816e64a9705f1f8cd2dc3234756374f`，win-unpacked app.asar SHA-256=`2cc37af5fddf724ce278911dab37297dd2e50a4afe614cb4392e4dea81b932bc`。
+- 当前正式本地交接为 `release/handoff/phase-6-workbench-windows-recheck-20260907-04/`：source ZIP SHA-256=`69bc4eeae7b9933ad4d7fa2a8fe78c3717f4fba5f8dbf94407acd90bea83b52d`，Git bundle SHA-256=`9d15bdbe0c1eb3771c210599e859593c80b38b51e667eb208148a46dbbd76d12`，checksums 自身 SHA-256=`1aa5009b4661b94a14f83146eca5c2c220cd3ac2ae1a62cd95479dbe33d22ad7`；33/33 输入通过、60 门身份绑定、RETURN 为空、零元数据。`20260907-03` 是误用普通清单入口产生的非正式尝试，不得用于 Windows。本轮未写 T7，Windows 仍为 `pending external RETURN`。
+
 ### 2026-09-07 可续验状态与物理截图证据加固
 
 - 接管 CLI 未完成改动并提交 `d77252e`、`e9678be`：子进程 `exitCode=null` 只表示仍在运行；gate 重试证据复制到唯一 attempt 目录且不覆盖历史；暂停恢复必须逐项匹配完整身份并复核既有证据哈希；finalize 只接受权威 60 门、候选哈希、缩放恢复和进程清零，并在最终状态/报告落盘后生成完整 `returned-checksums.sha256`。截图预检现在真实写入 PNG 与元数据，退出清理同时写入最终进程证据；非 Windows 保持 `platform-unavailable`。
