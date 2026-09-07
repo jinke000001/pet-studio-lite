@@ -42,34 +42,103 @@ test('run state supports running → paused → running and records non-overwrit
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-run-'));
   const evidenceRoot = path.join(root, 'evidence'); fs.mkdirSync(evidenceRoot); fs.writeFileSync(path.join(evidenceRoot, 'gate.log'), 'attempt one');
   try {
-    const run = createRun({ runId: 'run-one', evidenceRoot: root, sourceCommit: 'a'.repeat(40), sourceZipSha256: 'b'.repeat(64), acceptanceContractSha256: 'c'.repeat(64), environmentFingerprint: 'macos-test' });
+    const identity = { sourceCommit: 'a'.repeat(40), sourceZipSha256: 'b'.repeat(64), acceptanceContractSha256: 'c'.repeat(64), environmentFingerprint: 'macos-test', candidateSha256: null };
+    const run = createRun({ runId: 'run-one', evidenceRoot: root, ...identity });
     assert.equal(run.state.overallStatus, 'running');
     recordGate(run.root, { id: 'G1', status: 'passed', exitCode: 0, evidencePaths: ['gate.log'] }, { evidenceRoot });
     pauseRun(run.root, { pauseReason: '等待人工', nextStep: '继续执行', unfinishedGates: ['G2'] });
     assert.equal(loadRun(run.root).state.overallStatus, 'paused');
-    resumeRun(run.root, { sourceCommit: 'a'.repeat(40), sourceZipSha256: 'b'.repeat(64), acceptanceContractSha256: 'c'.repeat(64), environmentFingerprint: 'macos-test' });
+    resumeRun(run.root, identity);
     fs.writeFileSync(path.join(evidenceRoot, 'gate.log'), 'attempt two');
     recordGate(run.root, { id: 'G1', status: 'passed', exitCode: 0, evidencePaths: ['gate.log'] }, { evidenceRoot });
     assert.equal(loadRun(run.root).state.attempts.length, 2);
+    assert.equal(loadRun(run.root).state.gates.length, 1);
+    assert.notEqual(loadRun(run.root).state.attempts[0].evidencePaths[0], loadRun(run.root).state.attempts[1].evidencePaths[0]);
+    assert.match(loadRun(run.root).state.attempts[0].evidencePaths[0], /attempts[\/\\]G1[\/\\]1[\/\\]/);
+    assert.match(loadRun(run.root).state.attempts[1].evidencePaths[0], /attempts[\/\\]G1[\/\\]2[\/\\]/);
     pauseRun(run.root, { pauseReason: '再次暂停', nextStep: '核对身份' });
-    assert.throws(() => resumeRun(run.root, { sourceCommit: 'd'.repeat(40) }), /identity changed/);
+    assert.throws(() => resumeRun(run.root, { sourceCommit: 'd'.repeat(40) }), /identity is incomplete or changed/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test('finalize rejects incomplete gates, null candidate, scale mismatch and residual processes', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-finalize-')); const evidenceRoot = path.join(root, 'evidence'); fs.mkdirSync(evidenceRoot); fs.writeFileSync(path.join(evidenceRoot, 'g.log'), 'e');
   try {
-    const run = createRun({ runId: 'run-final', evidenceRoot: root });
-    recordGate(run.root, { id: 'G1', status: 'passed', exitCode: 0, evidencePaths: ['g.log'] }, { evidenceRoot });
-    assert.throws(() => finalizeRun(run.root, { requiredGates: ['G1', 'G2'], candidateSha256: null, originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed' }), /candidateSha256/);
-    assert.throws(() => finalizeRun(run.root, { requiredGates: ['G1'], candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '125', cleanupStatus: 'passed' }), /scale/);
-    assert.throws(() => finalizeRun(run.root, { requiredGates: ['G1'], candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed', finalProcesses: [{ ProcessId: 1 }] }), /cleanup/);
-    const state = finalizeRun(run.root, { requiredGates: ['G1'], candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed' });
+    const requiredGates = Array.from({ length: 60 }, (_, index) => `G${index + 1}`);
+    const run = createRun({ runId: 'run-final', evidenceRoot: root, sourceCommit: 'a'.repeat(40), sourceZipSha256: 'b'.repeat(64), acceptanceContractSha256: 'c'.repeat(64), environmentFingerprint: 'windows-test', candidateSha256: null, requiredGates });
+    assert.throws(() => finalizeRun(run.root, { candidateSha256: null, originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed' }), /candidateSha256/);
+    assert.throws(() => finalizeRun(run.root, { candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed' }), /required gates incomplete/);
+    for (const id of requiredGates) recordGate(run.root, { id, status: 'passed', exitCode: 0, evidencePaths: ['g.log'] }, { evidenceRoot });
+    assert.throws(() => finalizeRun(run.root, { candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '125', cleanupStatus: 'passed' }), /scale/);
+    assert.throws(() => finalizeRun(run.root, { candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed', finalProcesses: [{ ProcessId: 1 }] }), /cleanup/);
+    const state = finalizeRun(run.root, { candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed' });
     assert.equal(state.overallStatus, 'passed');
-    assert.throws(() => finalizeRun(run.root, { requiredGates: ['G1'], candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed' }), /terminal state/);
+    const checksums = fs.readFileSync(path.join(run.root, 'returned-checksums.sha256'), 'utf8');
+    assert.match(checksums, /  final-report\.json$/m);
+    assert.match(checksums, /  acceptance-state\.json$/m);
+    for (const line of checksums.trim().split('\n')) {
+      const [expected, relativePath] = line.split('  ');
+      const actual = require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(run.root, relativePath))).digest('hex');
+      assert.equal(actual, expected);
+    }
+    assert.throws(() => finalizeRun(run.root, { candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed' }), /terminal state/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
-test('early window exit is explicit', () => {
-  const child = { exitCode: null }; assert.equal(classifyWindowExit(child), 'window-exited-early');
+test('a child with no exit code is still running', () => {
+  const child = { exitCode: null, signalCode: null }; assert.equal(classifyWindowExit(child), 'running');
+});
+
+test('resume requires every run identity field, including a null candidate', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-resume-'));
+  try {
+    const run = createRun({ runId: 'resume-complete', evidenceRoot: root, sourceCommit: 'a'.repeat(40), sourceZipSha256: 'b'.repeat(64), acceptanceContractSha256: 'c'.repeat(64), environmentFingerprint: 'windows-test', candidateSha256: null });
+    pauseRun(run.root, { pauseReason: '等待 Windows', nextStep: '继续' });
+    assert.throws(() => resumeRun(run.root, { sourceCommit: 'a'.repeat(40) }), /identity.*complete|identity.*required/i);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('finalize rejects tampered historical evidence and writes checksum closure', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-finalize-tamper-'));
+  const evidenceRoot = path.join(root, 'evidence'); fs.mkdirSync(evidenceRoot); fs.writeFileSync(path.join(evidenceRoot, 'g.log'), 'evidence');
+  try {
+    const run = createRun({ runId: 'tamper', evidenceRoot: root, sourceCommit: 'a'.repeat(40), sourceZipSha256: 'b'.repeat(64), acceptanceContractSha256: 'c'.repeat(64), environmentFingerprint: 'windows-test' });
+    recordGate(run.root, { id: 'G1', status: 'passed', exitCode: 0, evidencePaths: ['g.log'] }, { evidenceRoot });
+    fs.writeFileSync(path.join(run.root, 'attempts', 'G1', '1', 'g.log'), 'tampered');
+    assert.throws(() => finalizeRun(run.root, { requiredGates: ['G1'], candidateSha256: 'd'.repeat(64), originalDisplayScale: '100', finalDisplayScale: '100', cleanupStatus: 'passed' }), /hash|evidence/i);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('smoke screenshot operation uses the injected adapter and requires PNG plus metadata', async () => {
+  const { runSmokeOperation } = require('../acceptance-tools/smoke');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-screenshot-'));
+  try {
+    const result = await runSmokeOperation({ platform: 'win32', operation: 'screenshot', evidenceRoot: root, capture: async (pngPath) => { fs.writeFileSync(pngPath, Buffer.from([0x89, 0x50, 0x4e, 0x47])); return { status: 'ok', windowHandle: 42, monitor: 'DISPLAY1' }; } });
+    assert.equal(result.status, 'passed');
+    assert.ok(fs.statSync(path.join(root, 'preflight', 'screenshot.png')).size > 0);
+    assert.ok(fs.statSync(path.join(root, 'preflight', 'screenshot.json')).size > 0);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('smoke exit cleanup writes both declared evidence files', async () => {
+  const { runSmokeOperation } = require('../acceptance-tools/smoke');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-cleanup-'));
+  try {
+    const result = await runSmokeOperation({ platform: 'win32', operation: 'exit-cleanup', evidenceRoot: root, getProcesses: () => ({ operation: 'process-snapshot', status: 'ok', processes: [] }), getEnvironmentFingerprint: () => 'windows-test' });
+    assert.equal(result.status, 'passed');
+    assert.ok(fs.statSync(path.join(root, 'preflight', 'exit-cleanup.json')).size > 0);
+    assert.ok(fs.statSync(path.join(root, 'preflight', 'final-processes.json')).size > 0);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('smoke never treats a non-Windows probe as passed', async () => {
+  const { runSmokeOperation } = require('../acceptance-tools/smoke');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-platform-'));
+  try {
+    const result = await runSmokeOperation({ platform: 'darwin', operation: 'screenshot', evidenceRoot: root });
+    assert.equal(result.status, 'platform-unavailable');
+    assert.equal(result.exitCode, 2);
+    assert.ok(fs.statSync(path.join(root, 'preflight', 'screenshot.json')).size > 0);
+    assert.equal(fs.existsSync(path.join(root, 'preflight', 'screenshot.png')), false);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

@@ -278,6 +278,17 @@ function createHandoff({ repoRoot, contractPath, outputDirectory, sourceCommit, 
   fs.mkdirSync(path.join(outputDirectory, 'RETURN'));
   fs.writeFileSync(path.join(outputDirectory, 'fixtures', 'README.md'), '# 受控样本\n\n- v1/doraemon-v1：内部兼容测试样本。\n- v2/dai-v2.zip：内部兼容测试样本。\n- dangerous-traversal.zip：安全阻断夹具，禁止写出工作区。\n- 样本仅用于 internal-test，不代表对外授权。\n', 'utf8');
   const kit = buildAcceptanceKit({ contract: JSON.parse(fs.readFileSync(contractPath, 'utf8')), contractSha256: sha256File(contractPath), sourceZip, sourceCommit });
+  const handoffRunConfigPath = path.join(outputDirectory, 'acceptance-tools', 'run-config.json');
+  const handoffRunConfig = JSON.parse(fs.readFileSync(handoffRunConfigPath, 'utf8'));
+  handoffRunConfig.identity = {
+    sourceCommit,
+    sourceZipSha256: kit.source.zipSha256,
+    acceptanceContractSha256: kit.acceptanceContractSha256,
+    environmentFingerprint: null,
+    candidateSha256: null,
+  };
+  handoffRunConfig.requiredGates = kit.requiredGates.map(({ id }) => id);
+  fs.writeFileSync(handoffRunConfigPath, `${JSON.stringify(handoffRunConfig, null, 2)}\n`, 'utf8');
   fs.writeFileSync(path.join(outputDirectory, 'acceptance-checklist.json'), `${JSON.stringify(kit, null, 2)}\n`, 'utf8');
   fs.writeFileSync(path.join(outputDirectory, 'SOURCE-BASELINE.md'), `# Windows 复验源码基线\n\n- 权威源码提交：\`${sourceCommit}\`\n- source ZIP SHA-256：\`${sha256File(sourceZip)}\`\n- Git bundle SHA-256：\`${sha256File(bundle)}\`\n- 恢复必须使用 bundle 克隆并校验 HEAD；不得用临时 git init/commit 冒充。\n- 本交接只表示输入准备；Windows source/win-unpacked/installed mode、DPI、安装/卸载/重装仍待实机 RETURN。\n`, 'utf8');
   fs.writeFileSync(path.join(outputDirectory, 'HANDOFF.md'), `# Windows 验收新入口\n\n1. 先核对 checksums.sha256、source ZIP 和 bundle。\n2. 使用 source 目录的 bundle 克隆，确认 HEAD=${sourceCommit}且工作树干净；再与 ZIP 解压树比对。\n3. 在实际 Windows 环境中重跑 acceptance-checklist.json 的全部具体门；候选未生成时 expectCandidateSha256 保持 null，正式候选门前必须填入实测安装包哈希。\n4. 只写入本交接的 RETURN/<timestamp>；历史交接与 RETURN 仅作独立参考，不自动继承或拼接通过结论。\n`, 'utf8');

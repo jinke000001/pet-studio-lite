@@ -7,6 +7,7 @@
     "environmentFingerprint": null,
     "candidateSha256": null
   },
+  "requiredGates": null,
   "evidenceRoot": "RETURN",
   "stateMachine": { "statuses": ["running", "paused", "failed", "passed"], "passedRequires": ["all-required-gates", "candidateSha256", "display-scale-restored", "cleanup-zero"] }
 }

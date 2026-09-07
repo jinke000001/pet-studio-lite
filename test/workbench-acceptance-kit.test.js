@@ -297,6 +297,11 @@ test('handoff generation verifies the exact commit and creates independently rec
     assert.equal(fs.existsSync(path.join(output, 'fixtures', 'doraemon-v1', 'pet.json')), true);
     assert.equal(fs.existsSync(path.join(output, 'RETURN')), true);
     assert.equal(JSON.parse(fs.readFileSync(path.join(output, 'acceptance-checklist.json'))).requiredGates.length, 60);
+    const runConfig = JSON.parse(fs.readFileSync(path.join(output, 'acceptance-tools', 'run-config.json')));
+    assert.equal(runConfig.identity.sourceCommit, commit);
+    assert.equal(runConfig.identity.sourceZipSha256, result.sourceZipSha256);
+    assert.equal(runConfig.identity.environmentFingerprint, null);
+    assert.equal(runConfig.requiredGates.length, 60);
     const args = JSON.parse(fs.readFileSync(path.join(output, 'validator-arguments.json')));
     assert.equal(args.expectSourceCommit, commit);
     assert.equal(args.expectCandidateSha256, null);

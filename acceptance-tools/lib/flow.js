@@ -28,6 +28,6 @@ function selectorOperation(page, selector, operation = 'click', value) {
     : `(()=>{const e=document.querySelector(${escaped});if(!e)throw new Error('selector not found: '+${escaped});e.click();return true})()`;
   return page.evaluate(expression).then((result) => result?.result?.value ?? result);
 }
-function classifyWindowExit(child) { return child.exitCode === null ? 'window-exited-early' : `exitCode=${child.exitCode}`; }
+function classifyWindowExit(child) { if (child?.exitCode == null && child?.signalCode == null && child?.signal == null) return 'running'; return child?.signalCode || child?.signal ? `signal=${child.signalCode || child.signal}` : `exitCode=${child.exitCode}`; }
 
 module.exports = { classifyWindowExit, launchMode, selectorOperation, waitFor };
