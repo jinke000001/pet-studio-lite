@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { CdpError, discoverTarget } = require('../acceptance-tools/lib/cdp');
-const { cleanElectronEnv, classifyDialogResult, platformResult, validateEvidencePath } = require('../acceptance-tools/lib/lab');
+const { captureScreenshot, cleanElectronEnv, classifyDialogResult, platformResult, validateEvidencePath } = require('../acceptance-tools/lib/lab');
 const { classifyWindowExit, selectorOperation, waitFor } = require('../acceptance-tools/lib/flow');
 const { createRun, finalizeRun, loadRun, pauseRun, recordGate, resumeRun } = require('../acceptance-tools/lib/gates');
 
@@ -18,6 +18,7 @@ test('waitFor propagates selector failures and has deterministic timeout', async
 });
 
 test('dialog and platform classifications never turn manual or unavailable into passed', () => {
+  assert.equal(typeof captureScreenshot, 'function');
   assert.equal(classifyDialogResult({ manual: true }), 'manual-continuation');
   assert.equal(classifyDialogResult({ status: 'platform-unavailable' }), 'platform-unavailable');
   assert.equal(classifyDialogResult({ exitCode: 0 }), 'passed');
