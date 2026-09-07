@@ -56,7 +56,15 @@ function createStudioBuilderConfiguration({ outputDirectory, projectRoot, builde
     ],
     mac: { target: [{ target: 'dir', arch: ['arm64'] }], identity: null, category: 'public.app-category.developer-tools' },
     win: { target: [{ target: 'dir', arch: ['x64'] }, { target: 'nsis', arch: ['x64'] }], executableName: 'DesktopPetStudio' },
-    nsis: { artifactName: 'desktop-pet-studio-${version}-${arch}.${ext}', oneClick: false, perMachine: false, createDesktopShortcut: false, createStartMenuShortcut: true },
+    nsis: {
+      guid: '980c4302-3a05-517b-ba38-6c71a752ed15',
+      artifactName: 'desktop-pet-studio-${version}-${arch}.${ext}',
+      oneClick: false,
+      perMachine: false,
+      createDesktopShortcut: false,
+      createStartMenuShortcut: true,
+      uninstallDisplayName: `桌宠制作台 ${version}`,
+    },
   };
 }
 

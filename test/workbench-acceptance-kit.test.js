@@ -294,6 +294,7 @@ test('handoff generation verifies the exact commit and creates independently rec
     assert.equal(fs.existsSync(path.join(output, 'zip-reader.js')), true);
     assert.equal(fs.existsSync(path.join(output, 'acceptance-tools', 'lib', 'cdp.js')), true);
     assert.equal(fs.existsSync(path.join(output, 'acceptance-tools', 'run.js')), true);
+    assert.equal(fs.existsSync(path.join(output, 'acceptance-tools', 'ps', 'official-uninstall.ps1')), true);
     assert.equal(fs.existsSync(path.join(output, 'fixtures', 'doraemon-v1', 'pet.json')), true);
     assert.equal(fs.existsSync(path.join(output, 'RETURN')), true);
     assert.equal(JSON.parse(fs.readFileSync(path.join(output, 'acceptance-checklist.json'))).requiredGates.length, 60);
@@ -306,6 +307,7 @@ test('handoff generation verifies the exact commit and creates independently rec
     assert.equal(args.expectSourceCommit, commit);
     assert.equal(args.expectCandidateSha256, null);
     assert.match(fs.readFileSync(path.join(output, 'HANDOFF.md'), 'utf8'), /bundle/);
+    assert.match(fs.readFileSync(path.join(output, 'WINDOWS-WORKBENCH-PROMPT.md'), 'utf8'), /official-uninstall\.ps1/);
     assert.match(fs.readFileSync(path.join(output, 'checksums.sha256'), 'utf8'), /acceptance-checklist\.json/);
     assert.throws(() => createHandoff({ repoRoot: PROJECT_ROOT, contractPath: CONTRACT_PATH, outputDirectory: output, sourceCommit: commit }), /already exists/);
   } finally {

@@ -27,6 +27,8 @@ test('creates isolated unsigned workbench candidate configuration', () => {
     { from: path.join(projectRoot, 'src'), to: 'workbench-build-assets/src' },
     { from: path.join(projectRoot, 'build'), to: 'workbench-build-assets/build' },
   ]);
+  assert.equal(config.nsis.guid, '980c4302-3a05-517b-ba38-6c71a752ed15');
+  assert.equal(config.nsis.uninstallDisplayName, '桌宠制作台 0.1.0');
 });
 test('creates versioned non-overwriting candidate ids', () => { assert.equal(candidateId(new Date('2026-09-01T01:02:03.000Z')), 'candidate-20260901010203000'); });
 

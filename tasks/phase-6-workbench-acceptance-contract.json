@@ -57,7 +57,7 @@
     {"id":"G6-installed-dpi-cold-150","title":"installed 150% 冷启动","mode":"installed","check":"150% 缩放冷启动","passCriteria":"无白窗、裁切、不可达操作或状态丢失","evidence":["physical-screenshot","logpixels","process-json"]},
     {"id":"G6-installed-dynamic-dpi","title":"installed 动态 DPI","mode":"installed","check":"运行中 100%→125%→150%→原始值","passCriteria":"各档响应正常并恢复原始缩放","evidence":["physical-screenshots","logpixels-timeline","process-json"]},
     {"id":"G7-01-install","title":"安装","mode":"installed","check":"使用本轮 NSIS 安装包安装","passCriteria":"安装成功且身份、快捷方式正确","evidence":["installer-hash","install-log","screenshot"]},
-    {"id":"G7-02-official-uninstall","title":"官方卸载","mode":"installed","check":"从系统官方入口卸载","passCriteria":"目录、快捷方式、注册项清除且进程为 0","evidence":["uninstall-log","filesystem-registry-check","process-json"]},
+    {"id":"G7-02-official-uninstall","title":"官方卸载","mode":"installed","check":"调用 HKCU 记录的官方 UninstallString，等待卸载进程树结束","passCriteria":"退出码为 0，目录、快捷方式、32/64 位注册项和精确进程连续 3 次清零","evidence":["g7-02/uninstall-log.json","g7-02/filesystem-registry-check.json","g7-02/process-json.json"]},
     {"id":"G7-03-reinstall-same-package","title":"同包重装","mode":"installed","check":"卸载后使用同一安装包重装","passCriteria":"重装成功且 installed mode 可冷启动","evidence":["installer-hash","install-log","screenshot"]},
     {"id":"S7-01-running-build-cancel","title":"运行中构建取消","mode":"windows","check":"真实 Windows 候选构建运行时从界面取消","passCriteria":"任务 cancelled、子进程终止、半成品清理、项目无损","evidence":["job-history","process-json","filesystem-check"]},
     {"id":"S7-02-duplicate-operation-rejected","title":"重复操作拒绝","mode":"windows","check":"构建运行中再次发起构建/导出","passCriteria":"拒绝或安全排队，无并发构建和状态损坏","evidence":["screenshot","job-history","process-json"]},
@@ -73,5 +73,5 @@
     {"id":"exit-cleanup","driver":{"command":"node","path":"acceptance-tools/smoke.js","args":["acceptance-tools/smoke.js","--operation","exit-cleanup"],"timeoutMs":30000},"requiredEvidence":["preflight/exit-cleanup.json","preflight/final-processes.json"]},
     {"id":"native-file-dialog-manual","method":"manual","reason":"驱动未取回时允许真实人工选择作为局部接续，但不算预检通过"}
   ],
-  "knownExternalAutomationFiles":["acceptance-tools/lib/cdp.js","acceptance-tools/lib/lab.js","acceptance-tools/lib/flow.js","acceptance-tools/lib/gates.js","acceptance-tools/ps/dialog-fill.ps1","acceptance-tools/smoke.js","acceptance-tools/s6.js","acceptance-tools/run.js","acceptance-tools/config.json","acceptance-tools/run-config.json"]
+  "knownExternalAutomationFiles":["acceptance-tools/lib/cdp.js","acceptance-tools/lib/lab.js","acceptance-tools/lib/flow.js","acceptance-tools/lib/gates.js","acceptance-tools/lib/official-uninstall.js","acceptance-tools/ps/dialog-fill.ps1","acceptance-tools/ps/official-uninstall.ps1","acceptance-tools/smoke.js","acceptance-tools/s6.js","acceptance-tools/run.js","acceptance-tools/config.json","acceptance-tools/run-config.json"]
 }

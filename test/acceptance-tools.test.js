@@ -7,6 +7,7 @@ const { CdpError, discoverTarget } = require('../acceptance-tools/lib/cdp');
 const { captureScreenshot, cleanElectronEnv, classifyDialogResult, platformResult, validateEvidencePath } = require('../acceptance-tools/lib/lab');
 const { classifyWindowExit, selectorOperation, waitFor } = require('../acceptance-tools/lib/flow');
 const { createRun, finalizeRun, loadRun, pauseRun, recordGate, resumeRun } = require('../acceptance-tools/lib/gates');
+const { classifyUninstallSnapshot, waitForUninstallCompletion } = require('../acceptance-tools/lib/official-uninstall');
 
 test('CDP connection errors and missing target are classified, not swallowed', async () => {
   await assert.rejects(() => discoverTarget({ port: 1, timeoutMs: 10 }), (error) => error instanceof CdpError && ['CDP_CONNECTION', 'ECONNREFUSED'].includes(error.code));
@@ -15,6 +16,56 @@ test('CDP connection errors and missing target are classified, not swallowed', a
 test('waitFor propagates selector failures and has deterministic timeout', async () => {
   await assert.rejects(() => waitFor(() => false, { timeoutMs: 5, intervalMs: 1, description: 'selector' }), /timed out waiting for selector/);
   assert.throws(() => selectorOperation({}, '#missing'), /connected CDP page/);
+});
+
+test('official uninstall requires stable removal instead of a fixed delay', async () => {
+  const dirty = {
+    uninstallerExitCode: 0,
+    registryViews: [{ view: 'Registry64', exists: true }],
+    installDirectoryExists: false,
+    shortcutPaths: [],
+    productProcesses: [],
+    uninstallerProcesses: [],
+  };
+  const clean = { ...dirty, registryViews: [{ view: 'Registry64', exists: false }] };
+  const snapshots = [dirty, clean, dirty, clean, clean, clean];
+  let index = 0;
+  const result = await waitForUninstallCompletion(
+    async () => snapshots[Math.min(index++, snapshots.length - 1)],
+    { timeoutMs: 100, intervalMs: 0, stablePolls: 3, delay: async () => {} },
+  );
+  assert.equal(result.status, 'passed');
+  assert.equal(result.stablePolls, 3);
+  assert.equal(index, 6);
+  assert.equal(classifyUninstallSnapshot(dirty).status, 'waiting');
+});
+
+test('official uninstall rejects nonzero exit and any residual lifecycle state', () => {
+  const result = classifyUninstallSnapshot({
+    uninstallerExitCode: 2,
+    registryViews: [{ view: 'Registry64', exists: false }, { view: 'Registry32', exists: false }],
+    installDirectoryExists: false,
+    shortcutPaths: [{ path: 'start-menu', exists: false }],
+    productProcesses: [],
+    uninstallerProcesses: [],
+  });
+  assert.equal(result.status, 'failed');
+  assert.match(result.problems.join('\n'), /exit code 2/);
+});
+
+test('Windows official uninstall probe reads the separate install key and never deletes registry evidence', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'acceptance-tools', 'ps', 'official-uninstall.ps1'), 'utf8');
+  assert.match(source, /InstallRegistrySubKey/);
+  assert.match(source, /ExpectedDisplayName/);
+  assert.match(source, /GetFullPath/);
+  assert.match(source, /GetDirectoryName/);
+  assert.match(source, /UninstallString contains a line break/);
+  assert.match(source, /Start-Process[^\n]+-Wait/);
+  assert.match(source, /StablePolls/);
+  assert.match(source, /filesystem-registry-check\.json/);
+  assert.doesNotMatch(source, /Remove-Item|DeleteRegKey|DeleteSubKey/i);
+  assert.doesNotMatch(source, /-Encoding utf8NoBOM/i);
+  assert.doesNotMatch(source, /expected exactly one HKCU uninstall registration/i);
 });
 
 test('dialog and platform classifications never turn manual or unavailable into passed', () => {
