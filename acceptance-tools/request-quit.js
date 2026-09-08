@@ -18,7 +18,7 @@ const {
 
 function parseArgs(argv) {
   const options = { timeoutSeconds: 60 };
-  for (let index = 0; index < argv.length; index += 1) {
+  for (let index = 0; index < argv.length; index += 2) {
     const value = argv[index + 1];
     if (argv[index] === '--cdp-port') options.cdpPort = Number(value);
     else if (argv[index] === '--install-dir') options.installDir = value;

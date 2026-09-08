@@ -261,6 +261,21 @@ test('the Windows enumerator matches only the exact installed product executable
   assert.deepEqual(matches.map((entry) => entry.processId).sort(), [10, 11]);
 });
 
+test('the quit driver consumes each option value exactly once', () => {
+  const { parseArgs } = require('../acceptance-tools/request-quit');
+  assert.deepEqual(parseArgs([
+    '--cdp-port', '9222',
+    '--install-dir', 'C:\\Users\\Administrator\\AppData\\Local\\Programs\\DesktopPetCandidate',
+    '--executable-name', 'DesktopPetCandidate.exe',
+    '--timeout-seconds', '60',
+  ]), {
+    cdpPort: 9222,
+    installDir: 'C:\\Users\\Administrator\\AppData\\Local\\Programs\\DesktopPetCandidate',
+    executableName: 'DesktopPetCandidate.exe',
+    timeoutSeconds: 60,
+  });
+});
+
 test('the Windows official uninstall probe drives the real quit entry instead of CloseMainWindow', () => {
   const source = fs.readFileSync(path.join(REPO_ROOT, 'acceptance-tools', 'ps', 'official-uninstall.ps1'), 'utf8');
   assert.doesNotMatch(source, /CloseMainWindow/i, 'window close cannot quit the tray-resident pet; the probe must use the real quit entry');
