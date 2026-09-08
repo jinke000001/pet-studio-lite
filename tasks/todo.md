@@ -11,6 +11,14 @@
 - [x] D5 非覆盖续验交接 `release/handoff/phase-6-workbench-windows-continuation-20260908-01/`：38 文件、checksums 全过（自身 `b6db0834…`）、空 RETURN、未写 T7。
 - [ ] D6 用户确认后搬运到 T7；Windows 从 `run.js continue` 与 `G7-02-official-uninstall` 继续执行续验。
 
+### 2026-09-08 G7-02 生命周期修复与 -02 续验交接
+
+- [x] E1 行为级 RED：`test/product-lifecycle.test.js` 用真实 Electron + CDP 证明关窗不能退出托盘桌宠（页面目标消失、进程存活），真实退出入口/生命周期门控/报告模板测试在旧实现上确定性失败（21 处，`logs/phase-6-g702-lifecycle-RED.txt`）；旧 `CloseMainWindow` 字符串匹配断言已删除，不构成行为证明。
+- [x] E2 最小修复（提交 `1d05105`）：`lib/product-lifecycle.js`（真实退出入口 `petApi.quit → pet:quit → app.quit()`，记录退出方式/退出前 PID/请求结果/进程观测，进程未归零或入口不可驱动即 lifecycle-failed 且不得启动卸载器）、`request-quit.js` CLI、ps1 生命周期段重写（未运行时以 `--remote-debugging-port=9222` 启动保留安装，候选未修改）、`renderContinuationReportTemplate`（25 inherited + 35 待执行，回归禁止 60 门全待执行）。
+- [x] E3 GREEN 与全部质量门：聚焦 42/42、全量 `npm test` 276/276、typecheck/build/lint/preflight/audit(0)/diff-check 全过（`logs/phase-6-g702-quality-gates.txt`）。
+- [x] E4 非覆盖续验交接 `release/handoff/phase-6-workbench-windows-continuation-20260908-02/`：39 文件、checksums 全过（自身 `d557b4df…`）、空 RETURN、bundle HEAD/source ZIP/合同/候选 SHA/父 RETURN SHA 复核通过，`-01` 保留未动，未写 T7、不 push/merge/tag。
+- [ ] E5 Windows 实机执行 `-02` 续验；Windows 端进程枚举、注册表与卸载器行为保持 `pending external RETURN`。
+
 ### 2026-09-04 个人自用版收敛：代码精简与 Windows 验收提速
 
 - [x] C0 冻结当前基线、只读复核 T7 `-11` partial-save，并建立本地非覆盖副本；Windows 回传明确为已保存但未完成。

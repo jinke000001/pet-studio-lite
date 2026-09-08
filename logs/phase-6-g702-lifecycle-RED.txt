@@ -1,0 +1,430 @@
+✔ CDP connection errors and missing target are classified, not swallowed (5.080416ms)
+✔ waitFor propagates selector failures and has deterministic timeout (5.444583ms)
+✔ official uninstall requires stable removal instead of a fixed delay (0.2795ms)
+✔ official uninstall rejects nonzero exit and any residual lifecycle state (0.114167ms)
+✔ Windows official uninstall probe reads the separate install key and never deletes registry evidence (0.3405ms)
+✖ Windows official uninstall probe derives the candidate identity and quits only through the real exit entry (1.022166ms)
+✔ dialog and platform classifications never turn manual or unavailable into passed (0.086833ms)
+✔ evidence paths reject absolute, traversal, empty, symlink and out-of-root files (0.828958ms)
+✔ run state supports running → paused → running and records non-overwriting attempts (5.186917ms)
+✔ finalize rejects incomplete gates, null candidate, scale mismatch and residual processes (88.71825ms)
+✔ a child with no exit code is still running (0.479167ms)
+✔ resume requires every run identity field, including a null candidate (2.858542ms)
+✔ finalize rejects tampered historical evidence and writes checksum closure (3.686ms)
+✔ smoke screenshot operation uses the injected adapter and requires PNG plus metadata (1.8805ms)
+✔ smoke exit cleanup writes both declared evidence files (0.658458ms)
+✔ smoke never treats a non-Windows probe as passed (0.462125ms)
+✔ closing the main window cannot quit the tray pet; a CloseMainWindow string match is not a behavior proof (2832.737334ms)
+✖ the candidate exits through its real quit entry petApi.quit → pet:quit → app.quit() (0.485625ms)
+✖ the lifecycle runner drives a running product to zero exact processes through the real quit entry (0.227083ms)
+✖ the official uninstaller is never started while exact product processes remain (0.205583ms)
+✖ a missing real quit entry records lifecycle-failed instead of starting the uninstaller (0.208583ms)
+✖ an already-stopped product needs no quit request before the official uninstaller (0.162834ms)
+✖ the Windows enumerator matches only the exact installed product executable path (0.149625ms)
+✖ the Windows official uninstall probe drives the real quit entry instead of CloseMainWindow (0.832125ms)
+✔ a failed parent RETURN cannot be reopened by the ordinary resumeRun (102.214875ms)
+✔ continuation refuses a missing parent RETURN, missing checksums or incomplete identity (115.259083ms)
+✔ continuation rejects the parent RETURN when any parent evidence hash changed (109.9665ms)
+✔ continuation rejects any identity drift: commit, source zip, contract, environment or candidate (109.529375ms)
+✔ candidateSha256 is never inherited as null: manifest, artifact hashes and install evidence must agree (338.123792ms)
+✔ only passed gates with exitCode 0 and complete evidence hashes are inherited (100.845875ms)
+✔ failed, not-executed and environment-blocked parent gates are never inherited as passed (91.388625ms)
+✔ inherited gates record parentRunId, parent checksum digest, original attempt and inherited=true (84.518291ms)
+✔ the continuation starts at the failed gate without rewriting the parent record (86.192042ms)
+✔ a continuation finalizes only after all remaining gates are executed for real (132.239125ms)
+✔ finalize of a continuation re-verifies the parent RETURN instead of trusting copied state (124.424458ms)
+✔ continuation cannot be minted from a paused or passed parent run (1.317375ms)
+✔ validator reports parent and continuation verdicts separately for a completed continuation RETURN (206.78025ms)
+✔ validator rejects a continuation RETURN when the parent RETURN is missing, tampered or misbound (251.645ms)
+✔ validator refuses inherited pass claims that are not backed by a real parent passed gate (179.849291ms)
+✔ finalize rejects a forged inherited gate before any checksum is frozen (127.391167ms)
+✖ continuation report template prefills the 25 parent-passed gates as inherited and keeps 35 pending (0.244208ms)
+✖ continuation report template rejects unknown or duplicate inherited gates (0.410334ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 32
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2883.797666
+
+✖ failing tests:
+
+test at test/acceptance-tools.test.js:71:1
+✖ Windows official uninstall probe derives the candidate identity and quits only through the real exit entry (1.022166ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /CloseMainWindow/i. Input:
+  
+  'param(\n' +
+    '  [Parameter(Mandatory = $true)][string]$EvidenceRoot,\n' +
+    '  [string]$IdentityFile,\n' +
+    '  [string]$ProductName,\n' +
+    '  [string]$ExpectedDisplayName,\n' +
+    '  [string]$ExecutableName,\n' +
+    '  [string]$ShortcutName,\n' +
+    '  [int]$TimeoutSeconds = 120,\n' +
+    '  [int]$StablePolls = 3,\n' +
+    '  [int]$GracefulExitTimeoutSeconds = 60\n' +
+    ')\n' +
+    '\n' +
+    "$ErrorActionPreference = 'Stop'\n" +
+    "$evidenceDirectory = Join-Path ([IO.Path]::GetFullPath($EvidenceRoot)) 'g7-02'\n" +
+    'New-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null\n' +
+    '\n' +
+    'function Write-EvidenceJson([string]$Name, $Value) {\n' +
+    '  $target = Join-Path $evidenceDirectory $Name\n' +
+    '  if (Test-Path -LiteralPath $target) { throw "evidence already exists: $target" }\n' +
+    '  $json = $Value | ConvertTo-Json -Depth 12\n' +
+    '  [IO.File]::WriteAllText($target, "$json`r`n", (New-Object Text.UTF8Encoding($false)))\n' +
+    '}\n' +
+    '\n' +
+    'function Get-RegistryViewState([Microsoft.Win32.RegistryView]$View, [string]$SubKey) {\n' +
+    '  $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $View)\n' +
+    '  try {\n' +
+    '    $key = $base.OpenSubKey($SubKey)\n' +
+    '    if ($null -eq $key) { return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $false; values = $null } }\n' +
+    '    try {\n' +
+    '      $values = @{}\n' +
+    '      foreach ($name in $key.GetValueNames()) { $values[$name] = $key.GetValue($name) }\n' +
+    '      return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $true; values = $values }\n' +
+    '    } finally { $key.Dispose() }\n' +
+    '  } finally { $base.Dispose() }\n' +
+    '}\n' +
+    '\n' +
+    'function Get-RegistryState([string]$SubKey) {\n' +
+    '  @(\n' +
+    '    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry64) $SubKey\n' +
+    '    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry32) $SubKey\n' +
+    '  )\n' +
+    '}\n' +
+    '\n' +
+    'function Find-UninstallRegistrations([string]$DisplayName) {\n' +
+    '  $found = @{}\n' +
+    '  foreach ($view in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {\n' +
+    '    $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $view)\n' +
+    '    try {\n' +
+    "      $uninstall = $base.OpenSubKey('Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall')\n" +
+    '      if ($null -eq $uninstall) { continue }\n' +
+    '      try {\n' +
+    '        foreach ($name in $uninstall.GetSubKeyNames()) {\n' +
+    '          $key = $uninstall.OpenSubKey($name)\n' +
+    '          if ($null -eq $key) { continue }\n' +
+    '          try {\n' +
+    '            $values = @{}\n' +
+    '            foreach ($valueName in $key.GetValueNames()) { $values[$valueName] = $key.GetValue($valueName) }\n' +
+    '            if ([string]$values.DisplayName -eq $DisplayName) {\n' +
+    '              $found[$name] = [pscustomobject]@{ view = $view.ToString(); subKeyName = $name; values = $values }\n' +
+    '            }\n' +
+    '          } finally { $key.Dispose() }\n' +
+    '        }\n' +
+    '      } finally { $uninstall.Dispose() }\n' +
+    '    } finally { $base.Dispose() }\n' +
+    '  }\n' +
+    '  $found\n' +
+    '}\n' +
+    '\n' +
+    'function Get-ExactProcesses([string]$InstallDirectory, [string]$UninstallerPath) {\n' +
+    '  $productPath = if ($InstallDirectory) { [IO.Path]::GetFullPath((Join-Path $InstallDirectory $ExecutableName)) } else { $null }\n' +
+    '  $processes = @(Get-CimInstance Win32_Process | Select-Object Name, ProcessId, ParentProcessId, ExecutablePath, CommandLine)\n' +
+    '  $product = @($processes | Where-Object {\n' +
+    '    $productPath -and $_.ExecutablePath -and [string]::Equals([IO.Path]::GetFullPath($_.ExecutablePath), $productPath, [StringComparison]::OrdinalIgnoreCase)\n' +
+    '  })\n' +
+    '  $uninstallerLeaf = if ($UninstallerPath) { [IO.Path]::GetFileName($UninstallerPath) } else { $null }\n' +
+    '  $uninstallers = @($processes | Where-Object {\n' +
+    '    $uninstallerLeaf -and (($_.ExecutablePath -and [string]::Equals([IO.Path]::GetFileName($_.ExecutablePath), $uninstallerLeaf, [StringComparison]::OrdinalIgnoreCase)) -or ($_.CommandLine -and $_.CommandLine.Contains($UninstallerPath)))\n' +
+    '  })\n' +
+    '  [pscustomobject]@{ product = $product; uninstallers = $uninstallers }\n' +
+    '}\n' +
+    '\n' +
+    'function Split-UninstallCommand([string]$CommandLine) {\n' +
+    `  if ($CommandLine -match "[\\r\\n]") { throw 'UninstallString contains a line break' }\n` +
+    `  $match = [regex]::Match($CommandLine, '^\\s*"([^"]+)"\\s*(.*)$')\n` +
+    "  if (-not $match.Success) { $match = [regex]::Match($CommandLine, '^\\s*(\\S+)\\s*(.*)$') }\n" +
+    "  if (-not $match.Success) { throw 'unable to parse UninstallString' }\n" +
+    '  [pscustomobject]@{ filePath = $match.Groups[1].Value; arguments = $match.Groups[2].Value }\n' +
+    '}\n' +
+    '\n' +
+    '$startedAt = [DateTimeOffset]::UtcNow\n' +
+    '\n' +
+    '# ---- 候选身份：只从本轮候选 manifest / G7-01 安装证据或显式参数取得，无任何内置默认身份 ----\n' +
+    '$identity = @{}\n' +
+    'if ($IdentityFile) {\n' +
+    '  if (-not (Test-Path -LiteralPath $IdentityFile -PathType Leaf)) { throw "identity file is missing: $IdentityFile" }\n' +
+    '  $parsed = Get-Content -LiteralPath $IdentityFile -Raw | ConvertFrom-Json\n' +
+    "  foreach ($name in @('productName', 'uninstallDisplayName', 'executableName', 'shortcutName', 'installLocation', 'version')) {\n" +
+    '    if ($parsed.PSObject.Properties[$name] -and $parsed.$name) { $identity[$name] = [string]$parsed.$name }\n' +
+    '  }\n' +
+    '}\n' +
+    "if ($ProductName) { $identity['productName'] = $ProductName }\n" +
+    "if ($ExpectedDisplayName) { $identity['uninstallDisplayName'] = $ExpectedDisplayName }\n" +
+    "if ($ExecutableName) { $identity['executableName'] = $ExecutableName }\n" +
+    "if ($ShortcutName) { $identity['shortcutName'] = $ShortcutName }\n" +
+    `if (-not $identity['uninstallDisplayName'] -and $identity['productName'] -and $identity['version']) { $identity['uninstallDisplayName'] = "$($identity['productName']) $($identity['version'])" }\n` +
+    `if (-not $identity['shortcutName'] -and $identity['productName']) { $identity['shortcutName'] = "$($identity['productName']).lnk" }\n` +
+    "$ExpectedDisplayName = $identity['uninstallDisplayName']\n" +
+    "$ExecutableName = $identity['executableName']\n" +
+    "$ShortcutName = $identity['shortcutName']\n" +
+    'if (-not $ExpectedDisplayName -or -not $ExecutableName -or -not $ShortcutName) {\n' +
+    "  Write-EvidenceJson 'uninstall-log.json' ([pscustomobject]@{ status = 'failed'; reason = 'candidate identity is incomplete: uninstallDisplayName, executableName and shortcutName are required from the candidate manifest or G7-01 install evidence'; startedAt = $startedAt })\n" +
+    '  exit 2\n' +
+    '}\n' +
+    '\n' +
+    '# ---- 通过 DisplayName 发现本轮候选的真实 HKCU 注册身份，不使用固定 GUID ----\n' +
+    '$registrations = Find-UninstallRegistrations $ExpectedDisplayName\n' +
+    'if ($registrations.Count -ne 1) {\n' +
+    `  Write-EvidenceJson 'uninstall-log.json' ([pscustomobject]@{ status = 'failed'; reason = "official uninstall identity is missing or ambiguous: $($registrations.Count) registration(s) for '$ExpectedDisplayName'"; expectedDisplayName = $ExpectedDisplayName; startedAt = $startedAt })\n` +
+    '  exit 2\n' +
+    '}\n' +
+    '$subKeyName = @($registrations.Keys)[0]\n' +
+    '$registration = $registrations[$subKeyName]\n' +
+    '$RegistrySubKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\$subKeyName"\n' +
+    '$InstallRegistrySubKey = "Software\\$subKeyName"\n' +
+    '$initialRegistry = @(Get-RegistryState $RegistrySubKey)\n' +
+    '$initialInstallRegistry = @(Get-RegistryState $InstallRegistrySubKey)\n' +
+    '$uninstallString = [string]$registration.values.UninstallString\n' +
+    '$installLocations = @()\n' +
+    'if ($registration.values.InstallLocation) { $installLocations += [string]$registration.values.InstallLocation }\n' +
+    '$installLocations += @($initialInstallRegistry | Where-Object { $_.exists -and $_.values.InstallLocation } | ForEach-Object { [string]$_.values.InstallLocation })\n' +
+    '$installLocations = @($installLocations | Select-Object -Unique)\n' +
+    'if (-not $uninstallString -or $installLocations.Count -ne 1) {\n' +
+    "  Write-EvidenceJson 'uninstall-log.json' ([pscustomobject]@{ status = 'failed'; reason = 'official uninstall identity is missing or ambiguous'; expectedDisplayName = $ExpectedDisplayName; uninstallRegistry = $initialRegistry; installRegistry = $initialInstallRegistry; startedAt = $startedAt })\n" +
+    '  exit 2\n' +
+    '}\n' +
+    '\n' +
+    '$command = Split-UninstallCommand $uninstallString\n' +
+    'if (-not (Test-Path -LiteralPath $command.filePath -PathType Leaf)) { throw "official uninstaller is missing: $($command.filePath)" }\n' +
+    "if ($command.arguments -notmatch '(?i)(^|\\s)/currentuser(\\s|$)') { throw 'HKCU UninstallString must preserve /currentuser' }\n" +
+    '\n' +
+    '$installDirectory = [IO.Path]::GetFullPath($installLocations[0])\n' +
+    '$uninstallerPath = [IO.Path]::GetFullPath($command.filePath)\n' +
+    'if (-not [string]::Equals([IO.Path]::GetDirectoryName($uninstallerPath), $installDirectory, [StringComparison]::OrdinalIgnoreCase)) {\n' +
+    "  throw 'official uninstaller must be inside the recorded install directory'\n" +
+    '}\n' +
+    "if ([IO.Path]::GetFileName($uninstallerPath) -notmatch '(?i)^Uninstall .+\\.exe$') { throw 'official uninstaller filename is invalid' }\n" +
+    '$command.filePath = $uninstallerPath\n' +
+    '$shortcutPaths = @(Join-Path $env:APPDATA "Microsoft\\Windows\\Start Menu\\Programs\\$ShortcutName")\n' +
+    '\n' +
+    '# ---- 卸载前通过产品正常退出入口（主窗口关闭请求）关闭 installed 应用；失败记为独立生命周期失败 ----\n' +
+    '$graceful = @()\n' +
+    '$closeRequested = @()\n' +
+    '$gracefulDeadline = [DateTimeOffset]::UtcNow.AddSeconds($GracefulExitTimeoutSeconds)\n' +
+    '$requested = $false\n' +
+    'while ([DateTimeOffset]::UtcNow -le $gracefulDeadline) {\n' +
+    '  $snapshot = Get-ExactProcesses $installDirectory $null\n' +
+    '  $graceful += [pscustomobject]@{ observedAt = [DateTimeOffset]::UtcNow; productProcessCount = $snapshot.product.Count }\n' +
+    '  if ($snapshot.product.Count -eq 0) { break }\n' +
+    '  if (-not $requested) {\n' +
+    '    $requested = $true\n' +
+    '    foreach ($entry in $snapshot.product) {\n' +
+    "      if ($entry.CommandLine -and $entry.CommandLine -match '--type=') { continue }\n" +
+    '      $proc = Get-Process -Id $entry.ProcessId -ErrorAction SilentlyContinue\n' +
+    '      if ($null -ne $proc) {\n' +
+    '        $closeAccepted = $proc.CloseMainWindow()\n' +
+    '        $closeRequested += [pscustomobject]@{ processId = $entry.ProcessId; closeMainWindowAccepted = $closeAccepted }\n' +
+    '      }\n' +
+    '    }\n' +
+    '  }\n' +
+    '  Start-Sleep -Seconds 1\n' +
+    '}\n' +
+    '$preUninstallProcesses = Get-ExactProcesses $installDirectory $null\n' +
+    'if ($preUninstallProcesses.product.Count -ne 0) {\n' +
+    '  $failedSnapshot = [pscustomobject]@{\n' +
+    '    observedAt = [DateTimeOffset]::UtcNow\n' +
+    '    uninstallerExitCode = $null\n' +
+    '    registryViews = $initialRegistry\n' +
+    '    installRegistryViews = $initialInstallRegistry\n' +
+    '    installDirectory = $installDirectory\n' +
+    '    installDirectoryExists = Test-Path -LiteralPath $installDirectory\n' +
+    '    shortcutPaths = @($shortcutPaths | ForEach-Object { [pscustomobject]@{ path = $_; exists = Test-Path -LiteralPath $_ } })\n' +
+    '    productProces'... 3560 more characters
+  
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/acceptance-tools.test.js:80:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'param(\n  [Parameter(Mandatory = $true)][string]$EvidenceRoot,\n  [string]$IdentityFile,\n  [string]$ProductName,\n  [string]$ExpectedDisplayName,\n  [string]$ExecutableName,\n  [string]$ShortcutName,\n  [int]$TimeoutSeconds = 120,\n  [int]$StablePolls = 3,\n  [int]$GracefulExitTimeoutSeconds = 60\n)\n\n$ErrorActionPreference = \'Stop\'\n$evidenceDirectory = Join-Path ([IO.Path]::GetFullPath($EvidenceRoot)) \'g7-02\'\nNew-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null\n\nfunction Write-EvidenceJson([string]$Name, $Value) {\n  $target = Join-Path $evidenceDirectory $Name\n  if (Test-Path -LiteralPath $target) { throw "evidence already exists: $target" }\n  $json = $Value | ConvertTo-Json -Depth 12\n  [IO.File]::WriteAllText($target, "$json`r`n", (New-Object Text.UTF8Encoding($false)))\n}\n\nfunction Get-RegistryViewState([Microsoft.Win32.RegistryView]$View, [string]$SubKey) {\n  $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $View)\n  try {\n    $key = $base.OpenSubKey($SubKey)\n    if ($null -eq $key) { return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $false; values = $null } }\n    try {\n      $values = @{}\n      foreach ($name in $key.GetValueNames()) { $values[$name] = $key.GetValue($name) }\n      return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $true; values = $values }\n    } finally { $key.Dispose() }\n  } finally { $base.Dispose() }\n}\n\nfunction Get-RegistryState([string]$SubKey) {\n  @(\n    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry64) $SubKey\n    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry32) $SubKey\n  )\n}\n\nfunction Find-UninstallRegistrations([string]$DisplayName) {\n  $found = @{}\n  foreach ($view in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {\n    $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $view)\n    try {\n      $uninstall = $base.OpenSubKey(\'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\')\n      if ($null -eq $uninstall) { continue }\n      try {\n        foreach ($name in $uninstall.GetSubKeyNames()) {\n          $key = $uninstall.OpenSubKey($name)\n          if ($null -eq $key) { continue }\n          try {\n            $values = @{}\n            foreach ($valueName in $key.GetValueNames()) { $values[$valueName] = $key.GetValue($valueName) }\n            if ([string]$values.DisplayName -eq $DisplayName) {\n              $found[$name] = [pscustomobject]@{ view = $view.ToString(); subKeyName = $name; values = $values }\n            }\n          } finally { $key.Dispose() }\n        }\n      } finally { $uninstall.Dispose() }\n    } finally { $base.Dispose() }\n  }\n  $found\n}\n\nfunction Get-ExactProcesses([string]$InstallDirectory, [string]$UninstallerPath) {\n  $productPath = if ($InstallDirectory) { [IO.Path]::GetFullPath((Join-Path $InstallDirectory $ExecutableName)) } else { $null }\n  $processes = @(Get-CimInstance Win32_Process | Select-Object Name, ProcessId, ParentProcessId, ExecutablePath, CommandLine)\n  $product = @($processes | Where-Object {\n    $productPath -and $_.ExecutablePath -and [string]::Equals([IO.Path]::GetFullPath($_.ExecutablePath), $productPath, [StringComparison]::OrdinalIgnoreCase)\n  })\n  $uninstallerLeaf = if ($UninstallerPath) { [IO.Path]::GetFileName($UninstallerPath) } else { $null }\n  $uninstallers = @($processes | Where-Object {\n    $uninstallerLeaf -and (($_.ExecutablePath -and [string]::Equals([IO.Path]::GetFileName($_.ExecutablePath), $uninstallerLeaf, [StringComparison]::OrdinalIgnoreCase)) -or ($_.CommandLine -and $_.CommandLine.Contains($UninstallerPath)))\n  })\n  [pscustomobject]@{ product = $product; uninstallers = $uninstallers }\n}\n\nfunction Split-UninstallCommand([string]$CommandLine) {\n  if ($CommandLine -match "[\\r\\n]") { throw \'UninstallString contains a line break\' }\n  $match = [regex]::Match($CommandLine, \'^\\s*"([^"]+)"\\s*(.*)$\')\n  if (-not $match.Success) { $match = [regex]::Match($CommandLine, \'^\\s*(\\S+)\\s*(.*)$\') }\n  if (-not $match.Success) { throw \'unable to parse UninstallString\' }\n  [pscustomobject]@{ filePath = $match.Groups[1].Value; arguments = $match.Groups[2].Value }\n}\n\n$startedAt = [DateTimeOffset]::UtcNow\n\n# ---- 候选身份：只从本轮候选 manifest / G7-01 安装证据或显式参数取得，无任何内置默认身份 ----\n$identity = @{}\nif ($IdentityFile) {\n  if (-not (Test-Path -LiteralPath $IdentityFile -PathType Leaf)) { throw "identity file is missing: $IdentityFile" }\n  $parsed = Get-Content -LiteralPath $IdentityFile -Raw | ConvertFrom-Json\n  foreach ($name in @(\'productName\', \'uninstallDisplayName\', \'executableName\', \'shortcutName\', \'installLocation\', \'version\')) {\n    if ($parsed.PSObject.Properties[$name] -and $parsed.$name) { $identity[$name] = [string]$parsed.$name }\n  }\n}\nif ($ProductName) { $identity[\'productName\'] = $ProductName }\nif ($ExpectedDisplayName) { $identity[\'uninstallDisplayName\'] = $ExpectedDisplayName }\nif ($ExecutableName) { $identity[\'executableName\'] = $ExecutableName }\nif ($ShortcutName) { $identity[\'shortcutName\'] = $ShortcutName }\nif (-not $identity[\'uninstallDisplayName\'] -and $identity[\'productName\'] -and $identity[\'version\']) { $identity[\'uninstallDisplayName\'] = "$($identity[\'productName\']) $($identity[\'version\'])" }\nif (-not $identity[\'shortcutName\'] -and $identity[\'productName\']) { $identity[\'shortcutName\'] = "$($identity[\'productName\']).lnk" }\n$ExpectedDisplayName = $identity[\'uninstallDisplayName\']\n$ExecutableName = $identity[\'executableName\']\n$ShortcutName = $identity[\'shortcutName\']\nif (-not $ExpectedDisplayName -or -not $ExecutableName -or -not $ShortcutName) {\n  Write-EvidenceJson \'uninstall-log.json\' ([pscustomobject]@{ status = \'failed\'; reason = \'candidate identity is incomplete: uninstallDisplayName, executableName and shortcutName are required from the candidate manifest or G7-01 install evidence\'; startedAt = $startedAt })\n  exit 2\n}\n\n# ---- 通过 DisplayName 发现本轮候选的真实 HKCU 注册身份，不使用固定 GUID ----\n$registrations = Find-UninstallRegistrations $ExpectedDisplayName\nif ($registrations.Count -ne 1) {\n  Write-EvidenceJson \'uninstall-log.json\' ([pscustomobject]@{ status = \'failed\'; reason = "official uninstall identity is missing or ambiguous: $($registrations.Count) registration(s) for \'$ExpectedDisplayName\'"; expectedDisplayName = $ExpectedDisplayName; startedAt = $startedAt })\n  exit 2\n}\n$subKeyName = @($registrations.Keys)[0]\n$registration = $registrations[$subKeyName]\n$RegistrySubKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\$subKeyName"\n$InstallRegistrySubKey = "Software\\$subKeyName"\n$initialRegistry = @(Get-RegistryState $RegistrySubKey)\n$initialInstallRegistry = @(Get-RegistryState $InstallRegistrySubKey)\n$uninstallString = [string]$registration.values.UninstallString\n$installLocations = @()\nif ($registration.values.InstallLocation) { $installLocations += [string]$registration.values.InstallLocation }\n$installLocations += @($initialInstallRegistry | Where-Object { $_.exists -and $_.values.InstallLocation } | ForEach-Object { [string]$_.values.InstallLocation })\n$installLocations = @($installLocations | Select-Object -Unique)\nif (-not $uninstallString -or $installLocations.Count -ne 1) {\n  Write-EvidenceJson \'uninstall-log.json\' ([pscustomobject]@{ status = \'failed\'; reason = \'official uninstall identity is missing or ambiguous\'; expectedDisplayName = $ExpectedDisplayName; uninstallRegistry = $initialRegistry; installRegistry = $initialInstallRegistry; startedAt = $startedAt })\n  exit 2\n}\n\n$command = Split-UninstallCommand $uninstallString\nif (-not (Test-Path -LiteralPath $command.filePath -PathType Leaf)) { throw "official uninstaller is missing: $($command.filePath)" }\nif ($command.arguments -notmatch \'(?i)(^|\\s)/currentuser(\\s|$)\') { throw \'HKCU UninstallString must preserve /currentuser\' }\n\n$installDirectory = [IO.Path]::GetFullPath($installLocations[0])\n$uninstallerPath = [IO.Path]::GetFullPath($command.filePath)\nif (-not [string]::Equals([IO.Path]::GetDirectoryName($uninstallerPath), $installDirectory, [StringComparison]::OrdinalIgnoreCase)) {\n  throw \'official uninstaller must be inside the recorded install directory\'\n}\nif ([IO.Path]::GetFileName($uninstallerPath) -notmatch \'(?i)^Uninstall .+\\.exe$\') { throw \'official uninstaller filename is invalid\' }\n$command.filePath = $uninstallerPath\n$shortcutPaths = @(Join-Path $env:APPDATA "Microsoft\\Windows\\Start Menu\\Programs\\$ShortcutName")\n\n# ---- 卸载前通过产品正常退出入口（主窗口关闭请求）关闭 installed 应用；失败记为独立生命周期失败 ----\n$graceful = @()\n$closeRequested = @()\n$gracefulDeadline = [DateTimeOffset]::UtcNow.AddSeconds($GracefulExitTimeoutSeconds)\n$requested = $false\nwhile ([DateTimeOffset]::UtcNow -le $gracefulDeadline) {\n  $snapshot = Get-ExactProcesses $installDirectory $null\n  $graceful += [pscustomobject]@{ observedAt = [DateTimeOffset]::UtcNow; productProcessCount = $snapshot.product.Count }\n  if ($snapshot.product.Count -eq 0) { break }\n  if (-not $requested) {\n    $requested = $true\n    foreach ($entry in $snapshot.product) {\n      if ($entry.CommandLine -and $entry.CommandLine -match \'--type=\') { continue }\n      $proc = Get-Process -Id $entry.ProcessId -ErrorAction SilentlyContinue\n      if ($null -ne $proc) {\n        $closeAccepted = $proc.CloseMainWindow()\n        $closeRequested += [pscustomobject]@{ processId = $entry.ProcessId; closeMainWindowAccepted = $closeAccepted }\n      }\n    }\n  }\n  Start-Sleep -Seconds 1\n}\n$preUninstallProcesses = Get-ExactProcesses $installDirectory $null\nif ($preUninstallProcesses.product.Count -ne 0) {\n  $failedSnapshot = [pscustomobject]@{\n    observedAt = [DateTimeOffset]::UtcNow\n    uninstallerExitCode = $null\n    registryViews = $initialRegistry\n    installRegistryViews = $initialInstallRegistry\n    installDirectory = $installDirectory\n    installDirectoryExists = Test-Path -LiteralPath $installDirectory\n    shortcutPaths = @($shortcutPaths | ForEach-Object { [pscustomobject]@{ path = $_; exists = Test-Path -LiteralPath $_ } })\n    productProces'... 3560 more characters,
+    expected: /CloseMainWindow/i,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at test/product-lifecycle.test.js:127:1
+✖ the candidate exits through its real quit entry petApi.quit → pet:quit → app.quit() (0.485625ms)
+  Error: Cannot find module '../acceptance-tools/lib/product-lifecycle'
+  Require stack:
+  - /Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+      at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+      at Module._load (node:internal/modules/cjs/loader:1242:25)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1556:12)
+      at require (node:internal/modules/helpers:152:16)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js:128:53)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ '/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js' ]
+  }
+
+test at test/product-lifecycle.test.js:149:1
+✖ the lifecycle runner drives a running product to zero exact processes through the real quit entry (0.227083ms)
+  Error: Cannot find module '../acceptance-tools/lib/product-lifecycle'
+  Require stack:
+  - /Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+      at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+      at Module._load (node:internal/modules/cjs/loader:1242:25)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1556:12)
+      at require (node:internal/modules/helpers:152:16)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js:150:59)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ '/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js' ]
+  }
+
+test at test/product-lifecycle.test.js:179:1
+✖ the official uninstaller is never started while exact product processes remain (0.205583ms)
+  Error: Cannot find module '../acceptance-tools/lib/product-lifecycle'
+  Require stack:
+  - /Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+      at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+      at Module._load (node:internal/modules/cjs/loader:1242:25)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1556:12)
+      at require (node:internal/modules/helpers:152:16)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js:180:39)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ '/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js' ]
+  }
+
+test at test/product-lifecycle.test.js:198:1
+✖ a missing real quit entry records lifecycle-failed instead of starting the uninstaller (0.208583ms)
+  Error: Cannot find module '../acceptance-tools/lib/product-lifecycle'
+  Require stack:
+  - /Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+      at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+      at Module._load (node:internal/modules/cjs/loader:1242:25)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1556:12)
+      at require (node:internal/modules/helpers:152:16)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js:199:75)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ '/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js' ]
+  }
+
+test at test/product-lifecycle.test.js:236:1
+✖ an already-stopped product needs no quit request before the official uninstaller (0.162834ms)
+  Error: Cannot find module '../acceptance-tools/lib/product-lifecycle'
+  Require stack:
+  - /Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+      at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+      at Module._load (node:internal/modules/cjs/loader:1242:25)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1556:12)
+      at require (node:internal/modules/helpers:152:16)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js:237:39)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ '/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js' ]
+  }
+
+test at test/product-lifecycle.test.js:250:1
+✖ the Windows enumerator matches only the exact installed product executable path (0.149625ms)
+  Error: Cannot find module '../acceptance-tools/lib/product-lifecycle'
+  Require stack:
+  - /Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js
+      at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+      at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+      at Module._load (node:internal/modules/cjs/loader:1242:25)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+      at Module.require (node:internal/modules/cjs/loader:1556:12)
+      at require (node:internal/modules/helpers:152:16)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js:251:37)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ '/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js' ]
+  }
+
+test at test/product-lifecycle.test.js:264:1
+✖ the Windows official uninstall probe drives the real quit entry instead of CloseMainWindow (0.832125ms)
+  AssertionError [ERR_ASSERTION]: window close cannot quit the tray-resident pet; the probe must use the real quit entry
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/product-lifecycle.test.js:266:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'param(\n  [Parameter(Mandatory = $true)][string]$EvidenceRoot,\n  [string]$IdentityFile,\n  [string]$ProductName,\n  [string]$ExpectedDisplayName,\n  [string]$ExecutableName,\n  [string]$ShortcutName,\n  [int]$TimeoutSeconds = 120,\n  [int]$StablePolls = 3,\n  [int]$GracefulExitTimeoutSeconds = 60\n)\n\n$ErrorActionPreference = \'Stop\'\n$evidenceDirectory = Join-Path ([IO.Path]::GetFullPath($EvidenceRoot)) \'g7-02\'\nNew-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null\n\nfunction Write-EvidenceJson([string]$Name, $Value) {\n  $target = Join-Path $evidenceDirectory $Name\n  if (Test-Path -LiteralPath $target) { throw "evidence already exists: $target" }\n  $json = $Value | ConvertTo-Json -Depth 12\n  [IO.File]::WriteAllText($target, "$json`r`n", (New-Object Text.UTF8Encoding($false)))\n}\n\nfunction Get-RegistryViewState([Microsoft.Win32.RegistryView]$View, [string]$SubKey) {\n  $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $View)\n  try {\n    $key = $base.OpenSubKey($SubKey)\n    if ($null -eq $key) { return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $false; values = $null } }\n    try {\n      $values = @{}\n      foreach ($name in $key.GetValueNames()) { $values[$name] = $key.GetValue($name) }\n      return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $true; values = $values }\n    } finally { $key.Dispose() }\n  } finally { $base.Dispose() }\n}\n\nfunction Get-RegistryState([string]$SubKey) {\n  @(\n    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry64) $SubKey\n    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry32) $SubKey\n  )\n}\n\nfunction Find-UninstallRegistrations([string]$DisplayName) {\n  $found = @{}\n  foreach ($view in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {\n    $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $view)\n    try {\n      $uninstall = $base.OpenSubKey(\'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\')\n      if ($null -eq $uninstall) { continue }\n      try {\n        foreach ($name in $uninstall.GetSubKeyNames()) {\n          $key = $uninstall.OpenSubKey($name)\n          if ($null -eq $key) { continue }\n          try {\n            $values = @{}\n            foreach ($valueName in $key.GetValueNames()) { $values[$valueName] = $key.GetValue($valueName) }\n            if ([string]$values.DisplayName -eq $DisplayName) {\n              $found[$name] = [pscustomobject]@{ view = $view.ToString(); subKeyName = $name; values = $values }\n            }\n          } finally { $key.Dispose() }\n        }\n      } finally { $uninstall.Dispose() }\n    } finally { $base.Dispose() }\n  }\n  $found\n}\n\nfunction Get-ExactProcesses([string]$InstallDirectory, [string]$UninstallerPath) {\n  $productPath = if ($InstallDirectory) { [IO.Path]::GetFullPath((Join-Path $InstallDirectory $ExecutableName)) } else { $null }\n  $processes = @(Get-CimInstance Win32_Process | Select-Object Name, ProcessId, ParentProcessId, ExecutablePath, CommandLine)\n  $product = @($processes | Where-Object {\n    $productPath -and $_.ExecutablePath -and [string]::Equals([IO.Path]::GetFullPath($_.ExecutablePath), $productPath, [StringComparison]::OrdinalIgnoreCase)\n  })\n  $uninstallerLeaf = if ($UninstallerPath) { [IO.Path]::GetFileName($UninstallerPath) } else { $null }\n  $uninstallers = @($processes | Where-Object {\n    $uninstallerLeaf -and (($_.ExecutablePath -and [string]::Equals([IO.Path]::GetFileName($_.ExecutablePath), $uninstallerLeaf, [StringComparison]::OrdinalIgnoreCase)) -or ($_.CommandLine -and $_.CommandLine.Contains($UninstallerPath)))\n  })\n  [pscustomobject]@{ product = $product; uninstallers = $uninstallers }\n}\n\nfunction Split-UninstallCommand([string]$CommandLine) {\n  if ($CommandLine -match "[\\r\\n]") { throw \'UninstallString contains a line break\' }\n  $match = [regex]::Match($CommandLine, \'^\\s*"([^"]+)"\\s*(.*)$\')\n  if (-not $match.Success) { $match = [regex]::Match($CommandLine, \'^\\s*(\\S+)\\s*(.*)$\') }\n  if (-not $match.Success) { throw \'unable to parse UninstallString\' }\n  [pscustomobject]@{ filePath = $match.Groups[1].Value; arguments = $match.Groups[2].Value }\n}\n\n$startedAt = [DateTimeOffset]::UtcNow\n\n# ---- 候选身份：只从本轮候选 manifest / G7-01 安装证据或显式参数取得，无任何内置默认身份 ----\n$identity = @{}\nif ($IdentityFile) {\n  if (-not (Test-Path -LiteralPath $IdentityFile -PathType Leaf)) { throw "identity file is missing: $IdentityFile" }\n  $parsed = Get-Content -LiteralPath $IdentityFile -Raw | ConvertFrom-Json\n  foreach ($name in @(\'productName\', \'uninstallDisplayName\', \'executableName\', \'shortcutName\', \'installLocation\', \'version\')) {\n    if ($parsed.PSObject.Properties[$name] -and $parsed.$name) { $identity[$name] = [string]$parsed.$name }\n  }\n}\nif ($ProductName) { $identity[\'productName\'] = $ProductName }\nif ($ExpectedDisplayName) { $identity[\'uninstallDisplayName\'] = $ExpectedDisplayName }\nif ($ExecutableName) { $identity[\'executableName\'] = $ExecutableName }\nif ($ShortcutName) { $identity[\'shortcutName\'] = $ShortcutName }\nif (-not $identity[\'uninstallDisplayName\'] -and $identity[\'productName\'] -and $identity[\'version\']) { $identity[\'uninstallDisplayName\'] = "$($identity[\'productName\']) $($identity[\'version\'])" }\nif (-not $identity[\'shortcutName\'] -and $identity[\'productName\']) { $identity[\'shortcutName\'] = "$($identity[\'productName\']).lnk" }\n$ExpectedDisplayName = $identity[\'uninstallDisplayName\']\n$ExecutableName = $identity[\'executableName\']\n$ShortcutName = $identity[\'shortcutName\']\nif (-not $ExpectedDisplayName -or -not $ExecutableName -or -not $ShortcutName) {\n  Write-EvidenceJson \'uninstall-log.json\' ([pscustomobject]@{ status = \'failed\'; reason = \'candidate identity is incomplete: uninstallDisplayName, executableName and shortcutName are required from the candidate manifest or G7-01 install evidence\'; startedAt = $startedAt })\n  exit 2\n}\n\n# ---- 通过 DisplayName 发现本轮候选的真实 HKCU 注册身份，不使用固定 GUID ----\n$registrations = Find-UninstallRegistrations $ExpectedDisplayName\nif ($registrations.Count -ne 1) {\n  Write-EvidenceJson \'uninstall-log.json\' ([pscustomobject]@{ status = \'failed\'; reason = "official uninstall identity is missing or ambiguous: $($registrations.Count) registration(s) for \'$ExpectedDisplayName\'"; expectedDisplayName = $ExpectedDisplayName; startedAt = $startedAt })\n  exit 2\n}\n$subKeyName = @($registrations.Keys)[0]\n$registration = $registrations[$subKeyName]\n$RegistrySubKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\$subKeyName"\n$InstallRegistrySubKey = "Software\\$subKeyName"\n$initialRegistry = @(Get-RegistryState $RegistrySubKey)\n$initialInstallRegistry = @(Get-RegistryState $InstallRegistrySubKey)\n$uninstallString = [string]$registration.values.UninstallString\n$installLocations = @()\nif ($registration.values.InstallLocation) { $installLocations += [string]$registration.values.InstallLocation }\n$installLocations += @($initialInstallRegistry | Where-Object { $_.exists -and $_.values.InstallLocation } | ForEach-Object { [string]$_.values.InstallLocation })\n$installLocations = @($installLocations | Select-Object -Unique)\nif (-not $uninstallString -or $installLocations.Count -ne 1) {\n  Write-EvidenceJson \'uninstall-log.json\' ([pscustomobject]@{ status = \'failed\'; reason = \'official uninstall identity is missing or ambiguous\'; expectedDisplayName = $ExpectedDisplayName; uninstallRegistry = $initialRegistry; installRegistry = $initialInstallRegistry; startedAt = $startedAt })\n  exit 2\n}\n\n$command = Split-UninstallCommand $uninstallString\nif (-not (Test-Path -LiteralPath $command.filePath -PathType Leaf)) { throw "official uninstaller is missing: $($command.filePath)" }\nif ($command.arguments -notmatch \'(?i)(^|\\s)/currentuser(\\s|$)\') { throw \'HKCU UninstallString must preserve /currentuser\' }\n\n$installDirectory = [IO.Path]::GetFullPath($installLocations[0])\n$uninstallerPath = [IO.Path]::GetFullPath($command.filePath)\nif (-not [string]::Equals([IO.Path]::GetDirectoryName($uninstallerPath), $installDirectory, [StringComparison]::OrdinalIgnoreCase)) {\n  throw \'official uninstaller must be inside the recorded install directory\'\n}\nif ([IO.Path]::GetFileName($uninstallerPath) -notmatch \'(?i)^Uninstall .+\\.exe$\') { throw \'official uninstaller filename is invalid\' }\n$command.filePath = $uninstallerPath\n$shortcutPaths = @(Join-Path $env:APPDATA "Microsoft\\Windows\\Start Menu\\Programs\\$ShortcutName")\n\n# ---- 卸载前通过产品正常退出入口（主窗口关闭请求）关闭 installed 应用；失败记为独立生命周期失败 ----\n$graceful = @()\n$closeRequested = @()\n$gracefulDeadline = [DateTimeOffset]::UtcNow.AddSeconds($GracefulExitTimeoutSeconds)\n$requested = $false\nwhile ([DateTimeOffset]::UtcNow -le $gracefulDeadline) {\n  $snapshot = Get-ExactProcesses $installDirectory $null\n  $graceful += [pscustomobject]@{ observedAt = [DateTimeOffset]::UtcNow; productProcessCount = $snapshot.product.Count }\n  if ($snapshot.product.Count -eq 0) { break }\n  if (-not $requested) {\n    $requested = $true\n    foreach ($entry in $snapshot.product) {\n      if ($entry.CommandLine -and $entry.CommandLine -match \'--type=\') { continue }\n      $proc = Get-Process -Id $entry.ProcessId -ErrorAction SilentlyContinue\n      if ($null -ne $proc) {\n        $closeAccepted = $proc.CloseMainWindow()\n        $closeRequested += [pscustomobject]@{ processId = $entry.ProcessId; closeMainWindowAccepted = $closeAccepted }\n      }\n    }\n  }\n  Start-Sleep -Seconds 1\n}\n$preUninstallProcesses = Get-ExactProcesses $installDirectory $null\nif ($preUninstallProcesses.product.Count -ne 0) {\n  $failedSnapshot = [pscustomobject]@{\n    observedAt = [DateTimeOffset]::UtcNow\n    uninstallerExitCode = $null\n    registryViews = $initialRegistry\n    installRegistryViews = $initialInstallRegistry\n    installDirectory = $installDirectory\n    installDirectoryExists = Test-Path -LiteralPath $installDirectory\n    shortcutPaths = @($shortcutPaths | ForEach-Object { [pscustomobject]@{ path = $_; exists = Test-Path -LiteralPath $_ } })\n    productProces'... 3560 more characters,
+    expected: /CloseMainWindow/i,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at test/workbench-continuation.test.js:501:1
+✖ continuation report template prefills the 25 parent-passed gates as inherited and keeps 35 pending (0.244208ms)
+  TypeError: renderContinuationReportTemplate is not a function
+      at renderParentContinuationReport (/Users/jinke00001/Desktop/pet/test/workbench-continuation.test.js:490:10)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/workbench-continuation.test.js:502:18)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at test/workbench-continuation.test.js:524:1
+✖ continuation report template rejects unknown or duplicate inherited gates (0.410334ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /unknown inherited gate/i. Input:
+  
+  'TypeError: renderContinuationReportTemplate is not a function'
+  
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/workbench-continuation.test.js:525:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: renderContinuationReportTemplate is not a function
+        at /Users/jinke00001/Desktop/pet/test/workbench-continuation.test.js:526:11
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/workbench-continuation.test.js:525:10)
+        at Test.runInAsyncScope (node:async_hooks:228:14)
+        at Test.run (node:internal/test_runner/test:1118:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+        at Test.postRun (node:internal/test_runner/test:1247:19)
+        at Test.run (node:internal/test_runner/test:1175:12)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:787:7),
+    expected: /unknown inherited gate/i,
+    operator: 'throws',
+    diff: 'simple'
+  }

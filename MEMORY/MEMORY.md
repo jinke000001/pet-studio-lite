@@ -59,6 +59,13 @@
 
 ## Phase 6 当前状态
 
+### 2026-09-08 G7-02 生命周期修复与 -02 续验交接
+
+- 根因：`-01` 探针用 `CloseMainWindow()` 冒充正常退出，但候选运行时 `window-all-closed.preventDefault()`，窗口销毁后托盘进程继续存活，G7-02 只能等 60 秒后再次 lifecycle-failed。行为级证明（`test/product-lifecycle.test.js`，真实 Electron + CDP）：`window.close()` 后页面目标消失而进程仍存活；旧套件只对 ps1 做 `CloseMainWindow` 字符串匹配，不构成行为证明，该断言已删除。
+- 修复提交 `1d05105`：新增 `acceptance-tools/lib/product-lifecycle.js`（`requestProductQuit` 经候选自带 Chromium 远程调试端口调用真实退出入口 `petApi.quit → pet:quit → app.quit()`，fire-and-forget 因为 app.quit() 先于任何 CDP 应答拆掉 renderer；`runProductQuitLifecycle` 记录退出方式、退出前 PID、请求结果与退出后进程观测，精确产品进程未归零或退出入口不可驱动即 lifecycle-failed 且 `startUninstaller=false`）、`acceptance-tools/request-quit.js`（Windows CLI，非 Windows 返回 platform-unavailable）；`official-uninstall.ps1` 产品未运行时以 `--remote-debugging-port=9222` 启动保留安装（候选未修改），生命周期失败路径永远先于官方 UninstallString；新增 `renderContinuationReportTemplate` 与回归测试（25 inherited + 35 待执行 = 60，禁止 60 门全部待执行）。
+- 验证：focused RED 21 处失败（`logs/phase-6-g702-lifecycle-RED.txt`）→ GREEN 42/42（`logs/phase-6-g702-lifecycle-GREEN.txt`）；`npm test` 276/276、typecheck、build、lint、preflight、audit（0 vulnerabilities）、`git diff --check` 全部通过（`logs/phase-6-g702-quality-gates.txt`）。
+- 新非覆盖续验交接：`release/handoff/phase-6-workbench-windows-continuation-20260908-02/`（39 个文件，checksums 自身 SHA-256 `d557b4dfc9389f79c1d0d8fb04db833e48dfa89b8ee64e59885c1c63b5e34f14`，RETURN 为空）。bundle HEAD=`fcd10851e979e73ab524593a63e53861197102f2`、source ZIP/合同/候选 SHA/父 RETURN SHA `acffe57f…` 全部复核通过；`-01` 保留未动。未复制到 T7，不 push/merge/tag。Windows 端进程枚举、注册表与卸载器行为保持 `pending external RETURN`。
+
 ### 2026-09-08 G7-02 失败 RETURN 续验基础设施
 
 - 父 RETURN（T7 `phase-6-workbench-windows-recheck-20260907-04/RETURN/run-1788809382733`，只读未动）：25 门 passed、`G7-02-official-uninstall` failed、34 门 not-executed。失败现象是 NSIS 弹出“Windows Phase 6.8 正在运行，点击确定关闭”后执行者点了取消；现有证据不能证明产品或系统缺陷。父 RETURN checksum 摘要 `acffe57f603d3bd17bb9fb411134b49c54a0b05c269ec56557e340c863a8f7a2`。

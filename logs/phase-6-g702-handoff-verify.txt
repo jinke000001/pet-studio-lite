@@ -1,0 +1,8 @@
+checksums ok: -02=39 files, -01=37 files (untouched, still valid)
+RETURN is empty
+bundle HEAD ok: fcd10851e979e73ab524593a63e53861197102f2
+source ZIP and contract sha256 ok
+candidate identity and parent RETURN sha256 references ok
+report: 60 rows = 25 inherited + 35 pending
+probe fix present in handoff
+ALL HANDOFF CHECKS PASSED

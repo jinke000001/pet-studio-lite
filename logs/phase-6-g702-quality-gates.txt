@@ -1,0 +1,48 @@
+== focused RED ==
+✖ Windows official uninstall probe derives the candidate identity and quits only through the real exit entry (1.022166ms)
+✖ the candidate exits through its real quit entry petApi.quit → pet:quit → app.quit() (0.485625ms)
+✖ the lifecycle runner drives a running product to zero exact processes through the real quit entry (0.227083ms)
+✖ the official uninstaller is never started while exact product processes remain (0.205583ms)
+✖ a missing real quit entry records lifecycle-failed instead of starting the uninstaller (0.208583ms)
+✖ an already-stopped product needs no quit request before the official uninstaller (0.162834ms)
+✖ the Windows enumerator matches only the exact installed product executable path (0.149625ms)
+✖ the Windows official uninstall probe drives the real quit entry instead of CloseMainWindow (0.832125ms)
+✖ continuation report template prefills the 25 parent-passed gates as inherited and keeps 35 pending (0.244208ms)
+✖ continuation report template rejects unknown or duplicate inherited gates (0.410334ms)
+ℹ tests 42
+ℹ pass 32
+ℹ fail 10
+✖ failing tests:
+✖ Windows official uninstall probe derives the candidate identity and quits only through the real exit entry (1.022166ms)
+✖ the candidate exits through its real quit entry petApi.quit → pet:quit → app.quit() (0.485625ms)
+✖ the lifecycle runner drives a running product to zero exact processes through the real quit entry (0.227083ms)
+✖ the official uninstaller is never started while exact product processes remain (0.205583ms)
+✖ a missing real quit entry records lifecycle-failed instead of starting the uninstaller (0.208583ms)
+✖ an already-stopped product needs no quit request before the official uninstaller (0.162834ms)
+✖ the Windows enumerator matches only the exact installed product executable path (0.149625ms)
+✖ the Windows official uninstall probe drives the real quit entry instead of CloseMainWindow (0.832125ms)
+✖ continuation report template prefills the 25 parent-passed gates as inherited and keeps 35 pending (0.244208ms)
+✖ continuation report template rejects unknown or duplicate inherited gates (0.410334ms)
+
+== focused GREEN ==
+ℹ tests 42
+ℹ pass 42
+ℹ fail 0
+
+== npm test ==
+ℹ tests 276
+ℹ pass 276
+ℹ fail 0
+
+== studio:typecheck ==
+PASS
+== studio:build ==
+✓ built in 95ms
+== lint ==
+PASS
+== source:preflight ==
+PASS
+== npm audit ==
+found 0 vulnerabilities
+== git diff --check ==
+PASS
