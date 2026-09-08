@@ -830,3 +830,66 @@ test('modifying a persistent evidence file after checksums were frozen fails', (
     assert.match(result.stdout, /FAIL evidence:sha256/);
   });
 });
+
+// ---- continuation / failed-RETURN 完整性与结论分离 ----
+
+test('a not-executed cleanup gate with a placeholder exitCode=1 is not reported as an executed cleanup failure', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'failed';
+      state.firstFailedGate = 'G4-02-instance-lock';
+      state.gates[1].status = 'failed';
+      state.gates[1].exitCode = 1;
+      state.gates[0].status = 'not-executed';
+      state.gates[0].exitCode = 1;
+      state.cleanupStatus = 'failed';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.doesNotMatch(result.stdout, /FAIL cleanup:process-gate-exit-codes/);
+  });
+});
+
+test('an executed cleanup gate with exitCode=1 is still reported as a cleanup failure', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'failed';
+      state.firstFailedGate = 'G1-01-process-cleanup';
+      state.gates[0].status = 'failed';
+      state.gates[0].exitCode = 1;
+      state.gates[1].status = 'not-executed';
+      state.cleanupStatus = 'failed';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL cleanup:process-gate-exit-codes/);
+  });
+});
+
+test('a failed RETURN with intact hashes keeps evidence integrity separate from the acceptance verdict', () => {
+  withFixture({
+    mutateState(state) {
+      state.overallStatus = 'failed';
+      state.firstFailedGate = 'G4-02-instance-lock';
+      state.gates[1].status = 'failed';
+      state.gates[1].exitCode = 1;
+      state.cleanupStatus = 'failed';
+    },
+  }, (returnDir) => {
+    const result = runValidator(returnDir, ['--json']);
+    assert.equal(result.status, 1);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, 'failed');
+    assert.equal(report.acceptancePassed, false);
+    assert.equal(report.evidenceValid, true);
+    assert.equal(report.integrityValid, true);
+    assert.ok(report.failures.some((check) => check.rule === 'status:overall'));
+    assert.ok(!report.failures.some((check) => check.rule === 'returned-checksums:hashes'));
+    assert.equal(typeof report.inheritedGateCount, 'number');
+    assert.equal(typeof report.executedGateCount, 'number');
+    assert.equal(report.parentReturnValid, null);
+    assert.equal(report.continuationIdentityValid, null);
+  });
+});

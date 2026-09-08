@@ -33,7 +33,7 @@ function recordGate(root, gate, { evidenceRoot = root } = {}) {
     fs.renameSync(stagingDir, attemptDir);
   } catch (error) { fs.rmSync(stagingDir, { recursive: true, force: true }); throw error; }
   const evidencePaths = sourcePaths.map(({ normalized }) => path.relative(run.root, path.join(attemptDir, ...normalized.split('/'))).replace(/\\/g, '/'));
-  const attempt = { id: gate.id, attempt: attemptNumber, startedAt: gate.startedAt || new Date().toISOString(), endedAt: gate.endedAt || new Date().toISOString(), durationMs: gate.durationMs ?? 0, exitCode: Number.isInteger(gate.exitCode) ? gate.exitCode : 1, status: gate.status || 'failed', evidencePaths, evidenceSha256: {}, evidenceMeta: {} };
+  const attempt = { id: gate.id, attempt: attemptNumber, startedAt: gate.startedAt || new Date().toISOString(), endedAt: gate.endedAt || new Date().toISOString(), durationMs: gate.durationMs ?? 0, exitCode: Number.isInteger(gate.exitCode) ? gate.exitCode : 1, status: gate.status || 'failed', command: typeof gate.command === 'string' ? gate.command : '', evidencePaths, evidenceSha256: {}, evidenceMeta: {} };
   for (const relativePath of evidencePaths) { const filePath = path.join(run.root, relativePath.split('/').join(path.sep)); const stat = fs.statSync(filePath); attempt.evidenceSha256[relativePath] = digest(fs.readFileSync(filePath)); attempt.evidenceMeta[relativePath] = { size: stat.size, recordedAt: new Date().toISOString() }; }
   const next = { ...run.state, gates: run.state.gates.filter((entry) => entry.id !== attempt.id).concat(attempt), attempts: [...run.state.attempts, attempt], evidenceFiles: [...new Set([...run.state.evidenceFiles, ...evidencePaths])], firstFailedGate: attempt.status === 'failed' ? (run.state.firstFailedGate || attempt.id) : (run.state.firstFailedGate || null), updatedAt: new Date().toISOString() }; atomicWriteJson(path.join(run.root, 'acceptance-state.json'), next); return attempt;
 }
@@ -47,6 +47,17 @@ function finalizeRun(root, options = {}) {
   const ids = requiredGates.map((g) => typeof g === 'string' ? g : g.id); if (ids.some((id) => typeof id !== 'string' || !id) || new Set(ids).size !== ids.length) throw new Error('authoritative required gates must be unique named gates');
   const byId = new Map(run.state.gates.map((gate) => [gate.id, gate])); const missing = ids.filter((id) => !byId.has(id) || byId.get(id).status !== 'passed' || byId.get(id).exitCode !== 0); if (missing.length) throw new Error(`cannot finalize: required gates incomplete: ${missing.join(', ')}`);
   if (options.originalDisplayScale !== options.finalDisplayScale) throw new Error('display scale was not restored'); if (options.cleanupStatus !== 'passed' || options.finalProcesses?.length) throw new Error('cleanup is incomplete');
+  if (run.state.continuation) {
+    const continuation = run.state.continuation;
+    if (continuation.candidateSha256 !== options.candidateSha256 || run.state.candidateSha256 !== options.candidateSha256) throw new Error('candidateSha256 does not match the bound continuation candidate');
+    for (const gate of run.state.gates) {
+      if (gate.inherited !== true) continue;
+      if (gate.parentRunId !== continuation.parentRunId || gate.parentReturnSha256 !== continuation.parentReturnSha256) throw new Error(`inherited gate ${gate.id} does not match the continuation parent binding`);
+      if (!Number.isInteger(gate.attempt) || gate.attempt < 1) throw new Error(`inherited gate ${gate.id} must record the original parent attempt`);
+      if (!Array.isArray(gate.parentEvidencePaths) || gate.parentEvidencePaths.length === 0) throw new Error(`inherited gate ${gate.id} must record parent evidence paths`);
+    }
+    require('./continuation').verifyContinuationBinding(run.state);
+  }
   const next = { ...run.state, overallStatus: 'passed', candidateSha256: options.candidateSha256, originalDisplayScale: options.originalDisplayScale, finalDisplayScale: options.finalDisplayScale, cleanupStatus: options.cleanupStatus, finalProcesses: options.finalProcesses || [], firstFailedGate: null, updatedAt: new Date().toISOString() };
   atomicWriteJson(path.join(run.root, 'acceptance-state.json'), next);
   atomicWriteJson(path.join(run.root, 'final-report.json'), { runId: next.runId, overallStatus: 'passed', gateCount: ids.length, candidateSha256: next.candidateSha256, generatedAt: new Date().toISOString() });

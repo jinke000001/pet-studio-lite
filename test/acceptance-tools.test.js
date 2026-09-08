@@ -68,6 +68,17 @@ test('Windows official uninstall probe reads the separate install key and never 
   assert.doesNotMatch(source, /expected exactly one HKCU uninstall registration/i);
 });
 
+test('Windows official uninstall probe derives the candidate identity and closes the app through its normal exit path', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'acceptance-tools', 'ps', 'official-uninstall.ps1'), 'utf8');
+  assert.doesNotMatch(source, /桌宠制作台/);
+  assert.doesNotMatch(source, /980c4302-3a05-517b-ba38-6c71a752ed15/);
+  assert.doesNotMatch(source, /DesktopPetStudio\.exe/);
+  assert.match(source, /IdentityFile|CandidateManifest/);
+  assert.match(source, /CloseMainWindow/);
+  assert.match(source, /lifecycle/);
+  assert.doesNotMatch(source, /Stop-Process|taskkill/i);
+});
+
 test('dialog and platform classifications never turn manual or unavailable into passed', () => {
   assert.equal(typeof captureScreenshot, 'function');
   assert.equal(classifyDialogResult({ manual: true }), 'manual-continuation');

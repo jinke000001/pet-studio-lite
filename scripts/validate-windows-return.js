@@ -20,11 +20,16 @@ const USAGE = [
   '  [--expect-candidate-sha256 <hex64>] --required-gates <id1,id2,...>',
   '  [--expect-contract-sha256 <hex64>]',
   '  [--expect-environment-fingerprint <value>]',
+  '  [--parent-return <dir> --expect-parent-return-sha256 <hex64>]',
   '  [--expect-process-paths <path1,path2,...>] [--output <path>] [--json]',
   '',
   '--output writes the validator report to a derived file. The path must be',
   'outside <returnDir>: validator output is derived data and must never enter',
   'the RETURN checksum closure.',
+  '',
+  '--parent-return points at the explicitly supplied parent RETURN directory of',
+  'a continuation run; its checksum manifest digest must equal',
+  '--expect-parent-return-sha256 and the continuation binding in the state.',
 ].join('\n');
 
 const FLAG_TARGETS = {
@@ -35,6 +40,8 @@ const FLAG_TARGETS = {
   '--expect-process-paths': 'expectProcessPathsCsv',
   '--expect-contract-sha256': 'expectContractSha256',
   '--expect-environment-fingerprint': 'expectEnvironmentFingerprint',
+  '--parent-return': 'parentReturnDir',
+  '--expect-parent-return-sha256': 'expectParentReturnSha256',
   '--output': 'outputPath',
 };
 
@@ -73,12 +80,14 @@ function parseArguments(argv) {
     expectCandidateSha256: null,
     expectContractSha256: null,
     expectEnvironmentFingerprint: null,
+    parentReturnDir: null,
+    expectParentReturnSha256: null,
     requiredGates: [],
     expectProcessPaths: [],
     outputPath: null,
     json: false,
   };
-  const raw = { requiredGatesCsv: null, expectProcessPathsCsv: null, expectContractSha256: null, expectEnvironmentFingerprint: null, outputPath: null };
+  const raw = { requiredGatesCsv: null, expectProcessPathsCsv: null, expectContractSha256: null, expectEnvironmentFingerprint: null, outputPath: null, parentReturnDir: null, expectParentReturnSha256: null };
   const positionals = [];
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -118,6 +127,19 @@ function parseArguments(argv) {
   options.expectCandidateSha256 = raw.expectCandidateSha256 || null;
   options.expectContractSha256 = raw.expectContractSha256 || null;
   options.expectEnvironmentFingerprint = raw.expectEnvironmentFingerprint || null;
+  if (raw.expectParentReturnSha256 && !HEX_64.test(raw.expectParentReturnSha256)) {
+    throw new Error('--expect-parent-return-sha256 must be 64 lowercase hex characters');
+  }
+  options.expectParentReturnSha256 = raw.expectParentReturnSha256 || null;
+  if (raw.parentReturnDir) {
+    if (!fs.existsSync(raw.parentReturnDir) || !fs.statSync(raw.parentReturnDir).isDirectory()) {
+      throw new Error(`parent RETURN directory not found: ${raw.parentReturnDir}`);
+    }
+    options.parentReturnDir = path.resolve(raw.parentReturnDir);
+    if (options.parentReturnDir === path.resolve(options.returnDir)) {
+      throw new Error('--parent-return must not be the RETURN directory itself');
+    }
+  }
   options.expectProcessPaths = (raw.expectProcessPathsCsv || '')
     .split(',').map((entry) => entry.trim()).filter(Boolean);
   if (!fs.existsSync(options.returnDir) || !fs.statSync(options.returnDir).isDirectory()) {
@@ -157,6 +179,29 @@ function validateGateShape(gate, index) {
   if (!hashes || typeof hashes !== 'object' || Array.isArray(hashes)
     || Object.values(hashes).some((value) => typeof value !== 'string' || !HEX_64.test(value))) {
     problems.push(`${label}.evidenceSha256 must map paths to 64 lowercase hex digests`);
+  }
+  if (gate.inherited === true) {
+    if (gate.status !== 'passed') problems.push(`${label} inherited gates must have status=passed`);
+    if (typeof gate.parentRunId !== 'string' || gate.parentRunId.length === 0) problems.push(`${label}.parentRunId must be a non-empty string`);
+    if (typeof gate.parentReturnSha256 !== 'string' || !HEX_64.test(gate.parentReturnSha256)) problems.push(`${label}.parentReturnSha256 must be a 64 lowercase hex digest`);
+    if (!Number.isInteger(gate.attempt) || gate.attempt < 1) problems.push(`${label}.attempt must record the original parent attempt`);
+    if (!Array.isArray(gate.parentEvidencePaths) || gate.parentEvidencePaths.length === 0
+      || gate.parentEvidencePaths.some((entry) => typeof entry !== 'string' || entry.length === 0)) {
+      problems.push(`${label}.parentEvidencePaths must be a non-empty array of strings`);
+    }
+    const parentHashes = gate.parentEvidenceSha256;
+    if (!parentHashes || typeof parentHashes !== 'object' || Array.isArray(parentHashes)
+      || Object.values(parentHashes).some((value) => typeof value !== 'string' || !HEX_64.test(value))) {
+      problems.push(`${label}.parentEvidenceSha256 must map paths to 64 lowercase hex digests`);
+    }
+    if (Array.isArray(gate.parentEvidencePaths) && parentHashes && typeof parentHashes === 'object' && !Array.isArray(parentHashes)) {
+      const pathSet = new Set(gate.parentEvidencePaths);
+      const hashSet = new Set(Object.keys(parentHashes));
+      for (const entry of pathSet) if (!hashSet.has(entry)) problems.push(`${label}.parentEvidenceSha256 is missing ${entry}`);
+      for (const entry of hashSet) if (!pathSet.has(entry)) problems.push(`${label}.parentEvidenceSha256 lists ${entry} without a matching parentEvidencePaths entry`);
+    }
+  } else if (gate.inherited !== undefined && gate.inherited !== false) {
+    problems.push(`${label}.inherited must be true when present`);
   }
   return problems;
 }
@@ -328,7 +373,9 @@ function checkGateOutcomes(state, options, record) {
     const problems = [];
     if (gate.endedAt && gate.startedAt && Date.parse(gate.endedAt) < Date.parse(gate.startedAt)) problems.push('endedAt is before startedAt');
     if (gate.status === 'passed' && gate.exitCode !== 0) problems.push(`passed gate must have exitCode=0 (exitCode=${gate.exitCode})`);
-    if (gate.status === 'passed' && gate.evidencePaths.length === 0) problems.push('passed gate must include evidencePaths');
+    if (gate.status === 'passed' && gate.inherited === true) {
+      if (!Array.isArray(gate.parentEvidencePaths) || gate.parentEvidencePaths.length === 0) problems.push('inherited passed gate must record parentEvidencePaths');
+    } else if (gate.status === 'passed' && gate.evidencePaths.length === 0) problems.push('passed gate must include evidencePaths');
     record(`gate:${gate.id}`, problems.length === 0, problems.join('; '));
   });
   if (state.overallStatus === 'passed') {
@@ -435,7 +482,7 @@ function checkCleanup(state, options, record) {
   }
 
   const processGates = state.gates.filter((gate) => /process|cleanup/i.test(gate.id));
-  const failedProcessGates = processGates.filter((gate) => gate.exitCode !== 0);
+  const failedProcessGates = processGates.filter((gate) => (gate.status === 'passed' || gate.status === 'failed') && gate.exitCode !== 0);
   record('cleanup:process-gate-exit-codes', failedProcessGates.length === 0,
     failedProcessGates.length > 0
       ? `process/cleanup gates with exitCode!=0: ${failedProcessGates.map((gate) => `${gate.id} exitCode=${gate.exitCode}`).join(', ')}`
@@ -528,6 +575,112 @@ function checkReturnedChecksums(returnDir, record) {
     [...(missingEntries.length ? [`missing: ${missingEntries.join(', ')}`] : []), ...(extraEntries.length ? [`extra: ${extraEntries.join(', ')}`] : [])].join('; '));
 }
 
+function parseChecksumEntries(returnDir) {
+  const checksumsPath = path.join(returnDir, CHECKSUMS_FILE);
+  if (!fs.existsSync(checksumsPath)) return null;
+  const raw = fs.readFileSync(checksumsPath);
+  const lines = raw.toString('utf8').split('\n');
+  if (lines[lines.length - 1] === '') lines.pop();
+  const entries = new Map();
+  for (const line of lines) {
+    const match = CHECKSUM_LINE.exec(line);
+    if (!match) return null;
+    entries.set(normalizeRelativePath(match[2]), match[1]);
+  }
+  return entries;
+}
+
+function checkContinuation(returnDir, state, options, record) {
+  const result = { parentReturnValid: null, continuationIdentityValid: null };
+  const continuation = state.continuation;
+  if (!continuation || typeof continuation !== 'object' || Array.isArray(continuation)) {
+    if (options.parentReturnDir) {
+      record('continuation:unexpected-parent-binding', false,
+        '--parent-return was supplied but the run has no continuation binding');
+      result.parentReturnValid = false;
+      result.continuationIdentityValid = false;
+    }
+    if (state.gates.some((gate) => gate.inherited === true)) {
+      record('continuation:binding-required', false, 'inherited gates require a continuation binding');
+      result.continuationIdentityValid = false;
+    }
+    return result;
+  }
+  const bindingOk = record('continuation:binding-shape',
+    typeof continuation.parentRunId === 'string' && continuation.parentRunId.length > 0
+    && typeof continuation.parentReturnDir === 'string' && continuation.parentReturnDir.length > 0
+    && typeof continuation.parentReturnSha256 === 'string' && HEX_64.test(continuation.parentReturnSha256)
+    && typeof continuation.candidateSha256 === 'string' && HEX_64.test(continuation.candidateSha256)
+    && Array.isArray(continuation.inheritedGateIds),
+    'continuation must bind parentRunId, parentReturnDir, parentReturnSha256, candidateSha256 and inheritedGateIds');
+
+  const expectedDigest = options.expectParentReturnSha256;
+  const expectedOk = record('continuation:parent-return-sha256-expected',
+    Boolean(expectedDigest) && expectedDigest === continuation.parentReturnSha256,
+    expectedDigest
+      ? `state=${continuation.parentReturnSha256} expected=${expectedDigest}`
+      : '--expect-parent-return-sha256 is required for a continuation RETURN');
+
+  if (!options.parentReturnDir) {
+    record('continuation:parent-return-provided', false,
+      '--parent-return <dir> is required to validate a continuation RETURN');
+    result.parentReturnValid = false;
+    result.continuationIdentityValid = false;
+    return result;
+  }
+  record('continuation:parent-return-provided', true);
+
+  const parentDir = options.parentReturnDir;
+  let parentChecksOk = true;
+  const parentRecord = (rule, ok, detail) => { if (!ok) parentChecksOk = false; return record(`parent-${rule}`, ok, detail); };
+  checkReturnedChecksums(parentDir, parentRecord);
+  const parentManifestDigest = fs.existsSync(path.join(parentDir, CHECKSUMS_FILE))
+    ? sha256File(path.join(parentDir, CHECKSUMS_FILE))
+    : null;
+  const digestOk = record('continuation:parent-checksums-digest',
+    parentManifestDigest !== null && parentManifestDigest === continuation.parentReturnSha256,
+    `parent returned-checksums.sha256 digest=${parentManifestDigest} bound=${continuation.parentReturnSha256}`);
+
+  const parentState = readAcceptanceState(parentDir, parentRecord);
+  const identityProblems = [];
+  let inheritedProblems = [];
+  if (parentState) {
+    if (parentState.runId !== continuation.parentRunId) identityProblems.push(`parent runId=${parentState.runId} bound=${continuation.parentRunId}`);
+    if (!['failed', 'environment-blocked'].includes(parentState.overallStatus)) identityProblems.push(`parent overallStatus=${parentState.overallStatus} cannot anchor a continuation`);
+    for (const key of ['sourceCommit', 'sourceZipSha256', 'acceptanceContractSha256', 'environmentFingerprint']) {
+      if (parentState[key] !== state[key]) identityProblems.push(`${key}: parent=${parentState[key]} run=${state[key]}`);
+    }
+    if (state.candidateSha256 !== continuation.candidateSha256) identityProblems.push(`candidateSha256: state=${state.candidateSha256} continuation=${continuation.candidateSha256}`);
+    const parentManifest = parseChecksumEntries(parentDir);
+    const parentGates = new Map((parentState.gates || []).map((gate) => [gate.id, gate]));
+    const inheritedGates = state.gates.filter((gate) => gate.inherited === true);
+    for (const gate of inheritedGates) {
+      const parentGate = parentGates.get(gate.id);
+      if (!parentGate) { inheritedProblems.push(`${gate.id}: no parent gate`); continue; }
+      if (parentGate.status !== 'passed' || parentGate.exitCode !== 0) inheritedProblems.push(`${gate.id}: parent status=${parentGate.status} exitCode=${parentGate.exitCode}`);
+      if (gate.attempt !== parentGate.attempt) inheritedProblems.push(`${gate.id}: attempt ${gate.attempt} != parent ${parentGate.attempt}`);
+      for (const [relativePath, hash] of Object.entries(gate.parentEvidenceSha256 || {})) {
+        if (!parentGate.evidenceSha256 || parentGate.evidenceSha256[relativePath] !== hash) inheritedProblems.push(`${gate.id}: parent evidence hash mismatch ${relativePath}`);
+        else if (parentManifest && parentManifest.get(normalizeRelativePath(relativePath)) !== hash) inheritedProblems.push(`${gate.id}: parent checksum manifest mismatch ${relativePath}`);
+      }
+    }
+    const declaredInherited = new Set(continuation.inheritedGateIds || []);
+    const actualInherited = new Set(inheritedGates.map((gate) => gate.id));
+    const undeclared = [...actualInherited].filter((id) => !declaredInherited.has(id));
+    const missingInherited = [...declaredInherited].filter((id) => !actualInherited.has(id));
+    if (undeclared.length > 0) inheritedProblems.push(`inherited gates not declared in the binding: ${undeclared.join(', ')}`);
+    if (missingInherited.length > 0) inheritedProblems.push(`binding declares inherited gates missing from gates[]: ${missingInherited.join(', ')}`);
+  } else {
+    inheritedProblems = ['parent acceptance-state.json is not valid'];
+  }
+  const identityOk = record('continuation:identity-match', identityProblems.length === 0, identityProblems.join('; '));
+  const inheritedOk = record('continuation:inherited-gates-match-parent', inheritedProblems.length === 0, inheritedProblems.join('; '));
+
+  result.parentReturnValid = parentChecksOk && digestOk;
+  result.continuationIdentityValid = result.parentReturnValid && bindingOk && expectedOk && identityOk && inheritedOk;
+  return result;
+}
+
 function validateReturnDirectory(returnDir, options) {
   const checks = [];
   const record = (rule, ok, detail) => {
@@ -537,6 +690,7 @@ function validateReturnDirectory(returnDir, options) {
 
   const state = readAcceptanceState(returnDir, record);
   checkReturnedChecksums(returnDir, record);
+  let continuationResult = { parentReturnValid: null, continuationIdentityValid: null };
   if (state) {
     checkIdentity(state, options, record);
     checkEvidence(returnDir, state, record);
@@ -544,6 +698,7 @@ function validateReturnDirectory(returnDir, options) {
     checkCleanup(state, options, record);
     record('display-scale:consistent', state.originalDisplayScale === state.finalDisplayScale,
       `originalDisplayScale=${state.originalDisplayScale} finalDisplayScale=${state.finalDisplayScale}`);
+    continuationResult = checkContinuation(returnDir, state, options, record);
   } else {
     record('acceptance-state:dependent-checks', false,
       'identity, evidence, gate, cleanup and scale checks require a valid acceptance-state.json');
@@ -554,13 +709,45 @@ function validateReturnDirectory(returnDir, options) {
   const requiredGateSet = new Set(options.requiredGates);
   const summary = state ? {
     completed: state.gates.filter((gate) => requiredGateSet.has(gate.id) && gate.status === 'passed').map((gate) => gate.id),
+    inherited: state.gates.filter((gate) => gate.inherited === true).map((gate) => gate.id),
+    executed: state.gates.filter((gate) => requiredGateSet.has(gate.id) && gate.status === 'passed' && gate.inherited !== true).map((gate) => gate.id),
     unexecuted: state.gates.filter((gate) => requiredGateSet.has(gate.id) && gate.status === 'not-executed').map((gate) => gate.id),
     missingRequired: options.requiredGates.filter((id) => !state.gates.some((gate) => gate.id === id)),
     pauseReason: paused ? state.pauseReason : null,
     nextStep: paused ? state.nextStep : null,
+    candidateSha256: state.candidateSha256 ?? null,
+    originalDisplayScale: state.originalDisplayScale ?? null,
+    finalDisplayScale: state.finalDisplayScale ?? null,
+    finalProcessCount: Array.isArray(state.finalProcesses) ? state.finalProcesses.length : null,
+    parentRunId: state.continuation?.parentRunId ?? null,
+    parentReturnSha256: state.continuation?.parentReturnSha256 ?? null,
+    retryFromGate: state.continuation?.parentFirstFailedGate ?? null,
   } : null;
-  const evidenceValid = checks.every((check) => check.ok || (paused && check.rule === 'status:overall'));
-  return { ok, acceptancePassed: ok && !paused, evidenceValid, status: paused && evidenceValid ? 'paused' : (ok ? 'passed' : 'failed'), checks, summary };
+  // Integrity (structure, checksums, evidence hashes, identity, continuation
+  // binding) is reported separately from the acceptance verdict (status,
+  // cleanup and display-scale restoration): a failed RETURN with intact
+  // hashes is still fully verifiable evidence. Structural status coherence
+  // (first-failed-gate ordering, paused completeness) stays integrity.
+  const VERDICT_RULE = /^(cleanup:|display-scale:|status:overall$|status:all-gates-passed-on-pass$|status:firstFailedGate-null-on-pass$)/;
+  const integrityValid = checks.every((check) => check.ok || VERDICT_RULE.test(check.rule));
+  const inheritedGateCount = state ? state.gates.filter((gate) => gate.inherited === true).length : 0;
+  const executedGateCount = state ? state.gates.filter((gate) => gate.status === 'passed' && gate.inherited !== true).length : 0;
+  const acceptancePassed = ok && !paused
+    && continuationResult.parentReturnValid !== false
+    && continuationResult.continuationIdentityValid !== false;
+  return {
+    ok,
+    acceptancePassed,
+    evidenceValid: integrityValid,
+    integrityValid,
+    parentReturnValid: continuationResult.parentReturnValid,
+    continuationIdentityValid: continuationResult.continuationIdentityValid,
+    inheritedGateCount,
+    executedGateCount,
+    status: paused && integrityValid ? 'paused' : (acceptancePassed ? 'passed' : 'failed'),
+    checks,
+    summary,
+  };
 }
 
 function runValidator(argv) {
@@ -586,6 +773,11 @@ function runValidator(argv) {
       status: result.status,
       acceptancePassed: result.acceptancePassed,
       evidenceValid: result.evidenceValid,
+      integrityValid: result.integrityValid,
+      parentReturnValid: result.parentReturnValid,
+      continuationIdentityValid: result.continuationIdentityValid,
+      inheritedGateCount: result.inheritedGateCount,
+      executedGateCount: result.executedGateCount,
       summary: result.summary,
       failures: result.checks.filter((check) => !check.ok),
       checks: result.checks,
@@ -595,6 +787,20 @@ function runValidator(argv) {
       const suffix = check.detail ? ` - ${check.detail}` : '';
       return `${check.ok ? 'PASS' : 'FAIL'} ${check.rule}${suffix}`;
     });
+    if (result.summary && result.summary.parentRunId) {
+      lines.push(`CONTINUATION parent-run: ${result.summary.parentRunId}`);
+      lines.push(`CONTINUATION parent-return-sha256: ${result.summary.parentReturnSha256}`);
+      lines.push(`CONTINUATION retry-from: ${result.summary.retryFromGate}`);
+      lines.push(`CONTINUATION inherited gates (${result.inheritedGateCount}): ${result.summary.inherited.join(', ')}`);
+      lines.push(`CONTINUATION executed gates (${result.executedGateCount}): ${result.summary.executed.join(', ')}`);
+    }
+    if (result.summary) {
+      lines.push(`SUMMARY candidate-sha256: ${result.summary.candidateSha256 ?? 'null'}`);
+      lines.push(`SUMMARY display-scale: original=${result.summary.originalDisplayScale} final=${result.summary.finalDisplayScale}`);
+      lines.push(`SUMMARY final-processes: ${result.summary.finalProcessCount}`);
+      if (result.summary.unexecuted.length > 0) lines.push(`SUMMARY unexecuted gates: ${result.summary.unexecuted.join(', ')}`);
+    }
+    lines.push(`INTEGRITY ${result.integrityValid ? 'VALID' : 'INVALID'}; VERDICT ${result.acceptancePassed ? 'PASSED' : 'NOT-PASSED'}`);
     const failedCount = result.checks.filter((check) => !check.ok).length;
     lines.push(result.acceptancePassed
       ? 'RESULT PASS: all checks passed'
