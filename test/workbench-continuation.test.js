@@ -479,3 +479,67 @@ test('finalize rejects a forged inherited gate before any checksum is frozen', (
     );
   });
 });
+
+// ---- continuation report template: the 25 inherited gates must be prefilled ----
+
+const { renderContinuationReportTemplate } = require('../acceptance-tools/lib/continuation');
+
+const REPORT_GATES = REQUIRED_GATE_IDS.map((id) => ({ id, mode: 'installed', passCriteria: `通过条件 ${id}` }));
+
+function renderParentContinuationReport() {
+  return renderContinuationReportTemplate({
+    gates: REPORT_GATES,
+    inheritedGateIds: PASSED_GATE_IDS,
+    parentRunId: PARENT_RUN_ID,
+    parentReturnSha256: 'a'.repeat(64),
+    parentFirstFailedGate: FAILED_GATE,
+    candidateSha256: CANDIDATE_SHA256,
+    originalDisplayScale: '150%',
+  });
+}
+
+test('continuation report template prefills the 25 parent-passed gates as inherited and keeps 35 pending', () => {
+  const report = renderParentContinuationReport();
+  const rows = report.split('\n').filter((line) => line.startsWith('| G') || line.startsWith('| S') || line.startsWith('| U'));
+  assert.equal(rows.length, 60, 'the report must list exactly the 60 required gates');
+  const inheritedRows = rows.filter((line) => line.includes('| inherited |'));
+  const pendingRows = rows.filter((line) => line.includes('| 待执行 |'));
+  assert.equal(inheritedRows.length, 25, 'the 25 parent-passed gates must be prefilled as inherited');
+  assert.equal(pendingRows.length, 35, 'G7-02 plus the 34 not-executed gates must stay pending');
+  assert.equal(pendingRows.length + inheritedRows.length, 60);
+  assert.notEqual(pendingRows.length, 60, 'regression: all 60 gates must never render as pending again');
+  assert.ok(rows.some((line) => line.startsWith(`| ${FAILED_GATE} |`) && line.includes('| 待执行 |')), 'the failed parent gate must be pending, never inherited');
+  assert.ok(rows.some((line) => line.startsWith('| G7-01-install |') && line.includes('| inherited |')));
+  assert.ok(rows.some((line) => line.startsWith('| G7-03-reinstall-same-package |') && line.includes('| 待执行 |')));
+  for (const id of PASSED_GATE_IDS) {
+    assert.ok(rows.some((line) => line.startsWith(`| ${id} |`) && line.includes('| inherited |')), `${id} must be inherited`);
+  }
+  assert.match(report, /run-1788809382733/);
+  assert.match(report, new RegExp('a'.repeat(64)));
+  assert.match(report, new RegExp(CANDIDATE_SHA256));
+  assert.match(report, /25/);
+  assert.match(report, /35/);
+});
+
+test('continuation report template rejects unknown or duplicate inherited gates', () => {
+  assert.throws(
+    () => renderContinuationReportTemplate({
+      gates: REPORT_GATES,
+      inheritedGateIds: ['G9-99-does-not-exist'],
+      parentRunId: PARENT_RUN_ID,
+      parentReturnSha256: 'a'.repeat(64),
+      candidateSha256: CANDIDATE_SHA256,
+    }),
+    /unknown inherited gate/i,
+  );
+  assert.throws(
+    () => renderContinuationReportTemplate({
+      gates: REPORT_GATES,
+      inheritedGateIds: [PASSED_GATE_IDS[0], PASSED_GATE_IDS[0]],
+      parentRunId: PARENT_RUN_ID,
+      parentReturnSha256: 'a'.repeat(64),
+      candidateSha256: CANDIDATE_SHA256,
+    }),
+    /duplicate/i,
+  );
+});

@@ -68,14 +68,18 @@ test('Windows official uninstall probe reads the separate install key and never 
   assert.doesNotMatch(source, /expected exactly one HKCU uninstall registration/i);
 });
 
-test('Windows official uninstall probe derives the candidate identity and closes the app through its normal exit path', () => {
+test('Windows official uninstall probe derives the candidate identity and quits only through the real exit entry', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'acceptance-tools', 'ps', 'official-uninstall.ps1'), 'utf8');
   assert.doesNotMatch(source, /桌宠制作台/);
   assert.doesNotMatch(source, /980c4302-3a05-517b-ba38-6c71a752ed15/);
   assert.doesNotMatch(source, /DesktopPetStudio\.exe/);
   assert.match(source, /IdentityFile|CandidateManifest/);
-  assert.match(source, /CloseMainWindow/);
-  assert.match(source, /lifecycle/);
+  // window.close() never quits the tray-resident pet (behavior proof lives in
+  // test/product-lifecycle.test.js), so matching the CloseMainWindow string
+  // here was never evidence of a working lifecycle.
+  assert.doesNotMatch(source, /CloseMainWindow/i);
+  assert.match(source, /request-quit\.js/);
+  assert.match(source, /lifecycle-failed/);
   assert.doesNotMatch(source, /Stop-Process|taskkill/i);
 });
 

@@ -245,4 +245,39 @@ function verifyContinuationBinding(state) {
   return parent;
 }
 
-module.exports = { createContinuationRun, deriveCandidateSha256, isInheritableGate, loadVerifiedParent, verifyChecksumManifest, verifyContinuationBinding };
+function renderContinuationReportTemplate({ gates, inheritedGateIds, parentRunId, parentReturnSha256, parentFirstFailedGate = null, candidateSha256, originalDisplayScale = null } = {}) {
+  if (!Array.isArray(gates) || gates.length === 0) throw new Error('continuation report requires the contract gate list');
+  const gateIds = gates.map((gate) => gate && gate.id);
+  if (gateIds.some((id) => typeof id !== 'string' || id.length === 0) || new Set(gateIds).size !== gateIds.length) {
+    throw new Error('continuation report gate ids must be non-empty and unique');
+  }
+  if (!Array.isArray(inheritedGateIds)) throw new Error('continuation report requires inheritedGateIds');
+  if (new Set(inheritedGateIds).size !== inheritedGateIds.length) throw new Error('continuation report inherited gates contain a duplicate');
+  const unknown = inheritedGateIds.filter((id) => !gateIds.includes(id));
+  if (unknown.length > 0) throw new Error(`continuation report references unknown inherited gate: ${unknown.join(', ')}`);
+  const inherited = new Set(inheritedGateIds);
+  const pendingCount = gateIds.length - inherited.size;
+  const rows = gates.map((gate) => {
+    const status = inherited.has(gate.id) ? 'inherited' : '待执行';
+    return `| ${gate.id} | ${gate.mode} | ${gate.passCriteria} | ${status} | |`;
+  }).join('\n');
+  const scale = originalDisplayScale || '<填写>';
+  return `# Windows 续验报告（continuation）
+
+- 父 runId：\`${parentRunId}\`
+- 父 RETURN checksum 摘要：\`${parentReturnSha256}\`
+- 继承门（${inherited.size}，inherited passed，证据哈希经父 RETURN 全量复核）：见验证器 summary.inherited
+- 从 \`${parentFirstFailedGate || '<首个待执行门>'}\` 开始重试；父失败记录保持 failed，不改写。
+- 本轮实际执行门：见验证器 summary.executed（应为 ${pendingCount}）
+- 候选 SHA-256：\`${candidateSha256}\`
+- 未执行门：见验证器 summary.unexecuted（通过时必须为空）
+- 缩放恢复：原始 ${scale} → 最终 <填写>；最终产品/工具进程数：<填写>
+
+| 门 | 模式 | 通过条件 | 本轮状态（inherited/executed/not-executed/failed） | 备注 |
+| --- | --- | --- | --- | --- |
+${rows}
+
+结论必须三选一：Windows installed-mode 通过 / Windows 验收失败 / Windows 验收未完成（continuation-rejected 属于未完成）。完整性（integrityValid）与验收结论（acceptancePassed）分别报告。`;
+}
+
+module.exports = { createContinuationRun, deriveCandidateSha256, isInheritableGate, loadVerifiedParent, renderContinuationReportTemplate, verifyChecksumManifest, verifyContinuationBinding };

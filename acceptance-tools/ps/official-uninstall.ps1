@@ -7,7 +7,8 @@ param(
   [string]$ShortcutName,
   [int]$TimeoutSeconds = 120,
   [int]$StablePolls = 3,
-  [int]$GracefulExitTimeoutSeconds = 60
+  [int]$GracefulExitTimeoutSeconds = 60,
+  [int]$CdpPort = 9222
 )
 
 $ErrorActionPreference = 'Stop'
@@ -147,30 +148,47 @@ if ([IO.Path]::GetFileName($uninstallerPath) -notmatch '(?i)^Uninstall .+\.exe$'
 $command.filePath = $uninstallerPath
 $shortcutPaths = @(Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\$ShortcutName")
 
-# ---- 卸载前通过产品正常退出入口（主窗口关闭请求）关闭 installed 应用；失败记为独立生命周期失败 ----
-$graceful = @()
-$closeRequested = @()
-$gracefulDeadline = [DateTimeOffset]::UtcNow.AddSeconds($GracefulExitTimeoutSeconds)
-$requested = $false
-while ([DateTimeOffset]::UtcNow -le $gracefulDeadline) {
-  $snapshot = Get-ExactProcesses $installDirectory $null
-  $graceful += [pscustomobject]@{ observedAt = [DateTimeOffset]::UtcNow; productProcessCount = $snapshot.product.Count }
-  if ($snapshot.product.Count -eq 0) { break }
-  if (-not $requested) {
-    $requested = $true
-    foreach ($entry in $snapshot.product) {
-      if ($entry.CommandLine -and $entry.CommandLine -match '--type=') { continue }
-      $proc = Get-Process -Id $entry.ProcessId -ErrorAction SilentlyContinue
-      if ($null -ne $proc) {
-        $closeAccepted = $proc.CloseMainWindow()
-        $closeRequested += [pscustomobject]@{ processId = $entry.ProcessId; closeMainWindowAccepted = $closeAccepted }
-      }
-    }
+# ---- 生命周期：installed 产品必须经候选自身的真实退出入口（petApi.quit → pet:quit → app.quit()）退出。
+# 关闭窗口不等于退出：运行时阻止 window-all-closed，托盘进程在窗口销毁后继续存活，因此绝不使用窗口关闭冒充退出。
+# 精确产品进程未归零时绝不启动官方卸载器；失败记为独立 lifecycle-failed。 ----
+$quitMethod = 'petApi.quit -> pet:quit -> app.quit()'
+$lifecycleLaunch = $null
+$preLifecycle = Get-ExactProcesses $installDirectory $null
+if ($preLifecycle.product.Count -eq 0) {
+  $productExe = Join-Path $installDirectory $ExecutableName
+  if (-not (Test-Path -LiteralPath $productExe -PathType Leaf)) { throw "installed product executable is missing: $productExe" }
+  $lifecycleArguments = "--remote-debugging-port=$CdpPort"
+  $launched = Start-Process -FilePath $productExe -ArgumentList $lifecycleArguments -PassThru
+  $lifecycleLaunch = [pscustomobject]@{ launchedByProbe = $true; processId = $launched.Id; arguments = $lifecycleArguments; launchedAt = [DateTimeOffset]::UtcNow }
+  $launchDeadline = [DateTimeOffset]::UtcNow.AddSeconds(30)
+  while ([DateTimeOffset]::UtcNow -le $launchDeadline) {
+    if ((Get-ExactProcesses $installDirectory $null).product.Count -gt 0) { break }
+    Start-Sleep -Milliseconds 500
   }
-  Start-Sleep -Seconds 1
 }
+$requestQuitScript = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\request-quit.js'))
+$quitOutput = @()
+$quitExitCode = -1
+try {
+  $quitOutput = @(& node $requestQuitScript --cdp-port $CdpPort --install-dir $installDirectory --executable-name $ExecutableName --timeout-seconds $GracefulExitTimeoutSeconds 2>&1 | ForEach-Object { [string]$_ })
+  $quitExitCode = $LASTEXITCODE
+} catch {
+  $quitOutput = @($_.Exception.Message)
+  $quitExitCode = -1
+}
+$lifecycleResult = $null
+try { $lifecycleResult = ([string]($quitOutput | Select-Object -Last 1)) | ConvertFrom-Json } catch { $lifecycleResult = $null }
 $preUninstallProcesses = Get-ExactProcesses $installDirectory $null
-if ($preUninstallProcesses.product.Count -ne 0) {
+$lifecycle = [pscustomobject]@{
+  quitMethod = $quitMethod
+  cdpPort = $CdpPort
+  launch = $lifecycleLaunch
+  driverExitCode = $quitExitCode
+  result = $lifecycleResult
+  rawDriverOutput = $quitOutput
+  postDriverProductProcessCount = $preUninstallProcesses.product.Count
+}
+if ($quitExitCode -ne 0 -or $preUninstallProcesses.product.Count -ne 0) {
   $failedSnapshot = [pscustomobject]@{
     observedAt = [DateTimeOffset]::UtcNow
     uninstallerExitCode = $null
@@ -184,14 +202,13 @@ if ($preUninstallProcesses.product.Count -ne 0) {
   }
   Write-EvidenceJson 'uninstall-log.json' ([pscustomobject]@{
     status = 'lifecycle-failed'
-    reason = 'the installed product did not exit through its normal close entry; the official uninstaller was never started'
+    reason = 'the installed product did not exit through its real quit entry (petApi.quit -> pet:quit -> app.quit()); the official uninstaller was never started'
     startedAt = $startedAt
     endedAt = [DateTimeOffset]::UtcNow
     expectedDisplayName = $ExpectedDisplayName
     officialUninstallString = $uninstallString
     gracefulExitTimeoutSeconds = $GracefulExitTimeoutSeconds
-    closeMainWindowRequests = $closeRequested
-    observations = $graceful
+    lifecycle = $lifecycle
   })
   Write-EvidenceJson 'filesystem-registry-check.json' $failedSnapshot
   Write-EvidenceJson 'process-json.json' ([pscustomobject]@{ productProcesses = @($preUninstallProcesses.product); uninstallerProcesses = @() })
@@ -247,7 +264,7 @@ Write-EvidenceJson 'uninstall-log.json' ([pscustomobject]@{
   registrySubKey = $RegistrySubKey
   installRegistrySubKey = $InstallRegistrySubKey
   officialUninstallString = $uninstallString
-  gracefulClose = [pscustomobject]@{ requests = $closeRequested; observations = $graceful }
+  lifecycle = $lifecycle
   uninstallerExitCode = $process.ExitCode
   stablePollsRequired = $StablePolls
   stablePollsObserved = $consecutiveClean
