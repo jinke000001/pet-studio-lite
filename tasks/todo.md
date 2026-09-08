@@ -17,7 +17,15 @@
 - [x] E2 最小修复（提交 `1d05105`）：`lib/product-lifecycle.js`（真实退出入口 `petApi.quit → pet:quit → app.quit()`，记录退出方式/退出前 PID/请求结果/进程观测，进程未归零或入口不可驱动即 lifecycle-failed 且不得启动卸载器）、`request-quit.js` CLI、ps1 生命周期段重写（未运行时以 `--remote-debugging-port=9222` 启动保留安装，候选未修改）、`renderContinuationReportTemplate`（25 inherited + 35 待执行，回归禁止 60 门全待执行）。
 - [x] E3 GREEN 与全部质量门：聚焦 42/42、全量 `npm test` 276/276、typecheck/build/lint/preflight/audit(0)/diff-check 全过（`logs/phase-6-g702-quality-gates.txt`）。
 - [x] E4 非覆盖续验交接 `release/handoff/phase-6-workbench-windows-continuation-20260908-02/`：39 文件、checksums 全过（自身 `d557b4df…`）、空 RETURN、bundle HEAD/source ZIP/合同/候选 SHA/父 RETURN SHA 复核通过，`-01` 保留未动，未写 T7、不 push/merge/tag。
-- [ ] E5 Windows 实机执行 `-02` 续验；Windows 端进程枚举、注册表与卸载器行为保持 `pending external RETURN`。
+- [x] E5 Windows 实机已启动 `-02` 续验，但 `request-quit.js` 把 `--cdp-port` 的值 `9222` 再次解析为参数，以 `unknown argument: 9222` 在 G7-02 终止；官方卸载器未启动，该 RETURN 只证明验收工具失败，不构成产品退出或卸载失败结论。
+
+### 2026-09-08 -03 退出驱动参数解析修复
+
+- [x] F1 从 T7 `-02/RETURN/run-1788839767001-continuation` 只读定位首个失败点：`parseArgs()` 遍历参数时没有消费 option value，因而把 `9222` 当作新参数。
+- [x] F2 先新增完整四组 option/value 的确定性 RED，再将 `request-quit.js` 的遍历步长修正为 2；修复提交 `2e4c8aa`。
+- [x] F3 GREEN 与全部质量门：聚焦 25/25、全量 `npm test` 277/277、typecheck/build/lint/preflight/audit(0)/diff-check 全过；交接内 CLI 冒烟已穿过参数解析并在 macOS 正确返回 `platform-unavailable`。
+- [x] F4 生成非覆盖 `release/handoff/phase-6-workbench-windows-continuation-20260908-03/`：checksums 39/39（自身 SHA-256 `a8537dc9…`）、RETURN 为空、无符号链接/macOS 元数据；bundle HEAD/source ZIP/合同/候选/原始父 RETURN 身份不变。已非覆盖复制到 T7 同名目录，目标端哈希、空 RETURN、零符号链接/元数据与本地逐字节一致。
+- [ ] F5 Windows 仅使用 `-03` 从原始父 RETURN `run-1788809382733` 创建新续验；`-02` 失败 RETURN 保留为诊断证据，不作为继承父运行。
 
 ### 2026-09-04 个人自用版收敛：代码精简与 Windows 验收提速
 

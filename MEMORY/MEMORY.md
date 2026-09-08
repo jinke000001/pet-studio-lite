@@ -59,6 +59,12 @@
 
 ## Phase 6 当前状态
 
+### 2026-09-08 `-02` 工具失败与 `-03` 修正交接
+
+- Windows `-02/RETURN/run-1788839767001-continuation` 在 G7-02 报 `unknown argument: 9222`；根因是 `acceptance-tools/request-quit.js` 的 `parseArgs()` 读取 option value 后未跳过该 value，官方卸载器实际未启动。该 RETURN 只证明验收工具失败，不证明产品退出或卸载逻辑有问题。
+- 修复提交 `2e4c8aa`：先以完整四组 option/value 用例复现 RED，再将遍历步长修正为 2。聚焦 25/25、全量 277/277、typecheck/build/lint/preflight/audit(0)/diff-check 全过；交接内 CLI 冒烟在 macOS 穿过参数解析后正确到达 `platform-unavailable` 边界。
+- 当前 Windows 入口为非覆盖 `release/handoff/phase-6-workbench-windows-continuation-20260908-03/`，已复制到 T7 同名目录。它仅更新验收工具覆盖层和说明，候选/source ZIP/bundle/合同/原始父 RETURN 身份不变；39/39 checksums 通过，自身 SHA-256 `a8537dc9de2679b5ace64971aa77e16588ba129d71d4bb35ae9c39dc178f2346`，本地/T7 逐字节一致。新续验必须仍以 `run-1788809382733` 为父运行，`-02` 失败 RETURN 仅作诊断证据。Windows 结论仍为 `pending external RETURN`。
+
 ### 2026-09-08 G7-02 生命周期修复与 -02 续验交接
 
 - 根因：`-01` 探针用 `CloseMainWindow()` 冒充正常退出，但候选运行时 `window-all-closed.preventDefault()`，窗口销毁后托盘进程继续存活，G7-02 只能等 60 秒后再次 lifecycle-failed。行为级证明（`test/product-lifecycle.test.js`，真实 Electron + CDP）：`window.close()` 后页面目标消失而进程仍存活；旧套件只对 ps1 做 `CloseMainWindow` 字符串匹配，不构成行为证明，该断言已删除。
