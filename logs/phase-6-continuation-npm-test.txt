@@ -1,0 +1,17 @@
+=== npm test ===
+✔ rejects ZIP path traversal without writing outside the extraction root (1.278375ms)
+▶ rejects symbolic links, duplicate paths and encrypted entries
+  ✔ symbolic link (1.106834ms)
+  ✔ duplicate path (1.993042ms)
+  ✔ encrypted entry (0.861334ms)
+✔ rejects symbolic links, duplicate paths and encrypted entries (4.3545ms)
+✔ rejects suspicious expansion metadata before extracting file data (1.458667ms)
+ℹ tests 266
+ℹ suites 0
+ℹ pass 266
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2850.991708
+npm test exit=0

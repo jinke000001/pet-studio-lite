@@ -2,6 +2,15 @@
 
 ## 当前检查点
 
+### 2026-09-08 G7-02 失败 RETURN 续验基础设施
+
+- [x] D1 确定性 RED：failed 父运行不可普通 resume、缺父 RETURN/清单/身份即拒、父证据哈希漂移即拒、五项身份漂移即拒、candidateSha256 不得为 null 继承、只继承 passed+exitCode 0+证据完整门、继承门记录父绑定、新运行从 G7-02 开始且不改写父记录、not-executed 清理占位不误报、完整性/结论分离。
+- [x] D2 实现 `acceptance-tools/lib/continuation.js` + `run.js continue` + finalize 父 RETURN 复核；验证器新增 `--parent-return`/`--expect-parent-return-sha256` 与 parentReturnValid/continuationIdentityValid/inheritedGateCount/executedGateCount；提交 `bcea748`。
+- [x] D3 `official-uninstall.ps1` 候选身份化：身份只从候选 manifest/G7-01 证据或参数取得，DisplayName 发现注册子键，卸载前产品正常退出（失败记 lifecycle-failed），三次稳定清零与三份合同证据不变。
+- [x] D4 GREEN 与全部质量门：聚焦 103/103、全量 266/266、typecheck/build/lint/preflight/audit(0)/diff-check；真实父 RETURN 只读复核 integrityValid=true、acceptancePassed=false。
+- [x] D5 非覆盖续验交接 `release/handoff/phase-6-workbench-windows-continuation-20260908-01/`：38 文件、checksums 全过（自身 `b6db0834…`）、空 RETURN、未写 T7。
+- [ ] D6 用户确认后搬运到 T7；Windows 从 `run.js continue` 与 `G7-02-official-uninstall` 继续执行续验。
+
 ### 2026-09-04 个人自用版收敛：代码精简与 Windows 验收提速
 
 - [x] C0 冻结当前基线、只读复核 T7 `-11` partial-save，并建立本地非覆盖副本；Windows 回传明确为已保存但未完成。

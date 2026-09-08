@@ -1,0 +1,22 @@
+=== typecheck ===
+> desktop-pet-workflow@0.1.0 studio:typecheck
+> tsc -p tsconfig.workbench.json --noEmit
+
+typecheck exit=0
+=== build ===
+.workbench-dist/assets/index-Bt18XAws.js   213.41 kB │ gzip: 67.40 kB
+
+✓ built in 88ms
+build exit=0
+=== lint ===
+> desktop-pet-workflow@0.1.0 lint
+> node scripts/check-syntax.js
+
+lint exit=0
+=== preflight ===
+> node scripts/source-preflight.js
+
+{"executablePath":"/Users/jinke00001/Desktop/pet/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron","ok":true}
+preflight exit=0
+=== diff-check ===
+diff exit=0

@@ -59,6 +59,13 @@
 
 ## Phase 6 当前状态
 
+### 2026-09-08 G7-02 失败 RETURN 续验基础设施
+
+- 父 RETURN（T7 `phase-6-workbench-windows-recheck-20260907-04/RETURN/run-1788809382733`，只读未动）：25 门 passed、`G7-02-official-uninstall` failed、34 门 not-executed。失败现象是 NSIS 弹出“Windows Phase 6.8 正在运行，点击确定关闭”后执行者点了取消；现有证据不能证明产品或系统缺陷。父 RETURN checksum 摘要 `acffe57f603d3bd17bb9fb411134b49c54a0b05c269ec56557e340c863a8f7a2`。
+- 修复提交 `bcea748`：新增 `acceptance-tools/lib/continuation.js`（`createContinuationRun`：父 RETURN 只读、全量哈希复核、身份逐项匹配、候选 SHA-256 由 G5-12 manifest/build-artifacts/G7-01 安装证据三处交叉核对得出 `94582cd0adab5da646a502f8c65e3164cec1fd9143c14fde2d4c06c5c1393f39`、只继承 passed+exitCode 0+证据完整门、finalize 再验父 RETURN）；`run.js continue` 命令；验证器完整性/结论分离（`integrityValid` 与 `acceptancePassed`）、not-executed 清理占位不再误报、新增 `parentReturnValid`/`continuationIdentityValid`/`inheritedGateCount`/`executedGateCount` 与 `--parent-return`/`--expect-parent-return-sha256`；`official-uninstall.ps1` 改为从候选身份 JSON/参数取得身份、按 DisplayName 发现注册子键、卸载前经产品正常退出入口关闭应用（失败记 lifecycle-failed，禁止强杀冒充），保留三次稳定清零与三份合同证据。
+- 先 RED 后 GREEN：新测试在旧实现上确定性失败（`logs/phase-6-continuation-RED.txt`），修复后聚焦 103/103、全量 `npm test` 266/266、typecheck/build/lint/preflight/audit(0 vulnerabilities)/diff-check 全过（`logs/phase-6-continuation-*.txt`）。修复后验证器对真实父 RETURN 只读复核：integrityValid=true、acceptancePassed=false，仅剩 status:overall 与 cleanup:status 两个结论性失败。
+- 新非覆盖本地续验交接：`release/handoff/phase-6-workbench-windows-continuation-20260908-01/`（38 个文件，checksums 全部通过，自身 SHA-256 `b6db0834e2924d257d112169b11c4fe5d2b668575a6a5e6871f8fe142d0f126c`，RETURN 为空、零元数据、UTF-8/LF）。绑定提交 `bcea748`；source ZIP/合同/bundle 与父交接逐字节一致。未复制到 T7，等用户确认。Windows 从 `node acceptance-tools/run.js continue <父RETURN目录> RETURN` 开始，首个执行门为 `G7-02-official-uninstall`。
+
 ### 2026-09-07 官方卸载复验修复与新交接
 
 - Windows 报告首个失败门为 `G7-02-official-uninstall`：固定等待 5 秒后 HKCU 卸载注册项仍存在，但安装目录、快捷方式和进程已清零。修复提交 `fcd10851e979e73ab524593a63e53861197102f2` 固定 NSIS GUID `980c4302-3a05-517b-ba38-6c71a752ed15` 和卸载显示名，并新增 `acceptance-tools/ps/official-uninstall.ps1`：只调用 HKCU 官方 `UninstallString`，等待卸载结束后要求 32/64 位注册项、安装目录、快捷方式与精确进程连续 3 次清零；不手工删除注册表。

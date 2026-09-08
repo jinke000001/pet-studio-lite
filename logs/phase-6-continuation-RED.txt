@@ -1,0 +1,349 @@
+/Users/jinke00001/Desktop/pet/test/workbench-continuation.test.js:129
+    const evidence = gateEvidence[id] || { `${id}/evidence.json`: JSON.stringify({ gate: id, status }) };
+                                           ^^^
+
+SyntaxError: Unexpected template string
+    at wrapSafe (node:internal/modules/cjs/loader:1743:18)
+    at Module._compile (node:internal/modules/cjs/loader:1786:20)
+    at Object..js (node:internal/modules/cjs/loader:1943:10)
+    at Module.load (node:internal/modules/cjs/loader:1533:32)
+    at Module._load (node:internal/modules/cjs/loader:1335:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v24.14.0
+✖ test/workbench-continuation.test.js (26.578666ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30.291041
+
+✖ failing tests:
+
+test at test/workbench-continuation.test.js:1:1
+✖ test/workbench-continuation.test.js (26.578666ms)
+  'test failed'
+✔ CDP connection errors and missing target are classified, not swallowed (4.819667ms)
+✔ waitFor propagates selector failures and has deterministic timeout (5.284ms)
+✔ official uninstall requires stable removal instead of a fixed delay (0.2455ms)
+✔ official uninstall rejects nonzero exit and any residual lifecycle state (0.124375ms)
+✔ Windows official uninstall probe reads the separate install key and never deletes registry evidence (0.271334ms)
+✖ Windows official uninstall probe derives the candidate identity and closes the app through its normal exit path (0.820584ms)
+✔ dialog and platform classifications never turn manual or unavailable into passed (0.0815ms)
+✔ evidence paths reject absolute, traversal, empty, symlink and out-of-root files (0.909708ms)
+✔ run state supports running → paused → running and records non-overwriting attempts (5.280709ms)
+✔ finalize rejects incomplete gates, null candidate, scale mismatch and residual processes (80.601459ms)
+✔ a child with no exit code is still running (0.078958ms)
+✔ resume requires every run identity field, including a null candidate (0.853542ms)
+✔ finalize rejects tampered historical evidence and writes checksum closure (2.037666ms)
+✔ smoke screenshot operation uses the injected adapter and requires PNG plus metadata (0.958833ms)
+✔ smoke exit cleanup writes both declared evidence files (0.540417ms)
+✔ smoke never treats a non-Windows probe as passed (0.45625ms)
+✔ fully compliant RETURN directory passes with exit code 0 (32.748959ms)
+✔ missing evidence file fails with exit code 1 (30.068875ms)
+✔ forged pass: overallStatus=passed with a failed required gate fails (29.919417ms)
+✔ wrong evidence SHA-256 fails with exit code 1 (29.707625ms)
+✔ passed overall status with a not-executed required gate fails (28.833584ms)
+✔ process gate with exitCode=1 (PowerShell syntax error) fails (28.669167ms)
+✔ residual accepted product process at an expected path fails (27.807083ms)
+✔ display scale mismatch (original=96 final=120) fails (27.517209ms)
+✔ returned-checksums.sha256 with UTF-8 BOM fails (27.291042ms)
+✔ returned-checksums.sha256 with CRLF line endings fails (27.71825ms)
+✔ returned-checksums.sha256 listing itself fails (27.540209ms)
+✔ overallStatus=failed with null firstFailedGate fails (27.373083ms)
+✔ overallStatus=failed with a passed gate after firstFailedGate fails (27.222208ms)
+✔ mismatched sourceCommit fails identity check (27.623916ms)
+✔ mismatched sourceZipSha256 fails identity check (28.110208ms)
+✔ passed report with a mismatched explicitly expected contract identity fails (28.900833ms)
+✔ passed report with a mismatched explicitly expected environment identity fails (27.989875ms)
+✔ passed report missing explicitly expected contract and environment identities fails (27.387167ms)
+✔ passed report with correct explicit identities passes (28.30275ms)
+✔ legacy invocation remains compatible when optional identity expectations are omitted (27.390375ms)
+✔ new-contract passed evidence cannot omit the explicit candidate expectation (27.296917ms)
+✔ missing acceptance-state.json fails with exit code 1 (26.9525ms)
+✔ corrupt acceptance-state.json fails with exit code 1 (27.121459ms)
+✔ environment-blocked overall status fails with environment-blocked reason (27.76375ms)
+✔ paused overall status is explicit, fails overall acceptance, and emits a continuation summary (27.879125ms)
+✔ paused report missing a required gate is invalid and names it in the continuation summary (27.588292ms)
+✔ an unrelated not-executed gate cannot replace a missing required paused gate (27.837042ms)
+✔ paused report with a duplicate required gate is invalid (27.738666ms)
+✔ paused report cannot hide a failed required gate (27.616583ms)
+✔ paused report with damaged evidence is invalid (30.935541ms)
+✔ paused state without reason or next step is rejected as incomplete pause evidence (27.833333ms)
+✔ paused evidence cannot be reused across a different source or candidate identity (28.304041ms)
+✔ paused evidence cannot be reused when the relevant environment fingerprint changed (29.711708ms)
+✔ evidence path escaping the RETURN directory (../) fails (28.748ms)
+✔ --json emits machine readable results for a failing RETURN directory (27.902625ms)
+✔ invocation without arguments exits with usage code 2 (24.858083ms)
+✔ required gate marked passed but with exitCode=1 fails (28.008208ms)
+✔ duplicate required gate id fails (28.61625ms)
+✔ overallStatus=passed with a failed non-required gate fails (27.765375ms)
+✔ overallStatus=passed with non-null firstFailedGate fails (27.605ms)
+✔ evidencePath without a matching evidenceSha256 entry fails (27.6755ms)
+✔ evidenceSha256 key without a matching evidencePath fails (27.727167ms)
+✔ returned-checksums omitting a RETURN file fails (27.520791ms)
+✔ returned-checksums with a duplicate entry fails (28.046ms)
+✔ symbolic-link evidence file fails even with a matching hash (27.9005ms)
+✔ returned-checksums entry pointing at a directory fails (27.313166ms)
+✔ required gate passed with endedAt before startedAt fails (27.556041ms)
+✔ required gate passed with empty evidencePaths fails (27.308084ms)
+✔ --output writes the validator report to a derived file outside the RETURN directory (27.775584ms)
+✔ --output inside the RETURN directory is refused so it cannot enter the checksum closure (26.008667ms)
+✔ modifying a persistent evidence file after checksums were frozen fails (27.670416ms)
+✖ a not-executed cleanup gate with a placeholder exitCode=1 is not reported as an executed cleanup failure (28.291375ms)
+✔ an executed cleanup gate with exitCode=1 is still reported as a cleanup failure (27.744292ms)
+✖ a failed RETURN with intact hashes keeps evidence integrity separate from the acceptance verdict (27.545291ms)
+ℹ tests 70
+ℹ suites 0
+ℹ pass 67
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1558.5505
+
+✖ failing tests:
+
+test at test/acceptance-tools.test.js:71:1
+✖ Windows official uninstall probe derives the candidate identity and closes the app through its normal exit path (0.820584ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /桌宠制作台/. Input:
+  
+  'param(\n' +
+    '  [Parameter(Mandatory = $true)][string]$EvidenceRoot,\n' +
+    "  [string]$RegistrySubKey = 'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\980c4302-3a05-517b-ba38-6c71a752ed15',\n" +
+    "  [string]$InstallRegistrySubKey = 'Software\\980c4302-3a05-517b-ba38-6c71a752ed15',\n" +
+    "  [string]$ExpectedDisplayName = '桌宠制作台 0.1.0',\n" +
+    "  [string]$ExecutableName = 'DesktopPetStudio.exe',\n" +
+    "  [string]$ShortcutName = '桌宠制作台.lnk',\n" +
+    '  [int]$TimeoutSeconds = 120,\n' +
+    '  [int]$StablePolls = 3\n' +
+    ')\n' +
+    '\n' +
+    "$ErrorActionPreference = 'Stop'\n" +
+    "$evidenceDirectory = Join-Path ([IO.Path]::GetFullPath($EvidenceRoot)) 'g7-02'\n" +
+    'New-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null\n' +
+    '\n' +
+    'function Write-EvidenceJson([string]$Name, $Value) {\n' +
+    '  $target = Join-Path $evidenceDirectory $Name\n' +
+    '  if (Test-Path -LiteralPath $target) { throw "evidence already exists: $target" }\n' +
+    '  $json = $Value | ConvertTo-Json -Depth 12\n' +
+    '  [IO.File]::WriteAllText($target, "$json`r`n", (New-Object Text.UTF8Encoding($false)))\n' +
+    '}\n' +
+    '\n' +
+    'function Get-RegistryViewState([Microsoft.Win32.RegistryView]$View, [string]$SubKey) {\n' +
+    '  $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $View)\n' +
+    '  try {\n' +
+    '    $key = $base.OpenSubKey($SubKey)\n' +
+    '    if ($null -eq $key) { return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $false; values = $null } }\n' +
+    '    try {\n' +
+    '      $values = @{}\n' +
+    '      foreach ($name in $key.GetValueNames()) { $values[$name] = $key.GetValue($name) }\n' +
+    '      return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $true; values = $values }\n' +
+    '    } finally { $key.Dispose() }\n' +
+    '  } finally { $base.Dispose() }\n' +
+    '}\n' +
+    '\n' +
+    'function Get-RegistryState([string]$SubKey) {\n' +
+    '  @(\n' +
+    '    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry64) $SubKey\n' +
+    '    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry32) $SubKey\n' +
+    '  )\n' +
+    '}\n' +
+    '\n' +
+    'function Get-ExactProcesses([string]$InstallDirectory, [string]$UninstallerPath) {\n' +
+    '  $productPath = if ($InstallDirectory) { [IO.Path]::GetFullPath((Join-Path $InstallDirectory $ExecutableName)) } else { $null }\n' +
+    '  $processes = @(Get-CimInstance Win32_Process | Select-Object Name, ProcessId, ParentProcessId, ExecutablePath, CommandLine)\n' +
+    '  $product = @($processes | Where-Object {\n' +
+    '    $productPath -and $_.ExecutablePath -and [string]::Equals([IO.Path]::GetFullPath($_.ExecutablePath), $productPath, [StringComparison]::OrdinalIgnoreCase)\n' +
+    '  })\n' +
+    '  $uninstallerLeaf = if ($UninstallerPath) { [IO.Path]::GetFileName($UninstallerPath) } else { $null }\n' +
+    '  $uninstallers = @($processes | Where-Object {\n' +
+    '    $uninstallerLeaf -and (($_.ExecutablePath -and [string]::Equals([IO.Path]::GetFileName($_.ExecutablePath), $uninstallerLeaf, [StringComparison]::OrdinalIgnoreCase)) -or ($_.CommandLine -and $_.CommandLine.Contains($UninstallerPath)))\n' +
+    '  })\n' +
+    '  [pscustomobject]@{ product = $product; uninstallers = $uninstallers }\n' +
+    '}\n' +
+    '\n' +
+    'function Split-UninstallCommand([string]$CommandLine) {\n' +
+    `  if ($CommandLine -match "[\\r\\n]") { throw 'UninstallString contains a line break' }\n` +
+    `  $match = [regex]::Match($CommandLine, '^\\s*"([^"]+)"\\s*(.*)$')\n` +
+    "  if (-not $match.Success) { $match = [regex]::Match($CommandLine, '^\\s*(\\S+)\\s*(.*)$') }\n" +
+    "  if (-not $match.Success) { throw 'unable to parse UninstallString' }\n" +
+    '  [pscustomobject]@{ filePath = $match.Groups[1].Value; arguments = $match.Groups[2].Value }\n' +
+    '}\n' +
+    '\n' +
+    '$startedAt = [DateTimeOffset]::UtcNow\n' +
+    '$initialRegistry = @(Get-RegistryState $RegistrySubKey)\n' +
+    '$initialInstallRegistry = @(Get-RegistryState $InstallRegistrySubKey)\n' +
+    '$registrations = @($initialRegistry | Where-Object { $_.exists -and $_.values.UninstallString })\n' +
+    '$uninstallStrings = @($registrations | ForEach-Object { [string]$_.values.UninstallString } | Select-Object -Unique)\n' +
+    '$displayNames = @($registrations | ForEach-Object { [string]$_.values.DisplayName } | Select-Object -Unique)\n' +
+    '$installLocations = @($initialInstallRegistry | Where-Object { $_.exists -and $_.values.InstallLocation } | ForEach-Object { [string]$_.values.InstallLocation } | Select-Object -Unique)\n' +
+    'if ($uninstallStrings.Count -ne 1 -or $installLocations.Count -ne 1 -or $displayNames.Count -ne 1 -or $displayNames[0] -ne $ExpectedDisplayName) {\n' +
+    `  Write-EvidenceJson 'uninstall-log.json' ([pscustomobject]@{ status = 'failed'; reason = "official uninstall identity is missing or ambiguous"; expectedDisplayName = $ExpectedDisplayName; uninstallRegistry = $initialRegistry; installRegistry = $initialInstallRegistry; startedAt = $startedAt })\n` +
+    '  exit 2\n' +
+    '}\n' +
+    '\n' +
+    '$registration = $registrations[0]\n' +
+    '$command = Split-UninstallCommand $uninstallStrings[0]\n' +
+    'if (-not (Test-Path -LiteralPath $command.filePath -PathType Leaf)) { throw "official uninstaller is missing: $($command.filePath)" }\n' +
+    "if ($command.arguments -notmatch '(?i)(^|\\s)/currentuser(\\s|$)') { throw 'HKCU UninstallString must preserve /currentuser' }\n" +
+    '\n' +
+    '$installDirectory = [IO.Path]::GetFullPath($installLocations[0])\n' +
+    '$uninstallerPath = [IO.Path]::GetFullPath($command.filePath)\n' +
+    'if (-not [string]::Equals([IO.Path]::GetDirectoryName($uninstallerPath), $installDirectory, [StringComparison]::OrdinalIgnoreCase)) {\n' +
+    "  throw 'official uninstaller must be inside the recorded install directory'\n" +
+    '}\n' +
+    "if ([IO.Path]::GetFileName($uninstallerPath) -notmatch '(?i)^Uninstall .+\\.exe$') { throw 'official uninstaller filename is invalid' }\n" +
+    '$command.filePath = $uninstallerPath\n' +
+    '$shortcutPaths = @(Join-Path $env:APPDATA "Microsoft\\Windows\\Start Menu\\Programs\\$ShortcutName")\n' +
+    '$process = Start-Process -FilePath $command.filePath -ArgumentList $command.arguments -PassThru -Wait\n' +
+    '$history = @()\n' +
+    '$deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)\n' +
+    '$consecutiveClean = 0\n' +
+    '$lastSnapshot = $null\n' +
+    '\n' +
+    'while ([DateTimeOffset]::UtcNow -le $deadline) {\n' +
+    '  $registry = @(Get-RegistryState $RegistrySubKey)\n' +
+    '  $installRegistry = @(Get-RegistryState $InstallRegistrySubKey)\n' +
+    '  $processState = Get-ExactProcesses $installDirectory $command.filePath\n' +
+    '  $shortcuts = @($shortcutPaths | ForEach-Object { [pscustomobject]@{ path = $_; exists = Test-Path -LiteralPath $_ } })\n' +
+    '  $lastSnapshot = [pscustomobject]@{\n' +
+    '    observedAt = [DateTimeOffset]::UtcNow\n' +
+    '    uninstallerExitCode = $process.ExitCode\n' +
+    '    registryViews = $registry\n' +
+    '    installRegistryViews = $installRegistry\n' +
+    '    installDirectory = $installDirectory\n' +
+    '    installDirectoryExists = if ($installDirectory) { Test-Path -LiteralPath $installDirectory } else { $false }\n' +
+    '    shortcutPaths = $shortcuts\n' +
+    '    productProcesses = @($processState.product)\n' +
+    '    uninstallerProcesses = @($processState.uninstallers)\n' +
+    '  }\n' +
+    '  $history += $lastSnapshot\n' +
+    '  $clean = $process.ExitCode -eq 0 -and\n' +
+    '    -not ($registry | Where-Object { $_.exists }) -and\n' +
+    '    -not ($installRegistry | Where-Object { $_.exists }) -and\n' +
+    '    -not $lastSnapshot.installDirectoryExists -and\n' +
+    '    -not ($shortcuts | Where-Object { $_.exists }) -and\n' +
+    '    $lastSnapshot.productProcesses.Count -eq 0 -and\n' +
+    '    $lastSnapshot.uninstallerProcesses.Count -eq 0\n' +
+    '  if ($clean) { $consecutiveClean++ } else { $consecutiveClean = 0 }\n' +
+    '  if ($consecutiveClean -ge $StablePolls) { break }\n' +
+    '  Start-Sleep -Seconds 1\n' +
+    '}\n' +
+    '\n' +
+    '$passed = $consecutiveClean -ge $StablePolls\n' +
+    '$endedAt = [DateTimeOffset]::UtcNow\n' +
+    "Write-EvidenceJson 'uninstall-log.json' ([pscustomobject]@{\n" +
+    "  status = if ($passed) { 'passed' } else { 'failed' }\n" +
+    '  startedAt = $startedAt\n' +
+    '  endedAt = $endedAt\n' +
+    '  durationMs = [int64]($endedAt - $startedAt).TotalMilliseconds\n' +
+    '  officialUninstallString = [string]$registration.values.UninstallString\n' +
+    '  uninstallerExitCode = $process.ExitCode\n' +
+    '  stablePollsRequired = $StablePolls\n' +
+    '  stablePollsObserved = $consecutiveClean\n' +
+    '  observations = $history\n' +
+    '})\n' +
+    "Write-EvidenceJson 'filesystem-registry-check.json' $lastSnapshot\n" +
+    "Write-EvidenceJson 'process-json.json' ([pscustomobject]@{ productProcesses = @($lastSnapshot.productProcesses); uninstallerProcesses = @($lastSnapshot.uninstallerProcesses) })\n" +
+    '\n' +
+    'if ($passed) { exit 0 }\n' +
+    'exit 1\n'
+  
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/acceptance-tools.test.js:73:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'param(\n  [Parameter(Mandatory = $true)][string]$EvidenceRoot,\n  [string]$RegistrySubKey = \'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\980c4302-3a05-517b-ba38-6c71a752ed15\',\n  [string]$InstallRegistrySubKey = \'Software\\980c4302-3a05-517b-ba38-6c71a752ed15\',\n  [string]$ExpectedDisplayName = \'桌宠制作台 0.1.0\',\n  [string]$ExecutableName = \'DesktopPetStudio.exe\',\n  [string]$ShortcutName = \'桌宠制作台.lnk\',\n  [int]$TimeoutSeconds = 120,\n  [int]$StablePolls = 3\n)\n\n$ErrorActionPreference = \'Stop\'\n$evidenceDirectory = Join-Path ([IO.Path]::GetFullPath($EvidenceRoot)) \'g7-02\'\nNew-Item -ItemType Directory -Path $evidenceDirectory -Force | Out-Null\n\nfunction Write-EvidenceJson([string]$Name, $Value) {\n  $target = Join-Path $evidenceDirectory $Name\n  if (Test-Path -LiteralPath $target) { throw "evidence already exists: $target" }\n  $json = $Value | ConvertTo-Json -Depth 12\n  [IO.File]::WriteAllText($target, "$json`r`n", (New-Object Text.UTF8Encoding($false)))\n}\n\nfunction Get-RegistryViewState([Microsoft.Win32.RegistryView]$View, [string]$SubKey) {\n  $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $View)\n  try {\n    $key = $base.OpenSubKey($SubKey)\n    if ($null -eq $key) { return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $false; values = $null } }\n    try {\n      $values = @{}\n      foreach ($name in $key.GetValueNames()) { $values[$name] = $key.GetValue($name) }\n      return [pscustomobject]@{ view = $View.ToString(); subKey = $SubKey; exists = $true; values = $values }\n    } finally { $key.Dispose() }\n  } finally { $base.Dispose() }\n}\n\nfunction Get-RegistryState([string]$SubKey) {\n  @(\n    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry64) $SubKey\n    Get-RegistryViewState ([Microsoft.Win32.RegistryView]::Registry32) $SubKey\n  )\n}\n\nfunction Get-ExactProcesses([string]$InstallDirectory, [string]$UninstallerPath) {\n  $productPath = if ($InstallDirectory) { [IO.Path]::GetFullPath((Join-Path $InstallDirectory $ExecutableName)) } else { $null }\n  $processes = @(Get-CimInstance Win32_Process | Select-Object Name, ProcessId, ParentProcessId, ExecutablePath, CommandLine)\n  $product = @($processes | Where-Object {\n    $productPath -and $_.ExecutablePath -and [string]::Equals([IO.Path]::GetFullPath($_.ExecutablePath), $productPath, [StringComparison]::OrdinalIgnoreCase)\n  })\n  $uninstallerLeaf = if ($UninstallerPath) { [IO.Path]::GetFileName($UninstallerPath) } else { $null }\n  $uninstallers = @($processes | Where-Object {\n    $uninstallerLeaf -and (($_.ExecutablePath -and [string]::Equals([IO.Path]::GetFileName($_.ExecutablePath), $uninstallerLeaf, [StringComparison]::OrdinalIgnoreCase)) -or ($_.CommandLine -and $_.CommandLine.Contains($UninstallerPath)))\n  })\n  [pscustomobject]@{ product = $product; uninstallers = $uninstallers }\n}\n\nfunction Split-UninstallCommand([string]$CommandLine) {\n  if ($CommandLine -match "[\\r\\n]") { throw \'UninstallString contains a line break\' }\n  $match = [regex]::Match($CommandLine, \'^\\s*"([^"]+)"\\s*(.*)$\')\n  if (-not $match.Success) { $match = [regex]::Match($CommandLine, \'^\\s*(\\S+)\\s*(.*)$\') }\n  if (-not $match.Success) { throw \'unable to parse UninstallString\' }\n  [pscustomobject]@{ filePath = $match.Groups[1].Value; arguments = $match.Groups[2].Value }\n}\n\n$startedAt = [DateTimeOffset]::UtcNow\n$initialRegistry = @(Get-RegistryState $RegistrySubKey)\n$initialInstallRegistry = @(Get-RegistryState $InstallRegistrySubKey)\n$registrations = @($initialRegistry | Where-Object { $_.exists -and $_.values.UninstallString })\n$uninstallStrings = @($registrations | ForEach-Object { [string]$_.values.UninstallString } | Select-Object -Unique)\n$displayNames = @($registrations | ForEach-Object { [string]$_.values.DisplayName } | Select-Object -Unique)\n$installLocations = @($initialInstallRegistry | Where-Object { $_.exists -and $_.values.InstallLocation } | ForEach-Object { [string]$_.values.InstallLocation } | Select-Object -Unique)\nif ($uninstallStrings.Count -ne 1 -or $installLocations.Count -ne 1 -or $displayNames.Count -ne 1 -or $displayNames[0] -ne $ExpectedDisplayName) {\n  Write-EvidenceJson \'uninstall-log.json\' ([pscustomobject]@{ status = \'failed\'; reason = "official uninstall identity is missing or ambiguous"; expectedDisplayName = $ExpectedDisplayName; uninstallRegistry = $initialRegistry; installRegistry = $initialInstallRegistry; startedAt = $startedAt })\n  exit 2\n}\n\n$registration = $registrations[0]\n$command = Split-UninstallCommand $uninstallStrings[0]\nif (-not (Test-Path -LiteralPath $command.filePath -PathType Leaf)) { throw "official uninstaller is missing: $($command.filePath)" }\nif ($command.arguments -notmatch \'(?i)(^|\\s)/currentuser(\\s|$)\') { throw \'HKCU UninstallString must preserve /currentuser\' }\n\n$installDirectory = [IO.Path]::GetFullPath($installLocations[0])\n$uninstallerPath = [IO.Path]::GetFullPath($command.filePath)\nif (-not [string]::Equals([IO.Path]::GetDirectoryName($uninstallerPath), $installDirectory, [StringComparison]::OrdinalIgnoreCase)) {\n  throw \'official uninstaller must be inside the recorded install directory\'\n}\nif ([IO.Path]::GetFileName($uninstallerPath) -notmatch \'(?i)^Uninstall .+\\.exe$\') { throw \'official uninstaller filename is invalid\' }\n$command.filePath = $uninstallerPath\n$shortcutPaths = @(Join-Path $env:APPDATA "Microsoft\\Windows\\Start Menu\\Programs\\$ShortcutName")\n$process = Start-Process -FilePath $command.filePath -ArgumentList $command.arguments -PassThru -Wait\n$history = @()\n$deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)\n$consecutiveClean = 0\n$lastSnapshot = $null\n\nwhile ([DateTimeOffset]::UtcNow -le $deadline) {\n  $registry = @(Get-RegistryState $RegistrySubKey)\n  $installRegistry = @(Get-RegistryState $InstallRegistrySubKey)\n  $processState = Get-ExactProcesses $installDirectory $command.filePath\n  $shortcuts = @($shortcutPaths | ForEach-Object { [pscustomobject]@{ path = $_; exists = Test-Path -LiteralPath $_ } })\n  $lastSnapshot = [pscustomobject]@{\n    observedAt = [DateTimeOffset]::UtcNow\n    uninstallerExitCode = $process.ExitCode\n    registryViews = $registry\n    installRegistryViews = $installRegistry\n    installDirectory = $installDirectory\n    installDirectoryExists = if ($installDirectory) { Test-Path -LiteralPath $installDirectory } else { $false }\n    shortcutPaths = $shortcuts\n    productProcesses = @($processState.product)\n    uninstallerProcesses = @($processState.uninstallers)\n  }\n  $history += $lastSnapshot\n  $clean = $process.ExitCode -eq 0 -and\n    -not ($registry | Where-Object { $_.exists }) -and\n    -not ($installRegistry | Where-Object { $_.exists }) -and\n    -not $lastSnapshot.installDirectoryExists -and\n    -not ($shortcuts | Where-Object { $_.exists }) -and\n    $lastSnapshot.productProcesses.Count -eq 0 -and\n    $lastSnapshot.uninstallerProcesses.Count -eq 0\n  if ($clean) { $consecutiveClean++ } else { $consecutiveClean = 0 }\n  if ($consecutiveClean -ge $StablePolls) { break }\n  Start-Sleep -Seconds 1\n}\n\n$passed = $consecutiveClean -ge $StablePolls\n$endedAt = [DateTimeOffset]::UtcNow\nWrite-EvidenceJson \'uninstall-log.json\' ([pscustomobject]@{\n  status = if ($passed) { \'passed\' } else { \'failed\' }\n  startedAt = $startedAt\n  endedAt = $endedAt\n  durationMs = [int64]($endedAt - $startedAt).TotalMilliseconds\n  officialUninstallString = [string]$registration.values.UninstallString\n  uninstallerExitCode = $process.ExitCode\n  stablePollsRequired = $StablePolls\n  stablePollsObserved = $consecutiveClean\n  observations = $history\n})\nWrite-EvidenceJson \'filesystem-registry-check.json\' $lastSnapshot\nWrite-EvidenceJson \'process-json.json\' ([pscustomobject]@{ productProcesses = @($lastSnapshot.productProcesses); uninstallerProcesses = @($lastSnapshot.uninstallerProcesses) })\n\nif ($passed) { exit 0 }\nexit 1\n',
+    expected: /桌宠制作台/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at test/windows-return-validator.test.js:836:1
+✖ a not-executed cleanup gate with a placeholder exitCode=1 is not reported as an executed cleanup failure (28.291375ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /FAIL cleanup:process-gate-exit-codes/. Input:
+  
+  'PASS acceptance-state:exists\n' +
+    'PASS acceptance-state:encoding\n' +
+    'PASS acceptance-state:parse\n' +
+    'PASS acceptance-state:schema\n' +
+    'PASS returned-checksums:exists\n' +
+    'PASS returned-checksums:encoding\n' +
+    'PASS returned-checksums:format\n' +
+    'PASS returned-checksums:no-self-entry\n' +
+    'PASS returned-checksums:no-duplicates\n' +
+    'PASS returned-checksums:hashes\n' +
+    'PASS returned-checksums:covers-acceptance-state\n' +
+    'PASS returned-checksums:coverage\n' +
+    'PASS identity:source-commit - state=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa expected=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' +
+    'PASS identity:source-zip-sha256 - state=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb expected=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' +
+    'PASS identity:candidate-sha256 - state=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc expected=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\n' +
+    'PASS identity:acceptance-contract-sha256 - state=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd expected=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n' +
+    'PASS identity:environment-fingerprint - state=windows-10-19045-x64 expected=windows-10-19045-x64\n' +
+    'PASS evidence:paths\n' +
+    'PASS evidence:path-sha256-correspondence\n' +
+    'PASS evidence:regular-files\n' +
+    'PASS evidence:sha256\n' +
+    'PASS gates:unique-ids - gate ids must be unique\n' +
+    'PASS gates:required-coverage\n' +
+    'PASS gate:G1-01-process-cleanup\n' +
+    'PASS gate:G4-02-instance-lock\n' +
+    'PASS status:first-failed-gate\n' +
+    'FAIL status:overall - overallStatus=failed: acceptance did not pass\n' +
+    'FAIL cleanup:status - cleanupStatus=failed\n' +
+    'PASS cleanup:final-processes-shape\n' +
+    'PASS cleanup:no-residual-processes\n' +
+    'FAIL cleanup:process-gate-exit-codes - process/cleanup gates with exitCode!=0: G1-01-process-cleanup exitCode=1\n' +
+    'PASS display-scale:consistent - originalDisplayScale=96 finalDisplayScale=96\n' +
+    'RESULT FAIL: 3 check(s) failed\n'
+  
+      at /Users/jinke00001/Desktop/pet/test/windows-return-validator.test.js:850:12
+      at withFixture (/Users/jinke00001/Desktop/pet/test/windows-return-validator.test.js:179:5)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/windows-return-validator.test.js:837:3)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'PASS acceptance-state:exists\nPASS acceptance-state:encoding\nPASS acceptance-state:parse\nPASS acceptance-state:schema\nPASS returned-checksums:exists\nPASS returned-checksums:encoding\nPASS returned-checksums:format\nPASS returned-checksums:no-self-entry\nPASS returned-checksums:no-duplicates\nPASS returned-checksums:hashes\nPASS returned-checksums:covers-acceptance-state\nPASS returned-checksums:coverage\nPASS identity:source-commit - state=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa expected=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nPASS identity:source-zip-sha256 - state=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb expected=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\nPASS identity:candidate-sha256 - state=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc expected=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\nPASS identity:acceptance-contract-sha256 - state=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd expected=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\nPASS identity:environment-fingerprint - state=windows-10-19045-x64 expected=windows-10-19045-x64\nPASS evidence:paths\nPASS evidence:path-sha256-correspondence\nPASS evidence:regular-files\nPASS evidence:sha256\nPASS gates:unique-ids - gate ids must be unique\nPASS gates:required-coverage\nPASS gate:G1-01-process-cleanup\nPASS gate:G4-02-instance-lock\nPASS status:first-failed-gate\nFAIL status:overall - overallStatus=failed: acceptance did not pass\nFAIL cleanup:status - cleanupStatus=failed\nPASS cleanup:final-processes-shape\nPASS cleanup:no-residual-processes\nFAIL cleanup:process-gate-exit-codes - process/cleanup gates with exitCode!=0: G1-01-process-cleanup exitCode=1\nPASS display-scale:consistent - originalDisplayScale=96 finalDisplayScale=96\nRESULT FAIL: 3 check(s) failed\n',
+    expected: /FAIL cleanup:process-gate-exit-codes/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at test/windows-return-validator.test.js:871:1
+✖ a failed RETURN with intact hashes keeps evidence integrity separate from the acceptance verdict (27.545291ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at /Users/jinke00001/Desktop/pet/test/windows-return-validator.test.js:886:12
+      at withFixture (/Users/jinke00001/Desktop/pet/test/windows-return-validator.test.js:179:5)
+      at TestContext.<anonymous> (/Users/jinke00001/Desktop/pet/test/windows-return-validator.test.js:872:3)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
