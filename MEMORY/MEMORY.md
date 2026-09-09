@@ -2,10 +2,11 @@
 
 ## 当前目标
 
-- 建立共享桌宠运行内核，以配置和宠物包驱动多个独立桌宠。
-- 支持 Petdex v1/v2 移植；v1 样本为 `doraemon`，v2 样本为 `dai` 和 `jokebear-codexpet`。
-- 最后接入客户素材制作：至少一张清晰、完整、无遮挡的全身正面图，允许 AI 辅助，内部制作并分阶段由客户确认。
-- 商业发布体系暂缓；当前产物只作为内部测试版或候选版。
+- 2026-09-08 用户确认收缩并重启产品方向：Windows 产品优先、macOS 作为制作环境；第一交付形态为解压后双击 EXE 的便携 ZIP。
+- 个人自用版严格只保留导入、检查、预览、配置、导出和桌宠基础互动；独立运行不得依赖 Petdex、Codex、VPN、Node.js 或 Python。
+- 不删除既有 Phase 1–6 代码、候选和验收证据；旧的 60 门 Windows 续验暂停并保留为历史，除非用户明确恢复。
+- 后续开发采用 Kimi Code 与 Codex 的隔离盲测；因 Codex 额度不足，改为 Kimi 先行、Codex 额度恢复后从相同固定基线独立重做。
+- 首轮任务材料位于 `experiments/pet-studio-lite-agent-test-20260908-01/`，固定 `dylan-labs/nom-pet` 提交 `10c7f136d942cc42ae5b2b4d1e3aa6d5994c455a`。Kimi 首轮 `3ec29f6` 的四项 Required 已由返工提交 `1824c91` 关闭，74/74、typecheck、build、audit 和真实窗口复核通过；第二轮仍因上游 nom 身份/数据破坏与 IPC 运行时未校验判 `Request changes`，暂定工程分 80/100。
 
 ## 当前基线
 

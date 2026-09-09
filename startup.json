@@ -1,0 +1,9 @@
+{
+  "operation": "startup",
+  "status": "platform-unavailable",
+  "display": {
+    "operation": "display-snapshot",
+    "status": "platform-unavailable",
+    "platform": "darwin"
+  }
+}
