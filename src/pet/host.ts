@@ -1,6 +1,7 @@
 import { BrowserWindow, Menu, screen, ipcMain } from 'electron';
 import { computeAnchoredZoomBounds, computeWorkAreaHomePosition } from '../shared/geometry';
 import { ZOOM_MIN, ZOOM_MAX } from '../shared/config';
+import { FlushableDebouncer } from '../shared/debounce';
 import type { PetWindowPayload } from '../shared/types';
 import { registerPetIpc, type PetIpcTarget } from './ipc-router';
 import { buildPetContextMenu } from './menu';
@@ -181,20 +182,21 @@ export class PetWindowHost implements PetIpcTarget {
       win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     }
 
-    let moveTimer: ReturnType<typeof setTimeout> | null = null;
+    // 位置保存走可冲刷防抖：移动停止 400ms 后落盘（体验不变）；窗口关闭时
+    // flush() 立即保存待写的最终位置 —— 复位/拖动后立刻退出也不丢位置。
+    const positionSaver = new FlushableDebouncer<{ x: number; y: number; displayId: number }>(
+      MOVE_DEBOUNCE_MS,
+      (pos) => this.opts.onPositionChange?.(pos),
+    );
     win.on('move', () => {
-      if (moveTimer) clearTimeout(moveTimer);
-      moveTimer = setTimeout(() => {
-        moveTimer = null;
-        if (!this.win) return;
-        const [px, py] = this.win.getPosition();
-        const display = screen.getDisplayMatching(this.win.getBounds());
-        this.opts.onPositionChange?.({ x: px, y: py, displayId: display.id });
-      }, MOVE_DEBOUNCE_MS);
+      if (!this.win) return;
+      const [px, py] = this.win.getPosition();
+      const display = screen.getDisplayMatching(this.win.getBounds());
+      positionSaver.trigger({ x: px, y: py, displayId: display.id });
     });
 
     win.on('closed', () => {
-      if (moveTimer) { clearTimeout(moveTimer); moveTimer = null; }
+      positionSaver.flush();
       this.win = null;
       this.dragOrigin = null;
       if (activeHost === this) activeHost = null;

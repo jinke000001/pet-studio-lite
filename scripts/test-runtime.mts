@@ -14,6 +14,9 @@
 //   ✓ "打开所在文件夹"路径安全（导出登记册，renderer 不能传任意路径）
 //   ✓ 桌宠右键菜单构建（顺序 / 勾选状态 / 动作派发）
 //   ✓ 运行时状态持久化（位置 / 缩放 / 游走开关的解析与合并）
+//   ✓ 状态并发写入：单一内存状态 + 串行原子写盘（三路并发不丢字段、
+//     写失败不崩、坏文件回落、无临时文件残留）
+//   ✓ 关闭前刷新：FlushableDebouncer flush 立即落盘待写值（复位/拖动后立刻退出不丢位置）
 //   ✓ 关闭自动游走的即时收尾（只收 walking，不影响 waiting/review）
 //   ✓ 气泡排版 CSS（短文案一行 / 均衡换行 / 限宽不裁切）
 //   ✓ macOS activate 决策：无窗口重建 / 存在则聚焦 / 只剩预览时重建 / 连续不重复
@@ -36,7 +39,8 @@ import { buildManifest, resolveDistribution, distributionNote } from '../src/sha
 import { reserveOutputPath, buildRuntimeConfig } from '../src/main/export-win.ts';
 import { registerPetIpc, PET_IPC_HANDLE_CHANNELS, PET_IPC_ON_CHANNELS, type PetIpcTarget } from '../src/pet/ipc-router.ts';
 import { PetBehaviorScheduler, DEFAULT_BEHAVIOR_TIMINGS, stopWalkingState } from '../src/shared/pet-behavior.ts';
-import { parsePersistedPetState, applyPersistedPetState } from '../src/shared/pet-state.ts';
+import { parsePersistedPetState, applyPersistedPetState, PetStateStore } from '../src/shared/pet-state.ts';
+import { FlushableDebouncer } from '../src/shared/debounce.ts';
 import { ExportRegistry, resolveRevealTarget } from '../src/shared/export-registry.ts';
 import { buildPetContextMenu } from '../src/pet/menu.ts';
 import { shouldQuitOnAllWindowsClosed, handleActivate, type ActivatableWindow } from '../src/shared/lifecycle.ts';
@@ -844,6 +848,106 @@ function petStateTests(): void {
   check('只持久化游走开关时 zoom 保持随包值', offOnly.zoom === 1.5 && offOnly.wanderEnabled === false);
 }
 
+// --- 状态并发写入（单一内存状态 + 串行原子写盘） ------------------------------------------------
+
+async function petStateStoreTests(tmp: string): Promise<void> {
+  console.log('\n[状态并发写入]');
+  const file = path.join(tmp, 'pet-state', 'pet-state.json');
+
+  // 首次启动：文件不存在 → 全 null，不崩
+  const store = await PetStateStore.load(file);
+  check('缺失状态文件回落全 null',
+    store.current.zoom === null && store.current.wanderEnabled === null && store.current.windowPosition === null);
+
+  // 三路回调并发更新（不等待、交错进入）：旧实现 read-modify-write 会丢字段
+  await Promise.all([
+    store.update({ zoom: 2 }),
+    store.update({ wanderEnabled: false }),
+    store.update({ windowPosition: { x: 100, y: 200, displayId: 3 } }),
+  ]);
+  await store.flush();
+  const disk = parsePersistedPetState(JSON.parse(await fs.readFile(file, 'utf8')));
+  check('三路并发更新全部落盘（无字段丢失）',
+    disk.zoom === 2 && disk.wanderEnabled === false && disk.windowPosition?.x === 100 && disk.windowPosition.displayId === 3);
+  check('内存状态与磁盘一致',
+    store.current.zoom === 2 && store.current.wanderEnabled === false && store.current.windowPosition?.y === 200);
+  check('原子写无临时文件残留', !(await fs.stat(`${file}.tmp`).then(() => true, () => false)));
+
+  // 连续更新：最终快照包含所有字段（后写覆盖同名字段，保留其他字段）
+  await store.update({ zoom: 1 });
+  await store.update({ wanderEnabled: true });
+  await store.flush();
+  const disk2 = parsePersistedPetState(JSON.parse(await fs.readFile(file, 'utf8')));
+  check('连续更新合并完整（zoom 最新、位置保留）',
+    disk2.zoom === 1 && disk2.wanderEnabled === true && disk2.windowPosition?.x === 100);
+
+  // 重启恢复：新实例读同一文件
+  const store2 = await PetStateStore.load(file);
+  check('重启后恢复最终状态',
+    store2.current.zoom === 1 && store2.current.wanderEnabled === true && store2.current.windowPosition?.x === 100);
+
+  // 坏数据容错：损坏 JSON / 坏字段都不崩、回落 null
+  await fs.writeFile(file, '{broken json', 'utf8');
+  const store3 = await PetStateStore.load(file);
+  check('损坏状态文件回落全 null 不崩',
+    store3.current.zoom === null && store3.current.wanderEnabled === null && store3.current.windowPosition === null);
+
+  // 写入失败不崩溃：父路径被同名文件占用 → mkdir/rename 必失败
+  const blocker = path.join(tmp, 'blocker');
+  await fs.writeFile(blocker, 'x');
+  const store4 = await PetStateStore.load(path.join(blocker, 'pet-state.json'));
+  await store4.update({ zoom: 0.75 });
+  await store4.flush();
+  check('写入失败不抛出、内存状态仍正确', store4.current.zoom === 0.75);
+}
+
+// --- 关闭前刷新（FlushableDebouncer：复位/拖动后立刻退出不丢最终位置） ---------------------------
+
+async function debouncerTests(): Promise<void> {
+  console.log('\n[关闭前刷新]');
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  // 正常防抖节奏不变：连续触发只在到点后保存一次最新值
+  {
+    const saved: number[] = [];
+    const d = new FlushableDebouncer<number>(30, (v) => saved.push(v));
+    d.trigger(1); d.trigger(2); d.trigger(3);
+    check('防抖窗口内不立即保存', saved.length === 0);
+    await sleep(80);
+    check('防抖到点只保存一次最新值', saved.length === 1 && saved[0] === 3);
+  }
+
+  // 关闭前刷新：没到防抖点也立即保存待写值
+  {
+    const saved: number[] = [];
+    const d = new FlushableDebouncer<number>(10_000, (v) => saved.push(v));
+    d.trigger(1); d.trigger(2);
+    d.flush();
+    check('关闭前 flush 立即保存待写值', saved.length === 1 && saved[0] === 2);
+    await sleep(30);
+    check('flush 后不再二次触发（不重复保存）', saved.length === 1);
+  }
+
+  // 复位/拖动后立即退出：trigger 一次马上 flush
+  {
+    const saved: Array<{ x: number; y: number; displayId: number }> = [];
+    const d = new FlushableDebouncer<{ x: number; y: number; displayId: number }>(400, (v) => saved.push(v));
+    d.trigger({ x: 1588, y: 723, displayId: 1 });
+    d.flush();
+    check('复位后立即退出仍保存最终位置', saved.length === 1 && saved[0]!.x === 1588 && saved[0]!.y === 723);
+  }
+
+  // flush/cancel 幂等：无待写值时是空操作
+  {
+    const saved: number[] = [];
+    const d = new FlushableDebouncer<number>(10, (v) => saved.push(v));
+    d.flush();
+    d.trigger(9); d.cancel(); d.flush();
+    await sleep(30);
+    check('空 flush 与 cancel 不保存、幂等', saved.length === 0);
+  }
+}
+
 // --- 桌宠右键菜单（共享构建函数：预览与导出运行时同一份） --------------------------------------
 
 function petMenuTests(): void {
@@ -933,6 +1037,21 @@ async function bubbleCssTests(): Promise<void> {
   check('没有强制 nowrap（长文本允许换行）', !!bubble && !/white-space:\s*nowrap/.test(bubble));
   check('气泡仍居中锚定（不改动窗口/位置逻辑）', !!bubble && /left:\s*50%/.test(bubble) && /translateX\(-50%\)/.test(bubble));
 
+  // 盒模型：border-box 让 padding/border 计入 max-width —— 小缩放下气泡总宽不越窗
+  check('.bubble 使用 box-sizing: border-box', !!bubble && /box-sizing:\s*border-box/.test(bubble));
+  if (bubble) {
+    const pct = Number(/max-width:\s*(\d+)%/.exec(bubble)?.[1]);
+    const padX = Number(/padding:\s*\d+px\s+(\d+)px/.exec(bubble)?.[1]);
+    const borderW = Number(/border:\s*(\d+)px/.exec(bubble)?.[1]);
+    // 窗口最小尺寸：基准 200px × ZOOM_MIN 0.5 = 100px（src/pet/host.ts PET_WIN_BASE_SIZE）
+    const minWinPx = 200 * 0.5;
+    check('50% 缩放（窗口 100px）：气泡总宽 = max-width ≤ 窗口',
+      (pct / 100) * minWinPx <= minWinPx && (pct / 100) * minWinPx - 2 * padX - 2 * borderW > 0,
+      `max=${(pct / 100) * minWinPx}px 窗口=${minWinPx}px`);
+    check('（对照）若无 border-box，50% 缩放时总宽会越窗（110px > 100px）',
+      (pct / 100) * minWinPx + 2 * padX + 2 * borderW > minWinPx);
+  }
+
   function extractBlock(css: string, selector: string): string | null {
     const escaped = selector.replace(/\./g, '\\.');
     const m = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(css);
@@ -949,10 +1068,14 @@ async function uxWiringTests(): Promise<void> {
   check('宿主向渲染器广播游走开关变化', hostSrc.includes("'pet:wander'"));
   check('宿主向渲染器发送回到右下角', hostSrc.includes("'pet:go-home'"));
   check('宿主暴露游走开关持久化回调', hostSrc.includes('onWanderChange'));
+  check('宿主位置保存走可冲刷防抖器', hostSrc.includes('FlushableDebouncer'));
+  check('宿主在窗口关闭时 flush 待写位置', /'closed'[\s\S]{0,300}?positionSaver\.flush\(\)/.test(hostSrc));
 
   const petMainSrc = await fs.readFile(path.join(REPO, 'src', 'pet', 'main.ts'), 'utf8');
-  check('运行时持久化游走开关选择', /onWanderChange:[\s\S]{0,80}?saveState\(\{ wanderEnabled/.test(petMainSrc));
+  check('运行时用单一内存状态存储（PetStateStore）', petMainSrc.includes('PetStateStore'));
+  check('运行时持久化游走开关选择', /onWanderChange:[\s\S]{0,80}?stateStore\.update\(\{ wanderEnabled/.test(petMainSrc));
   check('运行时启动时合并持久化状态', petMainSrc.includes('applyPersistedPetState'));
+  check('运行时退出前 flush 状态写盘', /stateStore\.flush\(\)[\s\S]{0,40}?app\.quit\(\)/.test(petMainSrc));
 
   const preloadSrc = await fs.readFile(path.join(REPO, 'src', 'preload', 'petwin.ts'), 'utf8');
   check('窄桥暴露游走开关监听', preloadSrc.includes('onWanderChanged'));
@@ -992,6 +1115,8 @@ async function main(): Promise<void> {
     behaviorTests();
     wanderInterruptTests();
     petStateTests();
+    await petStateStoreTests(tmp);
+    await debouncerTests();
     petMenuTests();
     lifecycleTests();
     activateTests();

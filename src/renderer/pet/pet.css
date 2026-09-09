@@ -73,6 +73,9 @@ html, body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  /* border-box：padding/border 计入 max-width —— 50%/75% 小缩放窗口下
+     气泡总宽度（含内边距与描边）也不超过 88% 窗口宽，不会被裁切。 */
+  box-sizing: border-box;
   width: max-content;
   max-width: 88%;
   background: var(--bubble-bg);

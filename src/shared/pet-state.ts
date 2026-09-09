@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { PetRuntimeConfig } from './config';
 
 /**
@@ -46,4 +48,69 @@ export function applyPersistedPetState(config: PetRuntimeConfig, persisted: Pers
     zoom: persisted.zoom ?? config.zoom,
     wanderEnabled: persisted.wanderEnabled ?? config.wanderEnabled,
   };
+}
+
+/** 读取并解析状态文件；文件缺失/损坏/含坏字段时回落全 null（坏数据容错）。 */
+export async function loadPetState(file: string): Promise<PersistedPetState> {
+  try {
+    return parsePersistedPetState(JSON.parse(await fs.readFile(file, 'utf8')));
+  } catch {
+    return parsePersistedPetState(undefined);
+  }
+}
+
+/**
+ * 运行时状态存储：单一内存状态 + 串行原子写盘。
+ *
+ * 修复"读取旧状态后覆盖写入"的并发丢失（zoom / wanderEnabled /
+ * windowPosition 三路回调并发时旧实现会 read-modify-write 同一个文件）：
+ * - 更新先落在内存（后写即所见，永远不会丢失字段）；
+ * - 落盘请求排成 Promise 链串行执行，每次写"临时文件 + rename"保证原子性
+ *   （读者不会看到写了一半的文件）；
+ * - 写失败只吞掉不抛出 —— 状态写失败不影响运行，内存状态仍是准的。
+ */
+export class PetStateStore {
+  private state: PersistedPetState;
+  private queue: Promise<void> = Promise.resolve();
+
+  private constructor(
+    private readonly file: string,
+    initial: PersistedPetState,
+  ) {
+    this.state = initial;
+  }
+
+  static async load(file: string): Promise<PetStateStore> {
+    return new PetStateStore(file, await loadPetState(file));
+  }
+
+  /** 当前状态（内存为唯一事实来源）。 */
+  get current(): PersistedPetState {
+    return this.state;
+  }
+
+  /** 合并补丁并排队落盘；返回本次落盘完成的 Promise。 */
+  update(patch: Partial<PersistedPetState>): Promise<void> {
+    this.state = { ...this.state, ...patch };
+    const snapshot = this.state;
+    this.queue = this.queue.then(() => writeFileAtomic(this.file, snapshot));
+    return this.queue;
+  }
+
+  /** 关闭/退出前调用：等待所有已排队的写入完成（始终会 resolve）。 */
+  flush(): Promise<void> {
+    return this.queue;
+  }
+}
+
+/** 原子写：先写同目录临时文件再 rename（同卷 rename 原子），失败静默。 */
+async function writeFileAtomic(file: string, state: PersistedPetState): Promise<void> {
+  const tmp = `${file}.tmp`;
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(tmp, JSON.stringify(state, null, 2), 'utf8');
+    await fs.rename(tmp, file);
+  } catch {
+    await fs.rm(tmp, { force: true }).catch(() => {});
+  }
 }

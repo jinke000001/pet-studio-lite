@@ -24,7 +24,8 @@ src/
     zipw.ts           # ZIP 写入（导出时并入启动说明/manifest）
     geometry.ts       # 缩放 bottom-center 锚点 + workArea 夹紧 + 右下角复位
     config.ts         # 运行时配置共享校验器
-    pet-state.ts      # 桌宠持久化状态（位置/缩放/游走开关）解析与合并
+    pet-state.ts      # 桌宠持久化状态：解析/合并 + 单一内存状态串行原子写盘
+    debounce.ts       # 可冲刷防抖器（关闭前 flush，不丢最终位置）
     export-registry.ts# 导出产物登记册 + "打开所在文件夹"目标校验
     projects.ts       # 版本化项目存储（导入=复制+哈希核对）
     manifest.ts       # 导出 manifest + 授权门

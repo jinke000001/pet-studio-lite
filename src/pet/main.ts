@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { validatePetPack, petPackToSpriteConfig, readSpritesheetDataUrl } from '../shared/petpack';
 import { validatePetConfig, DEFAULT_PET_CONFIG } from '../shared/config';
-import { parsePersistedPetState, applyPersistedPetState, type PersistedPetState } from '../shared/pet-state';
+import { PetStateStore, applyPersistedPetState } from '../shared/pet-state';
 import type { PetWindowPayload } from '../shared/types';
 import { PetWindowHost } from './host';
 
@@ -15,28 +15,10 @@ import { PetWindowHost } from './host';
  * - 自己的 userData 命名空间（pet-lite-pet），只存窗口位置、缩放与"自动游走"开关。
  * - 右键菜单：自动游走开关、缩放（bottom-center 锚点 + workArea 夹紧）、
  *   回到屏幕右下角、关于、真正退出。
+ * - 状态写盘：单一内存状态 + 串行原子写（PetStateStore），退出前先 flush。
  */
 
-type PetState = PersistedPetState;
-
 const stateFile = () => path.join(app.getPath('userData'), 'pet-state.json');
-
-async function loadState(): Promise<PetState> {
-  try {
-    return parsePersistedPetState(JSON.parse(await fs.readFile(stateFile(), 'utf8')));
-  } catch {
-    return parsePersistedPetState(undefined);
-  }
-}
-
-async function saveState(patch: Partial<PetState>): Promise<void> {
-  const cur = await loadState();
-  const next = { ...cur, ...patch };
-  try {
-    await fs.mkdir(path.dirname(stateFile()), { recursive: true });
-    await fs.writeFile(stateFile(), JSON.stringify(next, null, 2), 'utf8');
-  } catch { /* 状态写失败不影响运行 */ }
-}
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -68,9 +50,19 @@ async function main() {
     if (checked.ok) config = checked.config;
   } catch { /* 没有随包配置时用默认值 */ }
 
-  const persisted = await loadState();
+  const stateStore = await PetStateStore.load(stateFile());
+  const persisted = stateStore.current;
   // 合并顺序：随包配置 < 用户持久化调整（只覆盖用户实际改过的字段）。
   config = applyPersistedPetState(config, persisted);
+
+  // 退出前把防抖待写的位置/开关落盘完成后再真正退出（onClosed 与
+  // window-all-closed 都会走到这里，幂等）。
+  let quitting = false;
+  const quitAfterFlush = (): void => {
+    if (quitting) return;
+    quitting = true;
+    void stateStore.flush().finally(() => app.quit());
+  };
 
   const spritesheetDataUrl = await readSpritesheetDataUrl(pack);
   const sprite = petPackToSpriteConfig(pack);
@@ -86,14 +78,14 @@ async function main() {
   const host = new PetWindowHost({
     getPayload: async () => ({
       ...payload,
-      config: applyPersistedPetState(payload.config, await loadState()),
+      config: applyPersistedPetState(payload.config, stateStore.current),
     }),
     preloadFile: path.join(__dirname, '../preload/petwin.js'),
     rendererUrl: `file://${path.join(__dirname, '../renderer/pet.html')}`,
     initialPosition: persisted.windowPosition,
-    onPositionChange: (pos) => { void saveState({ windowPosition: pos }); },
-    onZoomChange: (zoom) => { void saveState({ zoom }); },
-    onWanderChange: (enabled) => { void saveState({ wanderEnabled: enabled }); },
+    onPositionChange: (pos) => { void stateStore.update({ windowPosition: pos }); },
+    onZoomChange: (zoom) => { void stateStore.update({ zoom }); },
+    onWanderChange: (enabled) => { void stateStore.update({ wanderEnabled: enabled }); },
     closeLabel: '👋  退出',
     onInfo: () => {
       void dialog.showMessageBox({
@@ -108,11 +100,11 @@ async function main() {
         ].join('\n'),
       });
     },
-    onClosed: () => app.quit(),
+    onClosed: () => quitAfterFlush(),
   });
 
   await host.open();
 
-  // 关掉窗口 = 真正退出进程（不驻留托盘）。
-  app.on('window-all-closed', () => app.quit());
+  // 关掉窗口 = 真正退出进程（不驻留托盘）；退出前先 flush 状态写盘。
+  app.on('window-all-closed', () => quitAfterFlush());
 }
