@@ -35,6 +35,22 @@ const api = {
       ipcRenderer.removeListener('pet:zoom', listener);
     };
   },
+  /** "自动游走"开关被右键菜单切换时回调（参数 = 新状态）。 */
+  onWanderChanged(callback: (enabled: boolean) => void): () => void {
+    const listener = (_: Electron.IpcRendererEvent, enabled: boolean) => callback(enabled === true);
+    ipcRenderer.on('pet:wander', listener);
+    return () => {
+      ipcRenderer.removeListener('pet:wander', listener);
+    };
+  },
+  /** 右键菜单"回到屏幕右下角"回调。 */
+  onGoHome(callback: () => void): () => void {
+    const listener = () => callback();
+    ipcRenderer.on('pet:go-home', listener);
+    return () => {
+      ipcRenderer.removeListener('pet:go-home', listener);
+    };
+  },
 };
 
 contextBridge.exposeInMainWorld('pet', api);

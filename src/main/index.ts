@@ -8,6 +8,7 @@ import { validatePetPack, petPackToSpriteConfig, readSpritesheetDataUrl } from '
 import { extractPetPackFromZip } from '../shared/zip';
 import { requireObject, requireProjectId, requireEnum, IpcValidationError } from '../shared/ipc-validate';
 import { validatePetConfig } from '../shared/config';
+import { ExportRegistry, resolveRevealTarget } from '../shared/export-registry';
 import { shouldQuitOnAllWindowsClosed, handleActivate } from '../shared/lifecycle';
 import type { ImportResult, PreviewPayload, StudioState } from '../shared/types';
 import { PetWindowHost } from '../pet/host';
@@ -29,6 +30,8 @@ let petPreview: PetWindowHost | null = null;
 /** 当前桌宠预览所属的制作台项目 ID（删除该项目时先关对应预览）。 */
 let previewProjectId: string | null = null;
 let exportInFlight = false;
+/** 本次会话内导出生成的 ZIP 登记册（"打开所在文件夹"的唯一合法目标来源）。 */
+const exportRegistry = new ExportRegistry();
 
 /** 预览窗口被关闭（任何途径）时通知制作台，让按钮状态保持同步。 */
 function notifyPreviewClosed(): void {
@@ -265,6 +268,7 @@ function registerIpc(): void {
           }
         },
       });
+      exportRegistry.record(outcome.zipPath);
       return { ok: true as const, ...outcome };
     } catch (err) {
       return { ok: false as const, error: err instanceof Error ? err.message : String(err) };
@@ -274,13 +278,11 @@ function registerIpc(): void {
   });
 
   ipcMain.handle('studio:export:reveal', async (_, rawPath: unknown) => {
-    if (typeof rawPath !== 'string' || rawPath.length === 0 || rawPath.length > 4096) {
-      throw new IpcValidationError('路径必须是字符串');
-    }
-    // 只放行真实存在且以 .zip 结尾的文件（受控目标，不开放任意路径）。
-    if (!rawPath.endsWith('.zip')) throw new IpcValidationError('只允许打开导出产物 ZIP');
-    await fs.stat(rawPath); // 不存在则抛错
-    shell.showItemInFolder(rawPath);
+    // 路径安全：renderer 不接受任意路径——目标必须是本次会话由导出流程
+    // 实际生成并登记的 .zip（resolveRevealTarget 内含类型/后缀/登记校验）。
+    const target = resolveRevealTarget(rawPath, exportRegistry);
+    await fs.stat(target); // 不存在则抛错
+    shell.showItemInFolder(target);
   });
 }
 

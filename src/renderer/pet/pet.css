@@ -64,11 +64,16 @@ html, body {
 }
 
 /* 气泡：锚定在宠物头顶正上方（bottom 由 JS 按宠物渲染高度计算），
-   底部小箭头指向宠物，形成明确的归属关系。 */
+   底部小箭头指向宠物，形成明确的归属关系。
+   排版：width: max-content 让短文案在安全宽度内保持一行；长文案被
+   max-width 限宽后由 text-wrap: balance 均衡换行（避免末行只剩 1–2 字）；
+   overflow-wrap: anywhere 兜底超长不可断内容（限宽但不裁切）。
+   以上只改气泡盒内部排版，不触碰窗口尺寸/位置逻辑。 */
 .bubble {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  width: max-content;
   max-width: 88%;
   background: var(--bubble-bg);
   border: 1px solid var(--bubble-border);
@@ -100,6 +105,8 @@ html, body {
   font-size: 12px;
   color: var(--bubble-body);
   line-height: 1.5;
+  /* 多行时均衡换行：各行长度接近，避免末行只剩 1–2 个字（Chromium 114+）。 */
+  text-wrap: balance;
 }
 
 .pet-error {

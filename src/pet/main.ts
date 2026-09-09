@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { validatePetPack, petPackToSpriteConfig, readSpritesheetDataUrl } from '../shared/petpack';
 import { validatePetConfig, DEFAULT_PET_CONFIG } from '../shared/config';
+import { parsePersistedPetState, applyPersistedPetState, type PersistedPetState } from '../shared/pet-state';
 import type { PetWindowPayload } from '../shared/types';
 import { PetWindowHost } from './host';
 
@@ -11,26 +12,20 @@ import { PetWindowHost } from './host';
  *
  * - 完全离线：不发起任何网络请求。
  * - 宠物包与配置随包封装在 resources/petpack/，首次启动不下载任何东西。
- * - 自己的 userData 命名空间（pet-lite-pet），只存窗口位置与缩放。
- * - 右键菜单：缩放（bottom-center 锚点 + workArea 夹紧）、关于、真正退出。
+ * - 自己的 userData 命名空间（pet-lite-pet），只存窗口位置、缩放与"自动游走"开关。
+ * - 右键菜单：自动游走开关、缩放（bottom-center 锚点 + workArea 夹紧）、
+ *   回到屏幕右下角、关于、真正退出。
  */
 
-interface PetState {
-  windowPosition: { x: number; y: number; displayId?: number } | null;
-  zoom: number | null;
-}
+type PetState = PersistedPetState;
 
 const stateFile = () => path.join(app.getPath('userData'), 'pet-state.json');
 
 async function loadState(): Promise<PetState> {
   try {
-    const raw = JSON.parse(await fs.readFile(stateFile(), 'utf8'));
-    return {
-      windowPosition: raw?.windowPosition ?? null,
-      zoom: typeof raw?.zoom === 'number' && Number.isFinite(raw.zoom) ? raw.zoom : null,
-    };
+    return parsePersistedPetState(JSON.parse(await fs.readFile(stateFile(), 'utf8')));
   } catch {
-    return { windowPosition: null, zoom: null };
+    return parsePersistedPetState(undefined);
   }
 }
 
@@ -74,7 +69,8 @@ async function main() {
   } catch { /* 没有随包配置时用默认值 */ }
 
   const persisted = await loadState();
-  if (persisted.zoom != null) config.zoom = persisted.zoom;
+  // 合并顺序：随包配置 < 用户持久化调整（只覆盖用户实际改过的字段）。
+  config = applyPersistedPetState(config, persisted);
 
   const spritesheetDataUrl = await readSpritesheetDataUrl(pack);
   const sprite = petPackToSpriteConfig(pack);
@@ -90,13 +86,14 @@ async function main() {
   const host = new PetWindowHost({
     getPayload: async () => ({
       ...payload,
-      config: { ...payload.config, zoom: (await loadState()).zoom ?? payload.config.zoom },
+      config: applyPersistedPetState(payload.config, await loadState()),
     }),
     preloadFile: path.join(__dirname, '../preload/petwin.js'),
     rendererUrl: `file://${path.join(__dirname, '../renderer/pet.html')}`,
     initialPosition: persisted.windowPosition,
     onPositionChange: (pos) => { void saveState({ windowPosition: pos }); },
     onZoomChange: (zoom) => { void saveState({ zoom }); },
+    onWanderChange: (enabled) => { void saveState({ wanderEnabled: enabled }); },
     closeLabel: '👋  退出',
     onInfo: () => {
       void dialog.showMessageBox({

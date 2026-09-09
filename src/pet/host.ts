@@ -1,8 +1,9 @@
 import { BrowserWindow, Menu, screen, ipcMain } from 'electron';
-import { computeAnchoredZoomBounds } from '../shared/geometry';
-import { ZOOM_LEVELS, ZOOM_MIN, ZOOM_MAX } from '../shared/config';
+import { computeAnchoredZoomBounds, computeWorkAreaHomePosition } from '../shared/geometry';
+import { ZOOM_MIN, ZOOM_MAX } from '../shared/config';
 import type { PetWindowPayload } from '../shared/types';
 import { registerPetIpc, type PetIpcTarget } from './ipc-router';
+import { buildPetContextMenu } from './menu';
 
 /**
  * 桌宠窗口宿主：工作室预览与导出的独立运行时共用，保证"预览到的就是
@@ -27,6 +28,8 @@ export interface PetHostOptions {
   onPositionChange?: (pos: { x: number; y: number; displayId: number }) => void;
   /** 缩放变化后回调（运行时持久化 zoom）。 */
   onZoomChange?: (zoom: number) => void;
+  /** "自动游走"开关变化后回调（运行时持久化；预览不传 = 不写盘）。 */
+  onWanderChange?: (enabled: boolean) => void;
   /** "关于 / 信息"菜单项回调。 */
   onInfo?: () => void;
   /** 最后一个菜单项文案（运行时 = 退出；工作室预览 = 关闭预览）。 */
@@ -46,16 +49,15 @@ function windowSizeFor(zoom: number): number {
 }
 
 function defaultPosition(display: Electron.Display, size: number): { x: number; y: number } {
-  const { width, height } = display.workAreaSize;
-  return {
-    x: display.bounds.x + width - size - 32,
-    y: display.bounds.y + height - size - 32,
-  };
+  // 首次启动默认位与"回到屏幕右下角"共用同一套 workArea 几何（DIP，
+  // 天然兼容多显示器与缩放；workArea 太小时夹紧贴边）。
+  return computeWorkAreaHomePosition(display.workArea, size);
 }
 
 export class PetWindowHost implements PetIpcTarget {
   private win: BrowserWindow | null = null;
   private zoom = 1;
+  private wanderEnabled = true;
   private dragOrigin: { mouseX: number; mouseY: number; winX: number; winY: number } | null = null;
 
   constructor(readonly opts: PetHostOptions) {}
@@ -124,10 +126,30 @@ export class PetWindowHost implements PetIpcTarget {
     this.opts.onZoomChange?.(this.zoom);
   }
 
+  /**
+   * "自动游走"开关：即时生效（通知 renderer 更新开关并停止正在进行的
+   * 游走），同时通过 onWanderChange 让运行时持久化用户选择。
+   */
+  setWanderEnabled(enabled: boolean): void {
+    this.wanderEnabled = enabled;
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.webContents.send('pet:wander', enabled);
+    }
+    this.opts.onWanderChange?.(enabled);
+  }
+
+  /** "回到屏幕右下角"：由 renderer 停下游走、按 workArea 几何复位并移动。 */
+  goHome(): void {
+    if (this.win && !this.win.isDestroyed()) {
+      this.win.webContents.send('pet:go-home');
+    }
+  }
+
   async open(): Promise<void> {
     registerPetIpc(ipcMain, () => activeHost);
     const payload = await this.opts.getPayload();
     this.zoom = payload.config.zoom;
+    this.wanderEnabled = payload.config.wanderEnabled;
     const size = windowSizeFor(this.zoom);
 
     const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
@@ -181,20 +203,16 @@ export class PetWindowHost implements PetIpcTarget {
 
     win.webContents.on('context-menu', () => {
       if (!this.win) return;
-      const items: Electron.MenuItemConstructorOptions[] = [
+      const items = buildPetContextMenu(
+        { wanderEnabled: this.wanderEnabled, zoom: this.zoom, closeLabel: this.opts.closeLabel ?? '👋  退出' },
         {
-          label: '🔍  缩放',
-          submenu: ZOOM_LEVELS.map((z) => ({
-            label: `${Math.round(z * 100)}%`,
-            type: 'radio' as const,
-            checked: Math.abs(this.zoom - z) < 0.001,
-            click: () => this.setZoom(z),
-          })),
+          onToggleWander: (enabled) => this.setWanderEnabled(enabled),
+          onSetZoom: (z) => this.setZoom(z),
+          onGoHome: () => this.goHome(),
+          onInfo: () => this.opts.onInfo?.(),
+          onClose: () => this.win?.close(),
         },
-        { type: 'separator' },
-        { label: 'ℹ️  关于这只宠物', click: () => this.opts.onInfo?.() },
-        { label: this.opts.closeLabel ?? '👋  退出', accelerator: 'CmdOrCtrl+Q', click: () => win.close() },
-      ];
+      );
       Menu.buildFromTemplate(items).popup({ window: this.win });
     });
 

@@ -22,8 +22,10 @@ src/
     petpack.ts        # Petdex v1/v2 校验 + 状态映射 + 哈希
     zip.ts            # 安全 ZIP 读取（路径逃逸/符号链接/重复/膨胀防护）
     zipw.ts           # ZIP 写入（导出时并入启动说明/manifest）
-    geometry.ts       # 缩放 bottom-center 锚点 + workArea 夹紧
+    geometry.ts       # 缩放 bottom-center 锚点 + workArea 夹紧 + 右下角复位
     config.ts         # 运行时配置共享校验器
+    pet-state.ts      # 桌宠持久化状态（位置/缩放/游走开关）解析与合并
+    export-registry.ts# 导出产物登记册 + "打开所在文件夹"目标校验
     projects.ts       # 版本化项目存储（导入=复制+哈希核对）
     manifest.ts       # 导出 manifest + 授权门
     ipc-validate.ts   # main 进程 IPC 入参运行时校验
@@ -33,6 +35,7 @@ src/
   pet/            # 独立桌宠运行时
     main.ts           # 运行时入口（读 resources/petpack）
     host.ts           # 桌宠窗口宿主（制作台预览与运行时共用）
+    menu.ts           # 右键菜单纯构建函数（游走开关/缩放/回右下角/关于/退出）
   preload/
     studio.ts         # 制作台窄桥（window.studio）
     petwin.ts         # 桌宠窗口窄桥（window.pet，预览/运行时共用）

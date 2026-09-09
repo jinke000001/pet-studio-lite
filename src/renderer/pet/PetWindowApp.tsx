@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { PetWindowPayload } from '../../shared/types';
 import type { PetWindowApi } from '../../preload/petwin';
-import { PetBehaviorScheduler } from '../../shared/pet-behavior';
+import { PetBehaviorScheduler, stopWalkingState } from '../../shared/pet-behavior';
+import { computeWorkAreaHomePosition } from '../../shared/geometry';
 import { Sprite, type PetState } from './Sprite';
 import lines from './lines.json';
 
@@ -84,6 +85,30 @@ export function PetWindowApp() {
     }
   }
 
+  /**
+   * 右键菜单切换"自动游走"：即时更新调度开关；关闭时立即停止正在进行的
+   * 游走并回 idle。等待/思考这类原地动作不受影响（stopWalkingState 只收
+   * walking）。
+   */
+  function applyWanderEnabled(enabled: boolean) {
+    wanderEnabledRef.current = enabled;
+    if (enabled) return;
+    cancelWander();
+    const next = stopWalkingState(petStateRef.current);
+    if (next) transition(next);
+  }
+
+  /** 右键菜单"回到屏幕右下角"：停下游走，按当前显示器 workArea 安全复位。 */
+  async function goHome() {
+    cancelWander();
+    const next = stopWalkingState(petStateRef.current);
+    if (next) transition(next);
+    const bounds = await window.pet.getWindowBounds();
+    if (!bounds) return;
+    const home = computeWorkAreaHomePosition(bounds.workArea, bounds.win.w);
+    window.pet.moveWindowTo(home.x, home.y);
+  }
+
   function armAutoCheck() {
     if (autoCheckTimerRef.current) clearTimeout(autoCheckTimerRef.current);
     const scheduler = schedulerRef.current;
@@ -137,8 +162,12 @@ export function PetWindowApp() {
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)));
     const offZoom = window.pet.onZoomChanged(setZoom);
+    const offWander = window.pet.onWanderChanged(applyWanderEnabled);
+    const offGoHome = window.pet.onGoHome(() => { void goHome(); });
     return () => {
       offZoom();
+      offWander();
+      offGoHome();
       if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
       if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
       if (autoCheckTimerRef.current) clearTimeout(autoCheckTimerRef.current);

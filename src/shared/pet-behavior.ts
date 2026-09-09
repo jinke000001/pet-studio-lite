@@ -17,6 +17,15 @@
 
 export type AutoBehaviorKind = 'waiting' | 'review' | 'wander';
 
+/**
+ * 需要"立即停止游走"时的状态收尾（关闭自动游走开关 / 回到右下角复位）：
+ * 只有正在进行的游走（walking）要回 idle；waiting/review 等原地动作
+ * 不受影响（返回 null = 维持当前状态）。
+ */
+export function stopWalkingState(current: string): 'idle' | null {
+  return current === 'walking' ? 'idle' : null;
+}
+
 export interface BehaviorDecision {
   kind: AutoBehaviorKind;
   /** 原地动作（waiting/review）的持续时长；wander 的移动时长由移动逻辑决定。 */

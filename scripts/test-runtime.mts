@@ -3,6 +3,7 @@
 //
 // 覆盖（对应任务书 §6）：
 //   ✓ 缩放 bottom-center 锚点 + workArea 夹紧（含右下角 100%→200%）
+//   ✓ "回到屏幕右下角"复位几何（多显示器负原点 / 缩放 DIP / 小 workArea 夹紧）
 //   ✓ 配置校验：合法值、非法类型、越界数字、空名字、超长名字
 //   ✓ IPC 校验器：非法类型 / 枚举 / 项目 id 注入
 //   ✓ 项目存储：导入复制不修改源、哈希核对、版本化目录、索引损坏恢复、
@@ -10,6 +11,11 @@
 //   ✓ 授权模型：sourceLicense 如实记录、unknown 自动 internal-test、
 //     旧项目迁移、resolveDistribution（candidate / internal-test-only）
 //   ✓ 导出命名非覆盖（reserveOutputPath）
+//   ✓ "打开所在文件夹"路径安全（导出登记册，renderer 不能传任意路径）
+//   ✓ 桌宠右键菜单构建（顺序 / 勾选状态 / 动作派发）
+//   ✓ 运行时状态持久化（位置 / 缩放 / 游走开关的解析与合并）
+//   ✓ 关闭自动游走的即时收尾（只收 walking，不影响 waiting/review）
+//   ✓ 气泡排版 CSS（短文案一行 / 均衡换行 / 限宽不裁切）
 //   ✓ macOS activate 决策：无窗口重建 / 存在则聚焦 / 只剩预览时重建 / 连续不重复
 //   ✓ 深色模式：CSS 变量与 prefers-color-scheme 存在且被关键选择器使用
 //   ✓ 旧产品数据目录（~/.nom）在整个测试过程中不被触碰
@@ -19,7 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { computeAnchoredZoomBounds, type Rect } from '../src/shared/geometry.ts';
+import { computeAnchoredZoomBounds, computeWorkAreaHomePosition, type Rect } from '../src/shared/geometry.ts';
 import { validatePetConfig, DEFAULT_PET_CONFIG } from '../src/shared/config.ts';
 import { requireProjectId, requireEnum, requireFiniteNumber, requireBoolean, IpcValidationError } from '../src/shared/ipc-validate.ts';
 import { ProjectsStore, packFingerprint, defaultUsageMode } from '../src/shared/projects.ts';
@@ -29,7 +35,10 @@ import { sharpImageProbe } from '../src/main/image-probe.ts';
 import { buildManifest, resolveDistribution, distributionNote } from '../src/shared/manifest.ts';
 import { reserveOutputPath, buildRuntimeConfig } from '../src/main/export-win.ts';
 import { registerPetIpc, PET_IPC_HANDLE_CHANNELS, PET_IPC_ON_CHANNELS, type PetIpcTarget } from '../src/pet/ipc-router.ts';
-import { PetBehaviorScheduler, DEFAULT_BEHAVIOR_TIMINGS } from '../src/shared/pet-behavior.ts';
+import { PetBehaviorScheduler, DEFAULT_BEHAVIOR_TIMINGS, stopWalkingState } from '../src/shared/pet-behavior.ts';
+import { parsePersistedPetState, applyPersistedPetState } from '../src/shared/pet-state.ts';
+import { ExportRegistry, resolveRevealTarget } from '../src/shared/export-registry.ts';
+import { buildPetContextMenu } from '../src/pet/menu.ts';
 import { shouldQuitOnAllWindowsClosed, handleActivate, type ActivatableWindow } from '../src/shared/lifecycle.ts';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -768,21 +777,227 @@ async function isolationCheck(): Promise<void> {
   }
 }
 
+// --- "回到屏幕右下角"复位几何（多显示器 / 缩放 / 小 workArea） -------------------------
+
+function homeGeometryTests(): void {
+  console.log('\n[复位几何]');
+  // 主显示器：workArea 右下角向内收 32px 安全边距
+  const main1920: Rect = { x: 0, y: 0, width: 1920, height: 1055 };
+  const p = computeWorkAreaHomePosition(main1920, 300);
+  check('主屏右下角复位（32px 安全边距）', p.x === 1920 - 300 - 32 && p.y === 1055 - 300 - 32, JSON.stringify(p));
+  check('复位结果整体在 workArea 内', p.x >= 0 && p.y >= 0 && p.x + 300 <= 1920 && p.y + 300 <= 1055);
+
+  // 多显示器：左侧副屏（负原点）
+  const left: Rect = { x: -1920, y: 0, width: 1920, height: 1040 };
+  const pl = computeWorkAreaHomePosition(left, 300);
+  check('左侧副屏（负原点）复位到该屏右下角', pl.x === -1920 + 1920 - 300 - 32 && pl.y === 1040 - 300 - 32, JSON.stringify(pl));
+
+  // 多显示器：右侧偏移原点副屏
+  const right: Rect = { x: 1920, y: -200, width: 1440, height: 2560 };
+  const pr = computeWorkAreaHomePosition(right, 400);
+  check('右侧副屏（偏移原点）复位', pr.x === 1920 + 1440 - 400 - 32 && pr.y === -200 + 2560 - 400 - 32);
+
+  // 显示器缩放：workArea 已是 DIP（如 200% 缩放下物理 3008×1692 → DIP 1504×846），
+  // 函数只认 DIP，坐标不会被放大
+  const scaled: Rect = { x: 0, y: 0, width: 1504, height: 846 };
+  const ps = computeWorkAreaHomePosition(scaled, 300);
+  check('缩放显示器（DIP 坐标）复位不放大坐标', ps.x === 1504 - 300 - 32 && ps.y === 846 - 300 - 32);
+
+  // workArea 比窗口还小：贴 workArea 原点（与缩放夹紧策略一致）
+  const tiny: Rect = { x: 100, y: 50, width: 250, height: 200 };
+  const pt = computeWorkAreaHomePosition(tiny, 300);
+  check('workArea 比窗口小时贴 workArea 原点', pt.x === 100 && pt.y === 50);
+
+  // workArea 仅略宽于窗口：不为了边距把窗口挤出可视区
+  const narrow: Rect = { x: 0, y: 0, width: 310, height: 1055 };
+  const pn = computeWorkAreaHomePosition(narrow, 300);
+  check('窄 workArea 夹紧在可视区内', pn.x >= 0 && pn.x + 300 <= 310 && pn.y === 1055 - 300 - 32);
+}
+
+// --- 运行时状态持久化（pet-state.json 解析与合并） -----------------------------------------
+
+function petStateTests(): void {
+  console.log('\n[运行时状态持久化]');
+  const empty = parsePersistedPetState(undefined);
+  check('空/缺失状态解析为全 null（回落随包配置）',
+    empty.zoom === null && empty.wanderEnabled === null && empty.windowPosition === null);
+  const junk = parsePersistedPetState('junk');
+  check('非对象输入不崩且全 null', junk.zoom === null && junk.wanderEnabled === null && junk.windowPosition === null);
+
+  const full = parsePersistedPetState({ windowPosition: { x: 10, y: 20, displayId: 7 }, zoom: 2, wanderEnabled: false });
+  check('完整状态逐字段解析（含游走开关）',
+    full.zoom === 2 && full.wanderEnabled === false && full.windowPosition?.x === 10 && full.windowPosition.displayId === 7);
+
+  const bad = parsePersistedPetState({ zoom: 'big', wanderEnabled: 'yes', windowPosition: { x: 'a', y: 1 } });
+  check('坏字段丢弃为 null（不进入运行时）', bad.zoom === null && bad.wanderEnabled === null && bad.windowPosition === null);
+  const noDisplay = parsePersistedPetState({ windowPosition: { x: 1, y: 2 } });
+  check('位置缺 displayId 仍合法', noDisplay.windowPosition?.x === 1 && noDisplay.windowPosition.displayId === undefined);
+
+  const base = { petName: '演示猫', zoom: 1.5, wanderEnabled: true };
+  const merged = applyPersistedPetState(base, full);
+  check('持久化的游走开关覆盖随包配置（重启后保持关闭）', merged.wanderEnabled === false);
+  check('持久化的 zoom 覆盖随包配置', merged.zoom === 2);
+  check('合并不动名字等其他字段', merged.petName === '演示猫');
+  const untouched = applyPersistedPetState(base, empty);
+  check('用户未调整过时保留随包配置', untouched.wanderEnabled === true && untouched.zoom === 1.5);
+  const offOnly = applyPersistedPetState(base, parsePersistedPetState({ wanderEnabled: false }));
+  check('只持久化游走开关时 zoom 保持随包值', offOnly.zoom === 1.5 && offOnly.wanderEnabled === false);
+}
+
+// --- 桌宠右键菜单（共享构建函数：预览与导出运行时同一份） --------------------------------------
+
+function petMenuTests(): void {
+  console.log('\n[桌宠右键菜单]');
+  const calls: string[] = [];
+  const actions = {
+    onToggleWander: (enabled: boolean) => { calls.push(`wander:${enabled}`); },
+    onSetZoom: (zoom: number) => { calls.push(`zoom:${zoom}`); },
+    onGoHome: () => { calls.push('home'); },
+    onInfo: () => { calls.push('info'); },
+    onClose: () => { calls.push('close'); },
+  };
+  const items = buildPetContextMenu({ wanderEnabled: true, zoom: 1.5, closeLabel: '👋  退出' }, actions);
+  const order = items.map((i) => (i.type === 'separator' ? '|' : i.label));
+  check('菜单顺序：自动游走 / 缩放 / 回到屏幕右下角 / 关于 / 退出',
+    order.join('') === '🐾  自动游走🔍  缩放|📍  回到屏幕右下角ℹ️  关于这只宠物|👋  退出',
+    order.join(' '));
+
+  const wanderItem = items[0]!;
+  check('自动游走是 checkbox 且反映当前状态（开）', wanderItem.type === 'checkbox' && wanderItem.checked === true);
+  const offItems = buildPetContextMenu({ wanderEnabled: false, zoom: 1, closeLabel: '关闭预览' }, actions);
+  check('开关关闭时 checkbox 不勾选', offItems[0]!.type === 'checkbox' && offItems[0]!.checked === false);
+
+  // 模拟点击勾选框：Electron 传勾选后的新状态
+  (wanderItem.click as (item: { checked: boolean }) => void)({ checked: false });
+  check('点击自动游走传回勾选后的新状态', calls[0] === 'wander:false');
+  const zoomSub = items[1]!.submenu as Array<{ label?: string; checked?: boolean }>;
+  check('缩放子菜单恰好一个档位选中（当前 150%）',
+    zoomSub.filter((s) => s.checked).length === 1 && zoomSub.find((s) => s.checked)?.label === '150%');
+
+  (items[3]!.click as () => void)();
+  check('点击"回到屏幕右下角"派发复位动作', calls.includes('home'));
+  (items[4]!.click as () => void)();
+  (items[6]!.click as () => void)();
+  check('关于 / 退出动作派发', calls.includes('info') && calls.includes('close'));
+}
+
+// --- 关闭自动游走的即时收尾（只收 walking，不影响 waiting/review） ------------------------------
+
+function wanderInterruptTests(): void {
+  console.log('\n[游走开关收尾]');
+  check('walking（游走中）立即停止回 idle', stopWalkingState('walking') === 'idle');
+  check('waiting（等待）不受影响', stopWalkingState('waiting') === null);
+  check('review（思考）不受影响', stopWalkingState('review') === null);
+  check('idle / dragging / talking 等不换状态',
+    stopWalkingState('idle') === null && stopWalkingState('dragging') === null && stopWalkingState('talking') === null);
+}
+
+// --- "打开所在文件夹"路径安全（导出登记册：renderer 不能传任意路径） ----------------------------
+
+async function revealSafetyTests(tmp: string): Promise<void> {
+  console.log('\n[导出文件打开路径安全]');
+  const dir = path.join(tmp, 'exports');
+  await fs.mkdir(dir, { recursive: true });
+  const zipPath = path.join(dir, 'petlite-pet-demo-win-x64-20260909-120000.zip');
+  await fs.writeFile(zipPath, 'zip-bytes');
+  const strayZip = path.join(dir, 'stray.zip');
+  await fs.writeFile(strayZip, 'other');
+
+  const registry = new ExportRegistry();
+  registry.record(zipPath);
+
+  check('本次导出的 ZIP 允许打开', resolveRevealTarget(zipPath, registry) === path.resolve(zipPath));
+  const equivalent = path.join(dir, 'sub', '..', path.basename(zipPath));
+  check('等价路径（含 ..）归一化后仍允许', resolveRevealTarget(equivalent, registry) === path.resolve(zipPath));
+  await expectThrow('磁盘上真实存在但未登记的 ZIP 被拒绝', '本次', () => resolveRevealTarget(strayZip, registry));
+  await expectThrow('同目录伪造相似文件名被拒绝', '本次', () => resolveRevealTarget(zipPath.replace('.zip', '-2.zip'), registry));
+  await expectThrow('非 ZIP 后缀被拒绝', 'ZIP', () => resolveRevealTarget('/etc/hosts', registry));
+  await expectThrow('非字符串入参被拒绝', '字符串', () => resolveRevealTarget({ path: zipPath }, registry));
+  await expectThrow('空字符串被拒绝', '字符串', () => resolveRevealTarget('', registry));
+  const fresh = new ExportRegistry();
+  await expectThrow('上一会话导出的文件在新会话不可打开', '本次', () => resolveRevealTarget(zipPath, fresh));
+}
+
+// --- 气泡排版 CSS（短文案一行 / 均衡换行 / 限宽不裁切） ----------------------------------------
+
+async function bubbleCssTests(): Promise<void> {
+  console.log('\n[气泡排版 CSS]');
+  const petCss = await fs.readFile(path.join(REPO, 'src', 'renderer', 'pet', 'pet.css'), 'utf8');
+  const bubble = extractBlock(petCss, '.bubble');
+  const body = extractBlock(petCss, '.bubble-body');
+  check('气泡与正文样式块存在', !!bubble && !!body);
+  check('短文案尽量保持一行（shrink-to-fit 显式化）', !!bubble && /width:\s*max-content/.test(bubble));
+  check('长文本仍限制在安全宽度内（max-width 88%）', !!bubble && /max-width:\s*88%/.test(bubble));
+  check('必须换行时均衡换行（text-wrap: balance）', !!body && /text-wrap:\s*balance/.test(body));
+  check('超长不可断内容有兜底断行（不被裁切）', !!bubble && /overflow-wrap:\s*anywhere/.test(bubble));
+  check('没有强制 nowrap（长文本允许换行）', !!bubble && !/white-space:\s*nowrap/.test(bubble));
+  check('气泡仍居中锚定（不改动窗口/位置逻辑）', !!bubble && /left:\s*50%/.test(bubble) && /translateX\(-50%\)/.test(bubble));
+
+  function extractBlock(css: string, selector: string): string | null {
+    const escaped = selector.replace(/\./g, '\\.');
+    const m = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(css);
+    return m ? m[1]! : null;
+  }
+}
+
+// --- 体验优化接线一致性（宿主 / 窄桥 / 渲染器 / 制作台 main） ----------------------------------
+
+async function uxWiringTests(): Promise<void> {
+  console.log('\n[体验优化接线]');
+  const hostSrc = await fs.readFile(path.join(REPO, 'src', 'pet', 'host.ts'), 'utf8');
+  check('宿主右键菜单由共享构建函数生成', hostSrc.includes('buildPetContextMenu('));
+  check('宿主向渲染器广播游走开关变化', hostSrc.includes("'pet:wander'"));
+  check('宿主向渲染器发送回到右下角', hostSrc.includes("'pet:go-home'"));
+  check('宿主暴露游走开关持久化回调', hostSrc.includes('onWanderChange'));
+
+  const petMainSrc = await fs.readFile(path.join(REPO, 'src', 'pet', 'main.ts'), 'utf8');
+  check('运行时持久化游走开关选择', /onWanderChange:[\s\S]{0,80}?saveState\(\{ wanderEnabled/.test(petMainSrc));
+  check('运行时启动时合并持久化状态', petMainSrc.includes('applyPersistedPetState'));
+
+  const preloadSrc = await fs.readFile(path.join(REPO, 'src', 'preload', 'petwin.ts'), 'utf8');
+  check('窄桥暴露游走开关监听', preloadSrc.includes('onWanderChanged'));
+  check('窄桥暴露回到右下角监听', preloadSrc.includes('onGoHome'));
+
+  const petAppSrc = await fs.readFile(path.join(REPO, 'src', 'renderer', 'pet', 'PetWindowApp.tsx'), 'utf8');
+  check('渲染器注册游走开关监听', petAppSrc.includes('onWanderChanged(applyWanderEnabled)'));
+  check('关闭游走立即停止游走并只收 walking（不影响等待/思考）',
+    /applyWanderEnabled[\s\S]{0,250}?cancelWander\(\)[\s\S]{0,120}?stopWalkingState/.test(petAppSrc));
+  check('渲染器复位用共享几何 + 受控移动', petAppSrc.includes('computeWorkAreaHomePosition') && petAppSrc.includes('onGoHome'));
+
+  const studioMainSrc = await fs.readFile(path.join(REPO, 'src', 'main', 'index.ts'), 'utf8');
+  check('导出成功登记产物路径', studioMainSrc.includes('exportRegistry.record('));
+  check('打开所在文件夹走登记册校验', studioMainSrc.includes('resolveRevealTarget('));
+
+  const appSrc = await fs.readFile(path.join(REPO, 'src', 'renderer', 'App.tsx'), 'utf8');
+  check('配置页含自动行为说明文案', appSrc.includes('等待和思考会在闲置后自动触发；点击或拖动会重新计时。'));
+  check('导出成功页有"打开所在文件夹"按钮', appSrc.includes('打开所在文件夹') && appSrc.includes('revealExport'));
+
+  const exportSrc = await fs.readFile(path.join(REPO, 'src', 'main', 'export-win.ts'), 'utf8');
+  check('启动说明包含新菜单项', exportSrc.includes('回到屏幕右下角') && exportSrc.includes('自动游走'));
+}
+
 async function main(): Promise<void> {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'runtime-test-'));
   console.log(`fixture 根目录：${tmp}\n`);
   try {
     geometryTests();
+    homeGeometryTests();
     configTests();
     ipcTests();
     await storeTests(tmp);
     manifestTests();
     await reserveTests(tmp);
+    await revealSafetyTests(tmp);
     petIpcRouterTests();
     behaviorTests();
+    wanderInterruptTests();
+    petStateTests();
+    petMenuTests();
     lifecycleTests();
     activateTests();
     await darkModeTests();
+    await bubbleCssTests();
+    await uxWiringTests();
     await railProjectStructureTests();
     await isolationCheck();
   } finally {

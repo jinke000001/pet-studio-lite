@@ -556,6 +556,7 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
           <input type="checkbox" checked={wander} onChange={(e) => setWander(e.target.checked)} />
           <span>允许闲置时自动游走</span>
         </label>
+        <p className="field-hint">等待和思考会在闲置后自动触发；点击或拖动会重新计时。</p>
         {errors.length > 0 && (
           <div className="error-panel">
             {errors.map((e, i) => <div className="error-line" key={i}>{e}</div>)}
@@ -662,7 +663,7 @@ function ExportStep({ project }: { project: ProjectMeta }) {
           <div className="mono">{result.zipPath}</div>
           <div className="mono muted">SHA-256：{result.sha256}</div>
           <button className="btn" onClick={() => void window.studio.revealExport(result.zipPath)}>
-            在访达中显示
+            打开所在文件夹
           </button>
         </div>
       )}

@@ -44,3 +44,20 @@ export function computeAnchoredZoomBounds(prev: Rect, nextSize: number, workArea
 
   return { x, y, width: nextSize, height: nextSize };
 }
+
+/**
+ * "回到屏幕右下角"的复位位置（首次启动的默认位也用它）：
+ * 目标 = 当前显示器 workArea 右下角向内收 margin；workArea 比窗口大不了
+ * 多少时夹紧保证窗口整体可见，比窗口还小时贴 workArea 原点（与
+ * computeAnchoredZoomBounds 的夹紧策略一致）。
+ *
+ * 坐标全部使用 Electron 的 DIP（已含显示器缩放，多显示器原点可为负），
+ * 因此对多显示器与缩放置换天然兼容。
+ */
+export function computeWorkAreaHomePosition(workArea: Rect, windowSize: number, margin = 32): { x: number; y: number } {
+  const maxX = workArea.x + workArea.width - windowSize;
+  const maxY = workArea.y + workArea.height - windowSize;
+  const x = maxX < workArea.x ? workArea.x : Math.max(workArea.x, maxX - margin);
+  const y = maxY < workArea.y ? workArea.y : Math.max(workArea.y, maxY - margin);
+  return { x, y };
+}
