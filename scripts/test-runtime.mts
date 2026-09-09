@@ -4,7 +4,8 @@
 // 覆盖（对应任务书 §6）：
 //   ✓ 缩放 bottom-center 锚点 + workArea 夹紧（含右下角 100%→200%）
 //   ✓ "回到屏幕右下角"复位几何（多显示器负原点 / 缩放 DIP / 小 workArea 夹紧）
-//   ✓ 配置校验：合法值、非法类型、越界数字、空名字、超长名字
+//   ✓ 配置校验：合法值、非法类型、越界数字、空名字、超长名字、
+//     三档缩放（100%/150%/200%）与旧档 50%/75% 自动提升为 100%
 //   ✓ IPC 校验器：非法类型 / 枚举 / 项目 id 注入
 //   ✓ 项目存储：导入复制不修改源、哈希核对、版本化目录、索引损坏恢复、
 //     非法配置不入库、删除语义（当前项目切换 / 源包不变）
@@ -29,7 +30,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { computeAnchoredZoomBounds, computeWorkAreaHomePosition, type Rect } from '../src/shared/geometry.ts';
-import { validatePetConfig, DEFAULT_PET_CONFIG } from '../src/shared/config.ts';
+import { validatePetConfig, normalizeZoom, ZOOM_LEVELS, DEFAULT_PET_CONFIG } from '../src/shared/config.ts';
 import { requireProjectId, requireEnum, requireFiniteNumber, requireBoolean, IpcValidationError } from '../src/shared/ipc-validate.ts';
 import { ProjectsStore, packFingerprint, defaultUsageMode } from '../src/shared/projects.ts';
 import { removeConfirmMessage } from '../src/shared/messages.ts';
@@ -122,9 +123,23 @@ function configTests(): void {
   expectThrowSync('空名字被拒绝', validatePetConfig({ petName: '  ' }).ok === false);
   expectThrowSync('超长名字被拒绝', validatePetConfig({ petName: 'x'.repeat(25) }).ok === false);
   expectThrowSync('zoom 越界被拒绝', validatePetConfig({ zoom: 3 }).ok === false);
+  expectThrowSync('zoom 低于最小档被拒绝', validatePetConfig({ zoom: 0.4 }).ok === false);
   expectThrowSync('zoom 非数字被拒绝', validatePetConfig({ zoom: 'big' }).ok === false);
   expectThrowSync('wander 非布尔被拒绝', validatePetConfig({ wanderEnabled: 'yes' }).ok === false);
   expectThrowSync('非对象被拒绝', validatePetConfig('str').ok === false);
+
+  // 缩放档位简化：全产品只剩 小 100% / 中 150% / 大 200% 三档
+  check('缩放档位恰好三档（100%/150%/200%）',
+    ZOOM_LEVELS.length === 3 && ZOOM_LEVELS[0] === 1 && ZOOM_LEVELS[1] === 1.5 && ZOOM_LEVELS[2] === 2);
+  // 历史数据兼容：旧档 50%/75% 自动提升为 100%（不报错）
+  const legacy50 = validatePetConfig({ zoom: 0.5 });
+  check('旧档 50% 提升为 100%（不报错）', legacy50.ok && legacy50.config.zoom === 1);
+  const legacy75 = validatePetConfig({ zoom: 0.75 });
+  check('旧档 75% 提升为 100%（不报错）', legacy75.ok && legacy75.config.zoom === 1);
+  check('normalizeZoom：非数字/越界回落 null',
+    normalizeZoom('big') === null && normalizeZoom(NaN) === null && normalizeZoom(3) === null && normalizeZoom(0) === null);
+  check('normalizeZoom：100%/150%/200% 原样保留',
+    normalizeZoom(1) === 1 && normalizeZoom(1.5) === 1.5 && normalizeZoom(2) === 2);
 
   // 默认缩放：新项目 / 缺省配置 = 150%（真实 Windows 反馈 100% 偏小）
   check('默认 zoom 为 1.5', DEFAULT_PET_CONFIG.zoom === 1.5);
@@ -148,8 +163,8 @@ function ipcTests(): void {
   expectThrow('项目 id 注入路径被拒绝', '格式非法', () => requireProjectId('../etc'));
   expectThrow('项目 id 非字符串被拒绝', '字符串', () => requireProjectId(42));
   expectThrow('枚举非法值被拒绝', '之一', () => requireEnum('exe', '导入类型', ['dir', 'zip'] as const));
-  expectThrow('数字越界被拒绝', '超出范围', () => requireFiniteNumber(99, '缩放', 0.5, 2));
-  expectThrow('NaN 被拒绝', '有限数字', () => requireFiniteNumber(NaN, '缩放', 0.5, 2));
+  expectThrow('数字越界被拒绝', '超出范围', () => requireFiniteNumber(99, '缩放', 1, 2));
+  expectThrow('NaN 被拒绝', '有限数字', () => requireFiniteNumber(NaN, '缩放', 1, 2));
   expectThrow('布尔类型错误被拒绝', '布尔', () => requireBoolean('true', '开关'));
   check('IpcValidationError 类型正确', new IpcValidationError('x') instanceof Error);
 }
@@ -355,8 +370,35 @@ async function storeTests(tmp: string): Promise<void> {
     check('unknown 旧项目迁移后授权仍是 unknown（不伪造 authorized）', migrated?.license === 'unknown');
     check('unknown 旧项目迁移出 usageMode=internal-test', migrated?.usageMode === 'internal-test');
     check('迁移保留项目 ID / 配置 / 哈希 / 路径',
-      migrated?.id === legacyId && migrated.config.zoom === 0.75 &&
+      migrated?.id === legacyId && migrated.config.petName === '无授权包' &&
       migrated.hashes.petJson === 'c'.repeat(64) && migrated.sourcePath === '/Users/someone/pets/mystery');
+    check('旧项目保存的 75% 缩放迁移后提升为 100%', migrated?.config.zoom === 1);
+  }
+
+  // 缩放档位迁移：旧项目的 50% → 100%；非法/越界值回落默认 150%；
+  // 已有的 100%/150%/200% 不被触碰。
+  {
+    const { index } = await store.load();
+    const mk = (id: string, zoom: unknown) => ({
+      id, slug: id, displayName: id, petdexVersion: 'v1',
+      license: 'authorized', usageMode: 'general', spritesheetFile: 'spritesheet.png',
+      petId: id, declaredVersion: 'v1',
+      source: { type: 'dir', fingerprint: 'f'.repeat(64) },
+      hashes: { petJson: 'e'.repeat(64), spritesheet: 'f'.repeat(64) },
+      sourcePath: `/pets/${id}`, importedAt: '2025-01-01T00:00:00.000Z',
+      config: { petName: id, zoom, wanderEnabled: true },
+    });
+    index.projects.push(
+      mk('zoom50-20250101000000', 0.5) as never,
+      mk('zoom150-20250101000000', 1.5) as never,
+      mk('zoombad-20250101000000', 9) as never,
+    );
+    await fs.writeFile(path.join(root, 'projects.json'), JSON.stringify(index, null, 2), 'utf8');
+
+    const store6 = new ProjectsStore(root);
+    check('旧项目 50% 缩放提升为 100%', (await store6.get('zoom50-20250101000000'))?.config.zoom === 1);
+    check('旧项目 150% 缩放保持不变', (await store6.get('zoom150-20250101000000'))?.config.zoom === 1.5);
+    check('旧项目越界缩放回落默认 150%', (await store6.get('zoombad-20250101000000'))?.config.zoom === 1.5);
   }
 
   async function hashDir(dir: string): Promise<string> {
@@ -834,6 +876,14 @@ function petStateTests(): void {
 
   const bad = parsePersistedPetState({ zoom: 'big', wanderEnabled: 'yes', windowPosition: { x: 'a', y: 1 } });
   check('坏字段丢弃为 null（不进入运行时）', bad.zoom === null && bad.wanderEnabled === null && bad.windowPosition === null);
+  // 历史数据兼容：pet-state.json 里的旧档 50%/75% 提升为 100%；越界/非数字回落 null
+  check('持久化的旧档 50%/75% 提升为 100%',
+    parsePersistedPetState({ zoom: 0.5 }).zoom === 1 && parsePersistedPetState({ zoom: 0.75 }).zoom === 1);
+  check('持久化的 100%/150%/200% 原样保留',
+    parsePersistedPetState({ zoom: 1 }).zoom === 1 &&
+    parsePersistedPetState({ zoom: 1.5 }).zoom === 1.5 && parsePersistedPetState({ zoom: 2 }).zoom === 2);
+  check('持久化的越界缩放回落 null（用随包配置）',
+    parsePersistedPetState({ zoom: 3 }).zoom === null && parsePersistedPetState({ zoom: 0.4 }).zoom === null);
   const noDisplay = parsePersistedPetState({ windowPosition: { x: 1, y: 2 } });
   check('位置缺 displayId 仍合法', noDisplay.windowPosition?.x === 1 && noDisplay.windowPosition.displayId === undefined);
 
@@ -896,9 +946,9 @@ async function petStateStoreTests(tmp: string): Promise<void> {
   const blocker = path.join(tmp, 'blocker');
   await fs.writeFile(blocker, 'x');
   const store4 = await PetStateStore.load(path.join(blocker, 'pet-state.json'));
-  await store4.update({ zoom: 0.75 });
+  await store4.update({ zoom: 1 });
   await store4.flush();
-  check('写入失败不抛出、内存状态仍正确', store4.current.zoom === 0.75);
+  check('写入失败不抛出、内存状态仍正确', store4.current.zoom === 1);
 }
 
 // --- 关闭前刷新（FlushableDebouncer：复位/拖动后立刻退出不丢最终位置） ---------------------------
@@ -975,6 +1025,8 @@ function petMenuTests(): void {
   (wanderItem.click as (item: { checked: boolean }) => void)({ checked: false });
   check('点击自动游走传回勾选后的新状态', calls[0] === 'wander:false');
   const zoomSub = items[1]!.submenu as Array<{ label?: string; checked?: boolean }>;
+  check('缩放子菜单恰好三档（100%/150%/200%）',
+    zoomSub.length === 3 && zoomSub.map((s) => s.label).join(',') === '100%,150%,200%');
   check('缩放子菜单恰好一个档位选中（当前 150%）',
     zoomSub.filter((s) => s.checked).length === 1 && zoomSub.find((s) => s.checked)?.label === '150%');
 
@@ -1037,19 +1089,17 @@ async function bubbleCssTests(): Promise<void> {
   check('没有强制 nowrap（长文本允许换行）', !!bubble && !/white-space:\s*nowrap/.test(bubble));
   check('气泡仍居中锚定（不改动窗口/位置逻辑）', !!bubble && /left:\s*50%/.test(bubble) && /translateX\(-50%\)/.test(bubble));
 
-  // 盒模型：border-box 让 padding/border 计入 max-width —— 小缩放下气泡总宽不越窗
+  // 盒模型：border-box 让 padding/border 计入 max-width —— 最小缩放下气泡总宽不越窗
   check('.bubble 使用 box-sizing: border-box', !!bubble && /box-sizing:\s*border-box/.test(bubble));
   if (bubble) {
     const pct = Number(/max-width:\s*(\d+)%/.exec(bubble)?.[1]);
     const padX = Number(/padding:\s*\d+px\s+(\d+)px/.exec(bubble)?.[1]);
     const borderW = Number(/border:\s*(\d+)px/.exec(bubble)?.[1]);
-    // 窗口最小尺寸：基准 200px × ZOOM_MIN 0.5 = 100px（src/pet/host.ts PET_WIN_BASE_SIZE）
-    const minWinPx = 200 * 0.5;
-    check('50% 缩放（窗口 100px）：气泡总宽 = max-width ≤ 窗口',
+    // 窗口最小尺寸：基准 200px × 最小缩放档 100% = 200px（src/pet/host.ts PET_WIN_BASE_SIZE）
+    const minWinPx = 200 * 1;
+    check('100% 缩放（最小窗口 200px）：气泡总宽 = max-width ≤ 窗口',
       (pct / 100) * minWinPx <= minWinPx && (pct / 100) * minWinPx - 2 * padX - 2 * borderW > 0,
       `max=${(pct / 100) * minWinPx}px 窗口=${minWinPx}px`);
-    check('（对照）若无 border-box，50% 缩放时总宽会越窗（110px > 100px）',
-      (pct / 100) * minWinPx + 2 * padX + 2 * borderW > minWinPx);
   }
 
   function extractBlock(css: string, selector: string): string | null {

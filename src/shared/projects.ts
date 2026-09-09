@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { resolveDeclaredVersion, type PetPackInfo } from './petpack';
-import { validatePetConfig, DEFAULT_PET_CONFIG, type PetRuntimeConfig } from './config';
+import { validatePetConfig, normalizeZoom, DEFAULT_PET_CONFIG, type PetRuntimeConfig } from './config';
 
 /**
  * 制作台项目存储（纯 Node、rootDir 注入，可在临时目录里单测）。
@@ -165,6 +165,18 @@ export class ProjectsStore {
       const m = await this.migrateLegacyMeta(index.projects[i]!);
       if (m) {
         index.projects[i] = m;
+        migrated = true;
+      }
+    }
+    // 缩放档位简化迁移：旧项目保存的 50%/75% 提升为 100%；非法/越界值
+    // 回落默认 150%。已有的 100%/150%/200% 原样保留。
+    for (let i = 0; i < index.projects.length; i++) {
+      const p = index.projects[i]!;
+      const cfg = p.config;
+      if (!cfg || typeof cfg !== 'object') continue;
+      const normalized = normalizeZoom(cfg.zoom) ?? DEFAULT_PET_CONFIG.zoom;
+      if (normalized !== cfg.zoom) {
+        index.projects[i] = { ...p, config: { ...cfg, zoom: normalized } };
         migrated = true;
       }
     }

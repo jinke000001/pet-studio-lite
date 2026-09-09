@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { PetRuntimeConfig } from './config';
+import { normalizeZoom, type PetRuntimeConfig } from './config';
 
 /**
  * 桌宠运行时的持久化状态（userData/pet-state.json）解析与合并
@@ -13,7 +13,7 @@ import type { PetRuntimeConfig } from './config';
 export interface PersistedPetState {
   /** 上次退出时的窗口位置；null = 用屏幕右下角默认位。 */
   windowPosition: { x: number; y: number; displayId?: number } | null;
-  /** 用户通过右键菜单调整的缩放；null = 用随包配置。 */
+  /** 用户通过右键菜单调整的缩放；null = 用随包配置。旧档 50%/75% 读取时提升为 100%。 */
   zoom: number | null;
   /** 用户通过右键菜单调整的"自动游走"开关；null = 用随包配置。 */
   wanderEnabled: boolean | null;
@@ -23,7 +23,7 @@ export function parsePersistedPetState(raw: unknown): PersistedPetState {
   const o = (typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
   return {
     windowPosition: parsePosition(o['windowPosition']),
-    zoom: typeof o['zoom'] === 'number' && Number.isFinite(o['zoom']) ? o['zoom'] : null,
+    zoom: normalizeZoom(o['zoom']),
     wanderEnabled: typeof o['wanderEnabled'] === 'boolean' ? o['wanderEnabled'] : null,
   };
 }

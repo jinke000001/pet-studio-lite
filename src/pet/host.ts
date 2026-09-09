@@ -1,6 +1,6 @@
 import { BrowserWindow, Menu, screen, ipcMain } from 'electron';
 import { computeAnchoredZoomBounds, computeWorkAreaHomePosition } from '../shared/geometry';
-import { ZOOM_MIN, ZOOM_MAX } from '../shared/config';
+import { normalizeZoom } from '../shared/config';
 import { FlushableDebouncer } from '../shared/debounce';
 import type { PetWindowPayload } from '../shared/types';
 import { registerPetIpc, type PetIpcTarget } from './ipc-router';
@@ -111,10 +111,12 @@ export class PetWindowHost implements PetIpcTarget {
   /**
    * 缩放：保持窗口 bottom-center 锚点，夹紧到当前匹配显示器 workArea，
    * 并通知 renderer 同步缩放精灵（窗口与渲染尺寸一致）。
+   * 入参走统一规范化：旧档 50%/75% 提升为 100%；非法/越界值忽略（保持当前缩放）。
    */
   setZoom(nextZoom: number): void {
-    if (!Number.isFinite(nextZoom)) return;
-    this.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, nextZoom));
+    const normalized = normalizeZoom(nextZoom);
+    if (normalized === null) return;
+    this.zoom = normalized;
     if (this.win && !this.win.isDestroyed()) {
       const size = windowSizeFor(this.zoom);
       const prev = this.win.getBounds();
