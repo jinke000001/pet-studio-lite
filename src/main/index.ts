@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -8,7 +8,7 @@ import { validatePetPack, petPackToSpriteConfig, readSpritesheetDataUrl } from '
 import { extractPetPackFromZip } from '../shared/zip';
 import { requireObject, requireProjectId, requireEnum, IpcValidationError } from '../shared/ipc-validate';
 import { validatePetConfig } from '../shared/config';
-import { shouldQuitOnAllWindowsClosed } from '../shared/lifecycle';
+import { shouldQuitOnAllWindowsClosed, handleActivate } from '../shared/lifecycle';
 import type { ImportResult, PreviewPayload, StudioState } from '../shared/types';
 import { PetWindowHost } from '../pet/host';
 import { exportWindowsZip } from './export-win';
@@ -26,6 +26,8 @@ app.setName('pet-studio-lite'); // 独立 userData 命名空间，须在读取 u
 const store = new ProjectsStore(path.join(app.getPath('userData'), 'studio-data'));
 let studioWindow: BrowserWindow | null = null;
 let petPreview: PetWindowHost | null = null;
+/** 当前桌宠预览所属的制作台项目 ID（删除该项目时先关对应预览）。 */
+let previewProjectId: string | null = null;
 let exportInFlight = false;
 
 /** 预览窗口被关闭（任何途径）时通知制作台，让按钮状态保持同步。 */
@@ -75,14 +77,15 @@ async function importFromPath(sourcePath: string): Promise<ImportResult> {
   }
 }
 
-async function createWindow() {
+function createWindow(): BrowserWindow {
   studioWindow = new BrowserWindow({
     width: 960,
     height: 680,
     minWidth: 820,
     minHeight: 560,
     title: 'Pet Studio Lite',
-    backgroundColor: '#f6f7f9',
+    // 窗口加载完成前的底色跟随系统外观（内容与主题切换由 CSS 变量 + media query 处理）
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f6f7f9',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, '../preload/studio.js'),
@@ -100,6 +103,7 @@ async function createWindow() {
   studioWindow.on('closed', () => {
     studioWindow = null;
   });
+  return studioWindow;
 }
 
 function handleIpcError(err: unknown): never {
@@ -133,9 +137,11 @@ function registerIpc(): void {
 
   ipcMain.handle('studio:remove', async (_, rawId: unknown) => {
     const id = requireProjectId(rawId);
-    if (petPreview) {
+    // 如果被删除的项目正在真实预览，先关闭对应预览（不影响其他途径打开的窗口）。
+    if (petPreview && previewProjectId === id) {
       petPreview.close();
       petPreview = null;
+      previewProjectId = null;
     }
     await store.remove(id);
     return toStudioState(await store.load());
@@ -181,6 +187,7 @@ function registerIpc(): void {
     if (!result.ok) return { ok: false, error: result.errors.join('\n') };
     const pack = result.pack;
     petPreview?.close();
+    previewProjectId = id;
     const host = new PetWindowHost({
       getPayload: async () => ({
         sprite: petPackToSpriteConfig(pack),
@@ -212,6 +219,7 @@ function registerIpc(): void {
         // 任何关闭途径（制作台按钮 / 宠物右键菜单 / 系统关闭）都走到这里。
         // 用身份比较避免旧 host 的 closed 事件误清新 host。
         if (petPreview === host) petPreview = null;
+        if (previewProjectId === id) previewProjectId = null;
         notifyPreviewClosed();
       },
     });
@@ -221,6 +229,7 @@ function registerIpc(): void {
       return { ok: true };
     } catch (err) {
       if (petPreview === host) petPreview = null;
+      if (previewProjectId === id) previewProjectId = null;
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
@@ -228,6 +237,7 @@ function registerIpc(): void {
   ipcMain.handle('studio:preview:stop', () => {
     petPreview?.close();
     petPreview = null;
+    previewProjectId = null;
   });
 
   ipcMain.handle('studio:export', async (_, rawId: unknown) => {
@@ -277,17 +287,15 @@ function registerIpc(): void {
 void app.whenReady().then(async () => {
   registerIpc();
   setupAppMenu();
-  await createWindow();
+  createWindow();
 
   // macOS 习惯：关闭主窗口后应用保留在 Dock，点 Dock 图标（activate）
-  // 重新创建并显示制作台窗口。userData 不被动，最近项目与配置自然保留。
+  // 重新打开制作台。判断只基于制作台窗口本身：即使桌宠预览还开着，
+  // 制作台已关闭时也会重建制作台（预览保留），存在则 show + focus。
+  // createWindow 同步完成创建，连续 activate 不会重复建窗。
+  // userData 不被动，最近项目与配置自然保留。
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow();
-    } else if (studioWindow && !studioWindow.isDestroyed()) {
-      studioWindow.show();
-      studioWindow.focus();
-    }
+    studioWindow = handleActivate(studioWindow, createWindow).window;
   });
 });
 

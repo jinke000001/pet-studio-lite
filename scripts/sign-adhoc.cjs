@@ -12,7 +12,7 @@
  * NOTE: Even a clean ad-hoc signature may not be sufficient on the very
  * latest macOS versions (Sequoia/Tahoe sometimes require notarization).
  * If "is damaged" persists, the user must run:
- *   xattr -dr com.apple.quarantine /Applications/nom.app
+ *   xattr -dr com.apple.quarantine "/Applications/Pet Studio Lite.app"
  */
 const { execSync } = require('node:child_process');
 const path = require('node:path');

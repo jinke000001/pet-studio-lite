@@ -1,8 +1,8 @@
 import type { PetSpriteConfig, LicenseStatus, PetdexVersion } from './petpack';
 import type { PetRuntimeConfig } from './config';
-import type { ProjectMeta, ProjectsIndex } from './projects';
+import type { ProjectMeta, ProjectsIndex, UsageMode } from './projects';
 
-export type { ProjectMeta, ProjectsIndex, PetRuntimeConfig, PetSpriteConfig, LicenseStatus, PetdexVersion };
+export type { ProjectMeta, ProjectsIndex, UsageMode, PetRuntimeConfig, PetSpriteConfig, LicenseStatus, PetdexVersion };
 
 /** 制作台渲染器拿到的完整状态。 */
 export interface StudioState {

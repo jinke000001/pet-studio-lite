@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { StudioApi } from '../preload/studio';
 import type { ExportProgressEvent, PreviewPayload, ProjectMeta, StudioState } from '../shared/types';
-import { licenseExportBlock } from '../shared/manifest';
+import { resolveDistribution, distributionNote } from '../shared/manifest';
+import { removeConfirmMessage } from '../shared/messages';
 import { validatePetConfig, ZOOM_LEVELS } from '../shared/config';
 import { Sprite, type PetState } from './pet/Sprite';
 
@@ -44,6 +45,12 @@ const LICENSE_LABEL: Record<string, string> = {
   'unknown': '未声明授权',
 };
 
+/** 使用方式展示：unknown 原包给普通用户可理解的说明，而不是技术错误。 */
+function usageLabel(project: ProjectMeta): string {
+  if (project.license === 'unknown') return '个人／内部体验（原包未声明授权）';
+  return project.usageMode === 'general' ? '常规使用' : '个人／内部体验';
+}
+
 export function App() {
   const [state, setState] = useState<StudioState | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -85,6 +92,22 @@ export function App() {
       }
     } finally {
       setBusy(null);
+    }
+  }
+
+  /** 删除最近项目：先确认（说明影响范围），失败时刷新真实状态并报错。 */
+  async function requestRemove(p: ProjectMeta) {
+    if (!window.confirm(removeConfirmMessage(p.displayName))) return; // 取消：不做任何修改
+    try {
+      const next = await window.studio.removeProject(p.id);
+      setState(next);
+      setNotice(`已删除「${p.displayName}」（仅删除制作台工作区副本，原始宠物包与已导出的 ZIP 不受影响）`);
+      // 没有项目了：回到导入页，其余步骤因 current 为空自动禁用
+      if (next.index.projects.length === 0) setStep('import');
+    } catch (err) {
+      // 删除失败：以磁盘真实状态为准刷新，避免 UI 与磁盘不一致
+      await refresh();
+      setNotice(`删除失败：${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -131,17 +154,37 @@ export function App() {
           <div className="rail-projects-title">最近项目</div>
           {state.index.projects.length === 0 && <div className="rail-empty">还没有项目</div>}
           {state.index.projects.map((p) => (
-            <button
+            <div
               key={p.id}
               className={`rail-project ${current?.id === p.id ? 'rail-project--on' : ''}`}
+              role="button"
+              tabIndex={0}
               onClick={async () => {
                 setState(await window.studio.selectProject(p.id));
+              }}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setState(await window.studio.selectProject(p.id));
+                }
               }}
               title={p.id}
             >
               <span className="rail-project-name">{p.displayName}</span>
               <span className="rail-project-meta">{p.petdexVersion}</span>
-            </button>
+              <button
+                type="button"
+                className="rail-project-del"
+                aria-label={`删除项目 ${p.displayName}`}
+                title="删除项目（仅删除工作区副本）"
+                onClick={(e) => {
+                  e.stopPropagation(); // 不触发项目切换
+                  void requestRemove(p);
+                }}
+              >
+                ×
+              </button>
+            </div>
           ))}
         </div>
       </aside>
@@ -154,10 +197,6 @@ export function App() {
             errors={importErrors}
             projects={state.index.projects}
             onImport={doImport}
-            onRemove={async (id) => {
-              setState(await window.studio.removeProject(id));
-              setNotice('项目已删除（仅删除工作区副本，原始包不受影响）');
-            }}
             onClearErrors={() => setImportErrors([])}
           />
         )}
@@ -268,7 +307,6 @@ function ImportStep(props: {
   errors: string[];
   projects: ProjectMeta[];
   onImport: (kind: 'dir' | 'zip') => void;
-  onRemove: (id: string) => void;
   onClearErrors: () => void;
 }) {
   return (
@@ -342,8 +380,13 @@ function CheckStep({ project }: { project: ProjectMeta }) {
         ))}
         <div className="check-row">
           <span className="check-dot check-dot--ok" />
-          <span>授权状态</span>
+          <span>原包授权状态</span>
           <span className="check-state">{LICENSE_LABEL[project.license]}</span>
+        </div>
+        <div className="check-row">
+          <span className="check-dot check-dot--ok" />
+          <span>使用方式</span>
+          <span className="check-state">{usageLabel(project)}</span>
         </div>
       </div>
       {result && !result.ok && (
@@ -541,7 +584,8 @@ function ExportStep({ project }: { project: ProjectMeta }) {
     });
   }, []);
 
-  const blocked = licenseExportBlock(project.license);
+  const distribution = resolveDistribution(project.license, project.usageMode);
+  const note = distributionNote(project.license, project.usageMode);
 
   async function run() {
     setRunning(true);
@@ -567,9 +611,21 @@ function ExportStep({ project }: { project: ProjectMeta }) {
 
       <div className="card">
         <div className="check-row">
-          <span className={`check-dot ${blocked ? 'check-dot--bad' : 'check-dot--ok'}`} />
-          <span>授权状态</span>
+          <span className="check-dot check-dot--ok" />
+          <span>原包授权状态</span>
           <span className="check-state">{LICENSE_LABEL[project.license]}</span>
+        </div>
+        <div className="check-row">
+          <span className="check-dot check-dot--ok" />
+          <span>使用方式</span>
+          <span className="check-state">{usageLabel(project)}</span>
+        </div>
+        <div className="check-row">
+          <span className={`check-dot ${distribution === 'candidate' ? 'check-dot--ok' : 'check-dot--pending'}`} />
+          <span>产物性质</span>
+          <span className="check-state">
+            {distribution === 'candidate' ? '可分发候选（candidate）' : '仅个人／内部测试（internal-test-only）'}
+          </span>
         </div>
         <div className="check-row">
           <span className="check-dot check-dot--ok" />
@@ -580,18 +636,15 @@ function ExportStep({ project }: { project: ProjectMeta }) {
         </div>
       </div>
 
-      {blocked && (
-        <div className="error-panel">
-          <div className="error-panel-title">无法导出候选</div>
-          <div className="error-line">{blocked}</div>
+      {distribution === 'internal-test-only' && (
+        <div className="info-panel">
+          <div className="info-line">{note}</div>
         </div>
       )}
 
-      {!blocked && (
-        <button className="btn btn-primary" disabled={running} onClick={() => void run()}>
-          {running ? '导出中，请稍候…' : '选择导出位置并导出'}
-        </button>
-      )}
+      <button className="btn btn-primary" disabled={running} onClick={() => void run()}>
+        {running ? '导出中，请稍候…' : '选择导出位置并导出'}
+      </button>
 
       {progress.length > 0 && (
         <div className="card">

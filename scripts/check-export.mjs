@@ -51,6 +51,13 @@ check('resources 里有运行时配置 config.json', names.some((n) => n.include
   check('manifest 含宠物身份', !!(manifest.pet && manifest.pet.id && manifest.pet.petdexVersion));
   check('manifest 含来源哈希', !!(manifest.hashes && manifest.hashes.petJsonSha256 && manifest.hashes.spritesheetSha256));
   check('manifest 含授权状态', !!manifest.license);
+  check('manifest 含 sourceLicense 与 usageMode',
+    ['authorized', 'internal-test', 'unknown'].includes(manifest.sourceLicense) &&
+    ['internal-test', 'general'].includes(manifest.usageMode));
+  check('manifest.distribution 与授权/使用方式一致',
+    manifest.distribution === (manifest.sourceLicense === 'authorized' && manifest.usageMode === 'general' ? 'candidate' : 'internal-test-only'));
+  check('manifest 不把 unknown 写成 authorized',
+    manifest.sourceLicense !== 'unknown' || manifest.distribution === 'internal-test-only');
   check('manifest 含导出时间', !!manifest.exportedAt);
   check('manifest 区分真实宠物 ID 与内部实例 ID',
     typeof manifest.studioProjectId === 'string' && manifest.studioProjectId.length > 0);
@@ -79,6 +86,15 @@ check('resources 里有运行时配置 config.json', names.some((n) => n.include
     const expectDeclared = svn === 1 ? 'v1' : svn === 2 ? 'v2' : null;
     check('manifest.declaredVersion 与 pet.json 声明一致', manifest.pet.declaredVersion === expectDeclared,
       `${manifest.pet.declaredVersion} vs ${expectDeclared}`);
+    const expectLicense = petJson.license === 'authorized' || petJson.license === 'internal-test' ? petJson.license : 'unknown';
+    check('manifest.sourceLicense 与 pet.json 声明一致（未声明=unknown）', manifest.sourceLicense === expectLicense,
+      `${manifest.sourceLicense} vs ${expectLicense}`);
+    if (expectLicense === 'unknown') {
+      const readmeEntry2 = entries.find((e) => e.name === '启动说明.txt');
+      const readme2 = readmeEntry2 ? (await readZipEntry(buf, readmeEntry2)).toString('utf8') : '';
+      check('unknown 原包的启动说明含"未声明授权…不得对外分发"',
+        readme2.includes('原宠物包未声明授权') && readme2.includes('不得对外分发'));
+    }
   } else {
     check('resources 宠物包可交叉核验', false);
   }

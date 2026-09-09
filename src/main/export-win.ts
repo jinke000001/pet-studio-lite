@@ -5,17 +5,18 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { ProjectMeta } from '../shared/types';
 import type { PetRuntimeConfig } from '../shared/config';
-import { buildManifest, licenseExportBlock, type ExportManifest } from '../shared/manifest';
+import { buildManifest, distributionNote, type ExportManifest } from '../shared/manifest';
 import { appendToZip } from '../shared/zipw';
 import { inspectZip, ZIP_LIMITS_RELAXED } from '../shared/zip';
 
 /**
  * Windows x64 便携 ZIP 导出编排。
  *
- * 流程：授权门 → 准备导出临时目录（宠物运行时构建产物 + 宠物包副本 +
+ * 流程：准备导出临时目录（宠物运行时构建产物 + 宠物包副本 +
  * manifest + 启动说明）→ electron-builder 打 win zip → 把 manifest /
  * 启动说明并入 ZIP 顶层 → 复制到用户选择的目录（非覆盖命名）→
- * 静态核验 → 清理临时目录。
+ * 静态核验 → 清理临时目录。产物性质由 resolveDistribution 决定：
+ * 仅 authorized + general 生成 candidate，其余一律 internal-test-only。
  *
  * 任何一步失败都不留下"看似成功"的产物：临时目录整体删除，目标目录里
  * 只存在核验通过的最终 ZIP。
@@ -46,7 +47,7 @@ export function buildRuntimeConfig(config: PetRuntimeConfig): PetRuntimeConfig {
 
 function readmeText(meta: ProjectMeta, manifest: ExportManifest): string {
   const internalNote = manifest.distribution === 'internal-test-only'
-    ? '\n注意：本包为「内部测试」候选，授权状态为 internal-test，请勿对外分发。\n'
+    ? `\n注意：${distributionNote(manifest.sourceLicense, manifest.usageMode)}\n`
     : '';
   return [
     '===========================',
@@ -55,6 +56,7 @@ function readmeText(meta: ProjectMeta, manifest: ExportManifest): string {
     '',
     `宠物：${meta.displayName}（${meta.petdexVersion}）`,
     `导出时间：${manifest.exportedAt}`,
+    `原包授权状态：${manifest.sourceLicense}　项目使用方式：${manifest.usageMode}　产物性质：${manifest.distribution}`,
     internalNote,
     '如何使用：',
     `  1. 解压本 ZIP 到任意目录（比如桌面）。`,
@@ -122,10 +124,8 @@ export async function exportWindowsZip(
   outputDir: string,
   deps: ExportDeps,
 ): Promise<ExportOutcome> {
-  // 1. 授权门
-  const blocked = licenseExportBlock(meta.license);
-  if (blocked) throw new Error(blocked);
-
+  // 授权不再阻止导出：未声明授权的原包按「个人／内部体验」处理，
+  // 产物标记 internal-test-only（见 manifest.distribution / distributionNote）。
   const staging = await fs.mkdtemp(path.join(os.tmpdir(), 'petstudio-export-'));
   try {
     // 2. 准备运行时构建产物（out-pet）
@@ -171,7 +171,8 @@ export async function exportWindowsZip(
       studioProjectId: meta.id,
       source: meta.source,
       hashes: { petJsonSha256: meta.hashes.petJson, spritesheetSha256: meta.hashes.spritesheet },
-      license: meta.license,
+      sourceLicense: meta.license,
+      usageMode: meta.usageMode,
     });
     await fs.writeFile(path.join(extraDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
     await fs.writeFile(path.join(extraDir, '启动说明.txt'), readmeText(meta, manifest), 'utf8');

@@ -1,5 +1,117 @@
+/* Pet Studio Lite 制作台样式。
+ * 颜色全部走设计变量，浅色/深色由 prefers-color-scheme 自动跟随系统，
+ * 无需重启、无手动开关。组件不再硬编码颜色。 */
+
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
+
+  /* 页面与区域背景 */
+  --bg-page: #f6f7f9;
+  --bg-rail: #eceef1;
+  --bg-card: #ffffff;
+  --bg-selected: #ffffff;
+  --bg-input: #ffffff;
+  --bg-help: #fbfbfd;
+
+  /* 文字 */
+  --text-primary: #1d1d1f;
+  --text-secondary: #555555;
+  --text-muted: #86868b;
+  --text-faint: #a1a1a6;
+
+  /* 边框 */
+  --border: #dddfe3;
+  --border-strong: #d4d7dc;
+  --border-soft: #f0f0f2;
+
+  /* 选中 / 强调 */
+  --accent: #0a84ff;
+  --accent-contrast: #ffffff;
+  --step-no-bg: #d4d7dc;
+  --step-no-text: #555555;
+
+  /* 状态色 */
+  --ok: #30a46c;
+  --bad: #e5484d;
+  --pending: #c7c9ce;
+
+  /* 提示面板 */
+  --notice-bg: #fff8e1;
+  --notice-border: #f0e0a8;
+  --info-bg: #eef4ff;
+  --info-border: #c7dbff;
+  --error-bg: #fff1f0;
+  --error-border: #f3c1bd;
+  --error-title: #b3261e;
+  --error-text: #7a271c;
+  --error-hint: #a15c52;
+  --success-bg: #eefbf0;
+  --success-border: #bfe6c6;
+  --success-title: #18794e;
+
+  /* 代码与命令块 */
+  --code-bg: #f0f0f3;
+  --cmd-bg: #1d1d1f;
+  --cmd-text: #f5f5f7;
+
+  /* 图集预览棋盘 */
+  --checker-a: #e8eaed;
+  --checker-b: #f7f8fa;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-selected: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-page: #1c1c1e;
+    --bg-rail: #232325;
+    --bg-card: #2c2c2e;
+    --bg-selected: #3a3a3c;
+    --bg-input: #1f1f21;
+    --bg-help: #262628;
+
+    --text-primary: #f5f5f7;
+    --text-secondary: #c7c7cc;
+    --text-muted: #98989d;
+    --text-faint: #6e6e73;
+
+    --border: #38383a;
+    --border-strong: #48484a;
+    --border-soft: #3a3a3c;
+
+    --accent: #0a84ff;
+    --accent-contrast: #ffffff;
+    --step-no-bg: #3a3a3c;
+    --step-no-text: #c7c7cc;
+
+    --ok: #4cc38a;
+    --bad: #ff6961;
+    --pending: #6e6e73;
+
+    --notice-bg: rgba(255, 214, 10, 0.10);
+    --notice-border: rgba(255, 214, 10, 0.30);
+    --info-bg: rgba(10, 132, 255, 0.12);
+    --info-border: rgba(10, 132, 255, 0.35);
+    --error-bg: rgba(255, 69, 58, 0.12);
+    --error-border: rgba(255, 69, 58, 0.35);
+    --error-title: #ff7a72;
+    --error-text: #f0b8b2;
+    --error-hint: #c98a82;
+    --success-bg: rgba(48, 164, 108, 0.12);
+    --success-border: rgba(48, 164, 108, 0.35);
+    --success-title: #63d194;
+
+    --code-bg: #3a3a3c;
+    --cmd-bg: #0d0d0f;
+    --cmd-text: #f5f5f7;
+
+    --checker-a: #2a2a2c;
+    --checker-b: #333336;
+
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.40);
+    --shadow-selected: 0 1px 3px rgba(0, 0, 0, 0.40);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -9,8 +121,8 @@ html, body {
   height: 100%;
   font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 14px;
-  color: #1d1d1f;
-  background: #f6f7f9;
+  color: var(--text-primary);
+  background: var(--bg-page);
 }
 
 .layout {
@@ -22,8 +134,8 @@ html, body {
 .rail {
   width: 232px;
   flex-shrink: 0;
-  background: #eceef1;
-  border-right: 1px solid #dddfe3;
+  background: var(--bg-rail);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   padding-top: 28px; /* macOS 红绿灯留白 */
@@ -38,7 +150,7 @@ html, body {
 }
 .brand-sub {
   font-size: 12px;
-  color: #86868b;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -57,6 +169,7 @@ html, body {
   border: none;
   border-radius: 8px;
   background: transparent;
+  color: var(--text-primary);
   text-align: left;
   cursor: pointer;
 }
@@ -65,15 +178,15 @@ html, body {
   cursor: default;
 }
 .step--on {
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: var(--bg-selected);
+  box-shadow: var(--shadow-selected);
 }
 .step-no {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #d4d7dc;
-  color: #555;
+  background: var(--step-no-bg);
+  color: var(--step-no-text);
   font-size: 12px;
   display: flex;
   align-items: center;
@@ -81,8 +194,8 @@ html, body {
   flex-shrink: 0;
 }
 .step--on .step-no {
-  background: #0a84ff;
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-contrast);
 }
 .step-text {
   display: flex;
@@ -94,29 +207,31 @@ html, body {
 }
 .step-hint {
   font-size: 11px;
-  color: #86868b;
+  color: var(--text-muted);
 }
 
 .rail-projects {
   margin-top: auto;
   padding: 12px 10px 16px;
-  border-top: 1px solid #dddfe3;
+  border-top: 1px solid var(--border);
   max-height: 220px;
   overflow-y: auto;
 }
 .rail-projects-title {
   font-size: 11px;
-  color: #86868b;
+  color: var(--text-muted);
   padding: 0 8px 6px;
 }
 .rail-empty {
   font-size: 12px;
-  color: #a1a1a6;
+  color: var(--text-faint);
   padding: 0 8px;
 }
 .rail-project {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 6px;
   width: 100%;
   border: none;
   background: transparent;
@@ -124,13 +239,42 @@ html, body {
   padding: 6px 8px;
   cursor: pointer;
   font-size: 13px;
+  color: var(--text-primary);
 }
 .rail-project--on {
-  background: #fff;
+  background: var(--bg-selected);
+}
+.rail-project-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .rail-project-meta {
-  color: #86868b;
+  color: var(--text-muted);
   font-size: 11px;
+  margin-left: auto;
+}
+/* 删除按钮：悬停 / 选中 / 键盘聚焦时出现；真实 <button>，可 Tab 到达 */
+.rail-project-del {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+}
+.rail-project:hover .rail-project-del,
+.rail-project:focus-within .rail-project-del,
+.rail-project--on .rail-project-del {
+  opacity: 1;
+}
+.rail-project-del:hover {
+  background: var(--error-bg);
+  color: var(--bad);
 }
 
 /* 内容区 */
@@ -149,12 +293,12 @@ h2 {
   margin: 0 0 8px;
 }
 .lead {
-  color: #555;
+  color: var(--text-secondary);
   line-height: 1.7;
   margin: 0 0 18px;
 }
 .muted {
-  color: #86868b;
+  color: var(--text-muted);
   font-size: 12px;
 }
 .mono {
@@ -164,8 +308,8 @@ h2 {
 }
 
 .notice {
-  background: #fff8e1;
-  border: 1px solid #f0e0a8;
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-border);
   border-radius: 8px;
   padding: 10px 14px;
   margin-bottom: 16px;
@@ -173,36 +317,53 @@ h2 {
 }
 
 .card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 12px;
   padding: 16px 18px;
   margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-card);
 }
 
 .btn {
-  border: 1px solid #d4d7dc;
-  background: #fff;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
   border-radius: 8px;
   padding: 8px 16px;
   font-size: 13px;
   cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 .btn:disabled {
   opacity: 0.5;
   cursor: default;
 }
 .btn-primary {
-  background: #0a84ff;
-  border-color: #0a84ff;
-  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
 }
 .link {
   border: none;
   background: none;
-  color: #0a84ff;
+  color: var(--accent);
   cursor: pointer;
   font-size: 12px;
+}
+
+/* 键盘焦点在两种模式下都清晰可见 */
+.btn:focus-visible,
+.chip:focus-visible,
+.link:focus-visible,
+.step:focus-visible,
+.rail-project:focus-visible,
+.rail-project-del:focus-visible,
+.help-toggle:focus-visible,
+.field-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .import-actions {
@@ -211,36 +372,50 @@ h2 {
   margin-bottom: 18px;
 }
 
+/* 信息面板（非错误）：如「个人／内部体验」说明 */
+.info-panel {
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.info-line {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .error-panel {
-  background: #fff1f0;
-  border: 1px solid #f3c1bd;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
   border-radius: 10px;
   padding: 14px 16px;
   margin-bottom: 16px;
 }
 .error-panel-title {
   font-weight: 700;
-  color: #b3261e;
+  color: var(--error-title);
   margin-bottom: 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 .error-line {
-  color: #7a271c;
+  color: var(--error-text);
   font-size: 13px;
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
 .error-hint {
   margin-top: 10px;
-  color: #a15c52;
+  color: var(--error-hint);
   font-size: 12px;
 }
 
 .success-panel {
-  background: #eefbf0;
-  border: 1px solid #bfe6c6;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
   border-radius: 10px;
   padding: 14px 16px;
   display: flex;
@@ -250,7 +425,7 @@ h2 {
 }
 .success-title {
   font-weight: 700;
-  color: #18794e;
+  color: var(--success-title);
 }
 
 .check-row {
@@ -258,14 +433,14 @@ h2 {
   align-items: center;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid #f0f0f2;
+  border-bottom: 1px solid var(--border-soft);
 }
 .check-row:last-child {
   border-bottom: none;
 }
 .check-state {
   margin-left: auto;
-  color: #86868b;
+  color: var(--text-muted);
   font-size: 12px;
 }
 .check-dot {
@@ -274,12 +449,12 @@ h2 {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.check-dot--ok { background: #30a46c; }
-.check-dot--bad { background: #e5484d; }
-.check-dot--pending { background: #c7c9ce; }
+.check-dot--ok { background: var(--ok); }
+.check-dot--bad { background: var(--bad); }
+.check-dot--pending { background: var(--pending); }
 
 .preview-stage {
-  background: repeating-conic-gradient(#e8eaed 0 25%, #f7f8fa 0 50%) 0 0 / 24px 24px;
+  background: repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%) 0 0 / 24px 24px;
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -299,17 +474,18 @@ h2 {
   flex-wrap: wrap;
 }
 .chip {
-  border: 1px solid #d4d7dc;
-  background: #fff;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 12px;
   cursor: pointer;
 }
 .chip--on {
-  background: #0a84ff;
-  border-color: #0a84ff;
-  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
 }
 
 .field {
@@ -328,14 +504,15 @@ h2 {
   font-size: 13px;
 }
 .field-input {
-  border: 1px solid #d4d7dc;
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 13px;
-  background: #fff;
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 .field-hint {
-  color: #86868b;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -355,9 +532,9 @@ h2 {
 /* 新手帮助：如何从 Petdex 获取宠物包（克制、可折叠） */
 .help-box {
   margin-top: 18px;
-  border: 1px solid #e2e4e9;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #fbfbfd;
+  background: var(--bg-help);
   max-width: 560px;
 }
 .help-toggle {
@@ -370,14 +547,14 @@ h2 {
   background: transparent;
   font-size: 13px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   cursor: pointer;
   text-align: left;
 }
 .help-arrow {
   display: inline-block;
   transition: transform 0.15s ease;
-  color: #86868b;
+  color: var(--text-muted);
 }
 .help-arrow--open {
   transform: rotate(90deg);
@@ -385,7 +562,7 @@ h2 {
 .help-body {
   padding: 0 14px 12px 14px;
   font-size: 13px;
-  color: #3a3a3c;
+  color: var(--text-secondary);
   line-height: 1.7;
 }
 .help-steps {
@@ -396,7 +573,7 @@ h2 {
   margin-bottom: 6px;
 }
 .help-body code {
-  background: #f0f0f3;
+  background: var(--code-bg);
   border-radius: 4px;
   padding: 1px 5px;
   font-size: 12px;
@@ -405,14 +582,14 @@ h2 {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #1d1d1f;
+  background: var(--cmd-bg);
   border-radius: 8px;
   padding: 8px 12px;
   margin: 6px 0;
   max-width: 420px;
 }
 .cmd-line code {
-  color: #f5f5f7;
+  color: var(--cmd-text);
   font-size: 12.5px;
   flex: 1;
   overflow-x: auto;

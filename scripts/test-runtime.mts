@@ -1,4 +1,4 @@
-// 运行时纯逻辑测试：几何 / 配置 / IPC 校验 / 项目存储 / 授权门 / 导出命名。
+// 运行时纯逻辑测试：几何 / 配置 / IPC 校验 / 项目存储 / 授权与分发决策 / 导出命名。
 // 运行：npm run test:runtime
 //
 // 覆盖（对应任务书 §6）：
@@ -6,9 +6,12 @@
 //   ✓ 配置校验：合法值、非法类型、越界数字、空名字、超长名字
 //   ✓ IPC 校验器：非法类型 / 枚举 / 项目 id 注入
 //   ✓ 项目存储：导入复制不修改源、哈希核对、版本化目录、索引损坏恢复、
-//     非法配置不入库
-//   ✓ 授权门：authorized 放行 / internal-test 标记 / unknown 阻止
+//     非法配置不入库、删除语义（当前项目切换 / 源包不变）
+//   ✓ 授权模型：sourceLicense 如实记录、unknown 自动 internal-test、
+//     旧项目迁移、resolveDistribution（candidate / internal-test-only）
 //   ✓ 导出命名非覆盖（reserveOutputPath）
+//   ✓ macOS activate 决策：无窗口重建 / 存在则聚焦 / 只剩预览时重建 / 连续不重复
+//   ✓ 深色模式：CSS 变量与 prefers-color-scheme 存在且被关键选择器使用
 //   ✓ 旧产品数据目录（~/.nom）在整个测试过程中不被触碰
 
 import fs from 'node:fs/promises';
@@ -19,14 +22,15 @@ import { fileURLToPath } from 'node:url';
 import { computeAnchoredZoomBounds, type Rect } from '../src/shared/geometry.ts';
 import { validatePetConfig, DEFAULT_PET_CONFIG } from '../src/shared/config.ts';
 import { requireProjectId, requireEnum, requireFiniteNumber, requireBoolean, IpcValidationError } from '../src/shared/ipc-validate.ts';
-import { ProjectsStore, packFingerprint } from '../src/shared/projects.ts';
+import { ProjectsStore, packFingerprint, defaultUsageMode } from '../src/shared/projects.ts';
+import { removeConfirmMessage } from '../src/shared/messages.ts';
 import { validatePetPack } from '../src/shared/petpack.ts';
 import { sharpImageProbe } from '../src/main/image-probe.ts';
-import { buildManifest, licenseExportBlock } from '../src/shared/manifest.ts';
+import { buildManifest, resolveDistribution, distributionNote } from '../src/shared/manifest.ts';
 import { reserveOutputPath, buildRuntimeConfig } from '../src/main/export-win.ts';
 import { registerPetIpc, PET_IPC_HANDLE_CHANNELS, PET_IPC_ON_CHANNELS, type PetIpcTarget } from '../src/pet/ipc-router.ts';
 import { PetBehaviorScheduler, DEFAULT_BEHAVIOR_TIMINGS } from '../src/shared/pet-behavior.ts';
-import { shouldQuitOnAllWindowsClosed } from '../src/shared/lifecycle.ts';
+import { shouldQuitOnAllWindowsClosed, handleActivate, type ActivatableWindow } from '../src/shared/lifecycle.ts';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIXTURES = path.join(REPO, 'assets', 'fixtures');
@@ -157,6 +161,8 @@ async function storeTests(tmp: string): Promise<void> {
   check('导入返回项目元数据', meta.slug === 'demo-cat' && meta.config.petName === '演示猫');
   check('新导入项目默认 zoom=1.5', meta.config.zoom === 1.5);
   check('记录真实宠物 ID 与声明版本', meta.petId === 'demo-cat' && meta.declaredVersion === 'v1');
+  check('authorized 原包：sourceLicense=authorized 且 usageMode=general',
+    meta.license === 'authorized' && meta.usageMode === 'general');
   check('来源类型与内容指纹', meta.source.type === 'dir' &&
     meta.source.fingerprint === packFingerprint(meta.hashes) && meta.source.zipSha256 === undefined);
   check('项目目录是版本化新目录（基于 pet.json 稳定 id）', meta.id.startsWith('demo-cat-') && (await fs.stat(store.projectDir(meta.id))).isDirectory());
@@ -197,6 +203,55 @@ async function storeTests(tmp: string): Promise<void> {
   await store.remove(meta2.id);
   check('删除项目后目录消失', !(await fs.stat(store.projectDir(meta2.id)).then(() => true, () => false)));
   check('删除后源包仍在', (await hashDir(srcDir)) === srcHashBefore);
+
+  // 删除语义：当前项目切换 / 非当前项目不影响选择 / 删空后回到无项目
+  {
+    const store4 = new ProjectsStore(path.join(tmp, 'studio-data-remove'));
+    const a = await store4.importValidatedPack(validated.pack, { type: 'dir', path: srcDir });
+    const b = await store4.importValidatedPack(validated.pack, { type: 'dir', path: srcDir });
+    const c = await store4.importValidatedPack(validated.pack, { type: 'dir', path: srcDir });
+    // 列表顺序：最新在前（c, b, a）；导入后当前 = c
+    let idx = (await store4.load()).index;
+    check('三次导入后当前项目是最新导入', idx.currentProjectId === c.id);
+
+    // 删除非当前项目：当前选择不变
+    await store4.remove(a.id);
+    idx = (await store4.load()).index;
+    check('删除非当前项目不影响当前选择', idx.currentProjectId === c.id && idx.projects.length === 2);
+
+    // 删除当前项目：自动选择剩余项目中的下一项（列表第一项）
+    await store4.remove(c.id);
+    idx = (await store4.load()).index;
+    check('删除当前项目后自动选择剩余下一项', idx.currentProjectId === b.id && idx.projects.length === 1);
+
+    // 删除最后一个项目：没有当前项目（UI 回到导入页、步骤禁用）
+    await store4.remove(b.id);
+    idx = (await store4.load()).index;
+    check('删除最后一个项目后无当前项目', idx.currentProjectId === null && idx.projects.length === 0);
+    check('删除不修改源包', (await hashDir(srcDir)) === srcHashBefore);
+
+    // 删除确认文案：说明影响范围（只删工作区副本，不动原始包和已导出 ZIP）
+    const msg = removeConfirmMessage('演示猫');
+    check('删除确认包含项目名', msg.includes('确定删除制作台项目「演示猫」吗？'));
+    check('删除确认说明只删工作区副本', msg.includes('工作区副本'));
+    check('删除确认说明不动原始 Petdex 包', msg.includes('不会删除原始 Petdex 宠物包'));
+    check('删除确认说明不动已导出的 ZIP', msg.includes('已经导出的 ZIP'));
+  }
+
+  // 未声明授权的原包：导入后 sourceLicense=unknown、usageMode=internal-test（不伪造已授权）
+  {
+    const noLicSrc = path.join(FIXTURES, 'pack-no-license');
+    const noLicValidated = await validatePetPack(noLicSrc);
+    if (!noLicValidated.ok) {
+      check('fixture pack-no-license 可用于授权测试', false, noLicValidated.errors.join('；'));
+    } else {
+      const noLicMeta = await store.importValidatedPack(noLicValidated.pack, { type: 'dir', path: noLicSrc });
+      check('未声明授权原包 license=unknown', noLicMeta.license === 'unknown');
+      check('未声明授权原包自动 usageMode=internal-test', noLicMeta.usageMode === 'internal-test');
+      check('导入副本 pet.json 未被写入授权声明（不篡改）',
+        !(await fs.readFile(path.join(store.projectDir(noLicMeta.id), 'pet.json'), 'utf8')).includes('license'));
+    }
+  }
 
   // WebP 包导入：副本与源哈希一致
   {
@@ -257,8 +312,37 @@ async function storeTests(tmp: string): Promise<void> {
     check('迁移不覆盖用户已保存的 zoom', migrated?.config.zoom === 1);
     check('迁移不改变内部实例 id 与 sourcePath',
       migrated?.id === legacyId && migrated.sourcePath === '/Users/someone/pets/demo-cat');
+    check('authorized 旧项目迁移出 usageMode=general', migrated?.usageMode === 'general');
     const again = await store3.get(legacyId);
-    check('迁移结果持久化（二次读取一致）', again?.petId === 'demo-cat');
+    check('迁移结果持久化（二次读取一致）', again?.petId === 'demo-cat' && again.usageMode === 'general');
+  }
+
+  // 旧 unknown 项目迁移：原包授权仍记 unknown，usageMode 安全迁移为 internal-test，
+  // 项目 ID、配置、哈希、路径全部保留。
+  {
+    const legacyId = 'mystery-20250101000000';
+    const noLicSrc = path.join(FIXTURES, 'pack-no-license');
+    const legacyDir = store.projectDir(legacyId);
+    await fs.mkdir(legacyDir, { recursive: true });
+    await fs.copyFile(path.join(noLicSrc, 'pet.json'), path.join(legacyDir, 'pet.json'));
+    await fs.copyFile(path.join(noLicSrc, 'spritesheet.png'), path.join(legacyDir, 'spritesheet.png'));
+    const { index } = await store.load();
+    index.projects.push({
+      id: legacyId, slug: 'mystery', displayName: '无授权包', petdexVersion: 'v1',
+      license: 'unknown', spritesheetFile: 'spritesheet.png',
+      hashes: { petJson: 'c'.repeat(64), spritesheet: 'd'.repeat(64) },
+      sourcePath: '/Users/someone/pets/mystery', importedAt: '2025-01-01T00:00:00.000Z',
+      config: { petName: '无授权包', zoom: 0.75, wanderEnabled: true },
+    } as never);
+    await fs.writeFile(path.join(root, 'projects.json'), JSON.stringify(index, null, 2), 'utf8');
+
+    const store5 = new ProjectsStore(root);
+    const migrated = await store5.get(legacyId);
+    check('unknown 旧项目迁移后授权仍是 unknown（不伪造 authorized）', migrated?.license === 'unknown');
+    check('unknown 旧项目迁移出 usageMode=internal-test', migrated?.usageMode === 'internal-test');
+    check('迁移保留项目 ID / 配置 / 哈希 / 路径',
+      migrated?.id === legacyId && migrated.config.zoom === 0.75 &&
+      migrated.hashes.petJson === 'c'.repeat(64) && migrated.sourcePath === '/Users/someone/pets/mystery');
   }
 
   async function hashDir(dir: string): Promise<string> {
@@ -274,13 +358,32 @@ async function storeTests(tmp: string): Promise<void> {
   }
 }
 
-// --- 授权门 / manifest / 导出命名 -----------------------------------------------------
+// --- 授权模型 / manifest / 导出命名 -----------------------------------------------------
 
 function manifestTests(): void {
-  console.log('\n[授权门 / manifest / 非覆盖]');
-  check('authorized 放行', licenseExportBlock('authorized') === null);
-  check('internal-test 放行（标记内部）', licenseExportBlock('internal-test') === null);
-  check('unknown 阻止且为中文提示', typeof licenseExportBlock('unknown') === 'string');
+  console.log('\n[授权模型 / manifest / 非覆盖]');
+  // 使用方式默认值：只有明确 authorized 才进入 general
+  check('authorized → usageMode=general', defaultUsageMode('authorized') === 'general');
+  check('internal-test → usageMode=internal-test', defaultUsageMode('internal-test') === 'internal-test');
+  check('unknown → usageMode=internal-test（不伪造已授权）', defaultUsageMode('unknown') === 'internal-test');
+
+  // 最终分发决策
+  check('authorized + general → candidate', resolveDistribution('authorized', 'general') === 'candidate');
+  check('internal-test + internal-test → internal-test-only',
+    resolveDistribution('internal-test', 'internal-test') === 'internal-test-only');
+  check('unknown + internal-test → internal-test-only',
+    resolveDistribution('unknown', 'internal-test') === 'internal-test-only');
+  check('internal-test 即使误标 general 也不出 candidate',
+    resolveDistribution('internal-test', 'general') === 'internal-test-only');
+  check('unknown 即使误标 general 也不出 candidate',
+    resolveDistribution('unknown', 'general') === 'internal-test-only');
+
+  // 导出页 / 启动说明文案
+  check('unknown 文案含"未声明授权…不得对外分发"',
+    distributionNote('unknown', 'internal-test').includes('原宠物包未声明授权') &&
+    distributionNote('unknown', 'internal-test').includes('不得对外分发'));
+  check('internal-test 文案说明内部测试', distributionNote('internal-test', 'internal-test').includes('内部测试'));
+  check('authorized 文案说明可分发候选', distributionNote('authorized', 'general').includes('可分发候选'));
 
   const source = { type: 'zip' as const, fingerprint: 'f'.repeat(64), zipSha256: 'z'.repeat(64) };
   const m = buildManifest({
@@ -289,13 +392,17 @@ function manifestTests(): void {
     studioProjectId: 'demo-20260908120000',
     source,
     hashes: { petJsonSha256: 'a'.repeat(64), spritesheetSha256: 'b'.repeat(64) },
-    license: 'internal-test',
+    sourceLicense: 'internal-test',
+    usageMode: 'internal-test',
     exportedAt: new Date('2026-09-08T10:00:00Z'),
   });
   check('manifest 含全部必填字段',
     m.product.length > 0 && m.productVersion === '0.1.0' && m.pet.petdexVersion === 'v1' &&
     m.hashes.spritesheetSha256.length === 64 && m.exportedAt === '2026-09-08T10:00:00.000Z' &&
-    m.platform === 'win32' && m.arch === 'x64' && m.license === 'internal-test');
+    m.platform === 'win32' && m.arch === 'x64');
+  check('manifest 如实记录三层授权（sourceLicense / usageMode / distribution）',
+    m.sourceLicense === 'internal-test' && m.usageMode === 'internal-test' && m.distribution === 'internal-test-only');
+  check('manifest 兼容字段 license 与 sourceLicense 一致', m.license === m.sourceLicense);
   check('manifest 区分真实宠物 ID 与内部实例 ID',
     m.pet.id === 'demo' && m.studioProjectId === 'demo-20260908120000' && m.pet.id !== m.studioProjectId);
   check('manifest 记录真实声明版本与来源（类型/指纹/ZIP 哈希）',
@@ -303,9 +410,10 @@ function manifestTests(): void {
     m.source.fingerprint === source.fingerprint && m.source.zipSha256 === source.zipSha256);
   check('manifest 不含用户机器绝对路径',
     !JSON.stringify(m).includes('/Users/') && !/^[A-Za-z]:\\/.test(JSON.stringify(m)));
-  check('internal-test 标记为 internal-test-only', m.distribution === 'internal-test-only');
-  check('authorized 标记为 candidate',
-    buildManifest({ productVersion: '0.1.0', pet: m.pet, studioProjectId: m.studioProjectId, source, hashes: m.hashes, license: 'authorized' }).distribution === 'candidate');
+  check('unknown 原包 manifest 不写成 authorized',
+    buildManifest({ productVersion: '0.1.0', pet: m.pet, studioProjectId: m.studioProjectId, source, hashes: m.hashes, sourceLicense: 'unknown', usageMode: 'internal-test' }).sourceLicense === 'unknown');
+  check('authorized + general 标记为 candidate',
+    buildManifest({ productVersion: '0.1.0', pet: m.pet, studioProjectId: m.studioProjectId, source, hashes: m.hashes, sourceLicense: 'authorized', usageMode: 'general' }).distribution === 'candidate');
 }
 
 async function reserveTests(tmp: string): Promise<void> {
@@ -495,13 +603,130 @@ function behaviorTests(): void {
   }
 }
 
-// --- 窗口生命周期策略（macOS 常驻 / 其他平台退出） -------------------------------
+// --- 窗口生命周期策略（macOS 常驻 / 其他平台退出） + activate 决策 -------------------------
 
 function lifecycleTests(): void {
   console.log('\n[窗口生命周期]');
   check('macOS 关闭最后窗口不退出（保留在 Dock）', shouldQuitOnAllWindowsClosed('darwin') === false);
   check('Windows 关闭最后窗口退出', shouldQuitOnAllWindowsClosed('win32') === true);
   check('Linux 关闭最后窗口退出', shouldQuitOnAllWindowsClosed('linux') === true);
+}
+
+// --- macOS activate（点 Dock 重开制作台）决策 ------------------------------------------
+// 回归：旧实现用 BrowserWindow.getAllWindows().length 判断，桌宠预览还开着时
+// 关掉制作台后点 Dock 不会重建制作台。现在只看制作台窗口本身。
+
+function activateTests(): void {
+  console.log('\n[activate 决策]');
+
+  class FakeWindow implements ActivatableWindow {
+    shown = 0;
+    focused = 0;
+    destroyed = false;
+    isDestroyed(): boolean { return this.destroyed; }
+    show(): void { this.shown++; }
+    focus(): void { this.focused++; }
+  }
+
+  // 1. 无任何窗口：重建制作台
+  {
+    let created = 0;
+    const r = handleActivate<FakeWindow>(null, () => { created++; return new FakeWindow(); });
+    check('无窗口时 activate 重建制作台', r.action === 'recreate' && created === 1);
+  }
+
+  // 2. 制作台存在：show + focus，不重建
+  {
+    const win = new FakeWindow();
+    let created = 0;
+    const r = handleActivate<FakeWindow>(win, () => { created++; return new FakeWindow(); });
+    check('制作台存在时 activate 只 show+focus',
+      r.action === 'focus' && created === 0 && win.shown === 1 && win.focused === 1 && r.window === win);
+  }
+
+  // 3. 制作台已关闭（null/已销毁）但桌宠预览仍开着：重建制作台，预览不被触碰
+  {
+    // handleActivate 只接收制作台窗口与工厂函数——预览窗口根本不在决策范围内，
+    // 因此结构上不可能误关预览。这里验证两种"制作台不在"的形态都会重建。
+    let created = 0;
+    const destroyedWin = new FakeWindow();
+    destroyedWin.destroyed = true;
+    const previewStillOpen = new FakeWindow(); // 预览窗口：决策函数从不接触它
+    const r1 = handleActivate<FakeWindow>(null, () => { created++; return new FakeWindow(); });
+    const r2 = handleActivate<FakeWindow>(destroyedWin, () => { created++; return new FakeWindow(); });
+    check('制作台为 null（预览仍在）时重建', r1.action === 'recreate');
+    check('制作台已销毁（预览仍在）时重建', r2.action === 'recreate' && created === 2);
+    check('重建不触碰仍开着的预览窗口',
+      previewStillOpen.shown === 0 && previewStillOpen.focused === 0 && !previewStillOpen.destroyed);
+  }
+
+  // 4. 连续 activate：第一次重建后，后续只聚焦，不重复创建
+  {
+    let created = 0;
+    const create = () => { created++; return new FakeWindow(); };
+    let win: FakeWindow | null = null;
+    win = handleActivate(win, create).window;  // 第一次：重建
+    win = handleActivate(win, create).window;  // 第二次：聚焦
+    win = handleActivate(win, create).window;  // 第三次：聚焦
+    check('连续 activate 不重复创建窗口', created === 1 && win.shown === 2 && win.focused === 2);
+  }
+}
+
+// --- 深色模式（CSS 变量 + prefers-color-scheme） ----------------------------------------
+
+async function darkModeTests(): Promise<void> {
+  console.log('\n[深色模式]');
+  const studioCss = await fs.readFile(path.join(REPO, 'src', 'renderer', 'styles.css'), 'utf8');
+  const petCss = await fs.readFile(path.join(REPO, 'src', 'renderer', 'pet', 'pet.css'), 'utf8');
+
+  check('制作台 CSS 声明 color-scheme: light dark', /color-scheme:\s*light dark/.test(studioCss));
+  check('制作台 CSS 含 prefers-color-scheme: dark', /@media\s*\(prefers-color-scheme:\s*dark\)/.test(studioCss));
+  check('桌宠 CSS 含 prefers-color-scheme: dark', /@media\s*\(prefers-color-scheme:\s*dark\)/.test(petCss));
+
+  // 关键区域都必须走变量，不允许回到硬编码颜色
+  const studioBlocks: Array<[string, string]> = [
+    ['页面背景', 'body'],
+    ['侧栏背景', '.rail'],
+    ['卡片背景', '.card'],
+    ['输入框', '.field-input'],
+    ['最近项目选中', '.rail-project--on'],
+    ['步骤选中', '.step--on'],
+    ['删除按钮悬停', '.rail-project-del:hover'],
+    ['错误面板', '.error-panel'],
+    ['成功面板', '.success-panel'],
+    ['信息面板', '.info-panel'],
+    ['提示条', '.notice'],
+    ['棋盘背景', '.preview-stage'],
+    ['帮助盒', '.help-box'],
+    ['命令块', '.cmd-line'],
+  ];
+  for (const [label, selector] of studioBlocks) {
+    const block = extractCssBlock(studioCss, selector);
+    check(`深色模式：${label}（${selector}）使用 CSS 变量`, !!block && block.includes('var(--'));
+  }
+
+  // 桌宠气泡与箭头同一变量，深色下同步切换
+  const bubble = extractCssBlock(petCss, '.bubble');
+  const arrow = extractCssBlock(petCss, '.bubble::after');
+  check('气泡背景使用变量', !!bubble && bubble.includes('var(--bubble-bg)'));
+  check('气泡箭头与气泡同色（同一变量）', !!arrow && arrow.includes('var(--bubble-bg)'));
+  check('深色气泡背景与箭头变量在 dark media 中被覆盖',
+    /prefers-color-scheme:\s*dark[\s\S]*?--bubble-bg:\s*rgba\(44, 44, 46/.test(petCss));
+  check('桌宠窗口背景保持透明（无不透明方形背景）',
+    /html, body\s*\{[\s\S]*?background:\s*transparent/.test(petCss));
+
+  // 深色变量块确实覆盖了浅色值（双主题非空且不同）
+  const lightCard = /--bg-card:\s*([^;]+);/.exec(studioCss)?.[1]?.trim();
+  const darkSection = studioCss.split('@media (prefers-color-scheme: dark)')[1] ?? '';
+  const darkCard = /--bg-card:\s*([^;]+);/.exec(darkSection)?.[1]?.trim();
+  check('深色模式变量值与浅色不同', !!lightCard && !!darkCard && lightCard !== darkCard,
+    `light=${lightCard} dark=${darkCard}`);
+
+  function extractCssBlock(css: string, selector: string): string | null {
+    const escaped = selector.replace(/\./g, '\\.');
+    const m = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(css);
+    return m ? m[1]! : null;
+  }
 }
 
 // --- 旧数据目录隔离 ---------------------------------------------------------------------
@@ -534,6 +759,8 @@ async function main(): Promise<void> {
     petIpcRouterTests();
     behaviorTests();
     lifecycleTests();
+    activateTests();
+    await darkModeTests();
     await isolationCheck();
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

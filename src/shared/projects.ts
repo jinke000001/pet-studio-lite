@@ -33,6 +33,17 @@ export interface ProjectSource {
   zipSha256?: string;
 }
 
+/** 项目使用方式（见 ProjectMeta.usageMode 注释）。 */
+export type UsageMode = 'internal-test' | 'general';
+
+/**
+ * 新导入项目的默认使用方式：只有原包明确声明 authorized 才进入 general
+ * （可生成分发候选）；internal-test 与 unknown 一律按个人／内部体验处理。
+ */
+export function defaultUsageMode(license: ProjectMeta['license']): UsageMode {
+  return license === 'authorized' ? 'general' : 'internal-test';
+}
+
 export interface ProjectMeta {
   /** 制作台内部项目实例 ID（带时间戳，版本化目录名）。 */
   id: string;
@@ -43,7 +54,17 @@ export interface ProjectMeta {
   petdexVersion: 'v1' | 'v2';
   /** pet.json 实际声明的版本（未声明 = null）。 */
   declaredVersion: 'v1' | 'v2' | null;
+  /** 原包授权状态（pet.json 的 license 声明），导入后不再篡改。 */
   license: 'authorized' | 'internal-test' | 'unknown';
+  /**
+   * 项目使用方式（制作台项目元数据，与原包授权声明分开记录）：
+   * - 'internal-test' 个人／内部体验：允许导出，但产物标记 internal-test-only；
+   * - 'general'       常规使用：原包 authorized 时可生成分发候选 candidate。
+   * 原包未声明授权（unknown）的项目导入时自动设为 internal-test —— 不伪造
+   * "已授权"。未来如需对外发布，应在核验授权后升级为 general（本轮 UI 不
+   * 提供未经验证的"我已授权"按钮）。
+   */
+  usageMode: UsageMode;
   spritesheetFile: string;
   hashes: { petJson: string; spritesheet: string };
   source: ProjectSource;
@@ -96,6 +117,8 @@ function timestampId(slug: string): string {
     String(d.getHours()).padStart(2, '0'),
     String(d.getMinutes()).padStart(2, '0'),
     String(d.getSeconds()).padStart(2, '0'),
+    // 毫秒后缀：同一秒内连续导入同一宠物也不会撞 ID
+    String(d.getMilliseconds()).padStart(3, '0'),
   ].join('');
   return `${safe}-${stamp}`;
 }
@@ -151,15 +174,17 @@ export class ProjectsStore {
 
   /**
    * 旧项目元数据迁移：补齐 petId（真实宠物 ID）、declaredVersion、source
-   * （类型 + 内容指纹）。返回 null 表示无需迁移。所有字段只增不改，
-   * 已有的 id / config / sourcePath 原样保留。
+   * （类型 + 内容指纹）、usageMode（使用方式）。返回 null 表示无需迁移。
+   * 所有字段只增不改，已有的 id / config / sourcePath 原样保留。
+   * 旧 unknown 项目迁移后：原包授权仍记 unknown，usageMode = internal-test。
    */
   private async migrateLegacyMeta(meta: ProjectMeta): Promise<ProjectMeta | null> {
-    const legacy = meta as ProjectMeta & { petId?: string; declaredVersion?: 'v1' | 'v2' | null; source?: ProjectSource };
+    const legacy = meta as ProjectMeta & { petId?: string; declaredVersion?: 'v1' | 'v2' | null; source?: ProjectSource; usageMode?: UsageMode };
     const needsPetId = typeof legacy.petId !== 'string' || !legacy.petId;
     const needsDeclared = legacy.declaredVersion === undefined;
     const needsSource = !legacy.source || typeof legacy.source.fingerprint !== 'string';
-    if (!needsPetId && !needsDeclared && !needsSource) return null;
+    const needsUsageMode = legacy.usageMode !== 'internal-test' && legacy.usageMode !== 'general';
+    if (!needsPetId && !needsDeclared && !needsSource && !needsUsageMode) return null;
 
     let petId = legacy.petId || legacy.slug || legacy.id;
     let declaredVersion: 'v1' | 'v2' | null = legacy.declaredVersion ?? null;
@@ -178,7 +203,8 @@ export class ProjectsStore {
           fingerprint: packFingerprint(legacy.hashes),
         }
       : legacy.source!;
-    return { ...meta, petId, declaredVersion, source };
+    const usageMode: UsageMode = needsUsageMode ? defaultUsageMode(meta.license) : legacy.usageMode!;
+    return { ...meta, petId, declaredVersion, source, usageMode };
   }
 
   private async save(index: ProjectsIndex): Promise<void> {
@@ -251,7 +277,10 @@ export class ProjectsStore {
         displayName: pack.displayName,
         petdexVersion: pack.version,
         declaredVersion: pack.declaredVersion,
+        // 原包授权状态如实记录（不篡改）；使用方式按规则自动设定：
+        // 未声明授权（unknown）的项目自动进入「个人／内部体验」。
         license: pack.license,
+        usageMode: defaultUsageMode(pack.license),
         spritesheetFile: sheetName,
         hashes: pack.hashes,
         source: {

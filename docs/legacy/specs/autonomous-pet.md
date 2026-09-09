@@ -1,3 +1,6 @@
+> ⚠️ **旧产品文档（nom），已归档。** 当前产品是 **Pet Studio Lite**，权威说明见仓库根目录 `PRODUCT.md`。本文件仅为历史脉络与归属保留，不代表当前需求。
+>
+
 # Spec — Autonomous Pet (The Tick + Pet Mind)
 
 > 让 nom 从"反应式装饰物"升级到"有内部生命的角色"。LLM 不再是触发式的台词翻译器，而是宠物的**决策大脑**。
