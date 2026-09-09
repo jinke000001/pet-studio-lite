@@ -230,9 +230,21 @@ html, body {
 .rail-project {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
   width: 100%;
+  border-radius: 6px;
+}
+.rail-project--on {
+  background: var(--bg-selected);
+}
+/* 「选择项目」按钮：占满行的其余空间（与删除按钮并列、互不嵌套） */
+.rail-project-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   border-radius: 6px;
@@ -240,9 +252,7 @@ html, body {
   cursor: pointer;
   font-size: 13px;
   color: var(--text-primary);
-}
-.rail-project--on {
-  background: var(--bg-selected);
+  text-align: left;
 }
 .rail-project-name {
   overflow: hidden;
@@ -358,7 +368,7 @@ h2 {
 .chip:focus-visible,
 .link:focus-visible,
 .step:focus-visible,
-.rail-project:focus-visible,
+.rail-project-select:focus-visible,
 .rail-project-del:focus-visible,
 .help-toggle:focus-visible,
 .field-input:focus-visible {

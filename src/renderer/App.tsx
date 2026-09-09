@@ -154,31 +154,30 @@ export function App() {
           <div className="rail-projects-title">最近项目</div>
           {state.index.projects.length === 0 && <div className="rail-empty">还没有项目</div>}
           {state.index.projects.map((p) => (
+            // 行是纯容器；「选择项目」与「删除项目」是两个并列的原生 <button>，
+            // 互不嵌套 —— 键盘（Enter/空格）与鼠标点删除都不会触发项目切换。
             <div
               key={p.id}
               className={`rail-project ${current?.id === p.id ? 'rail-project--on' : ''}`}
-              role="button"
-              tabIndex={0}
-              onClick={async () => {
-                setState(await window.studio.selectProject(p.id));
-              }}
-              onKeyDown={async (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setState(await window.studio.selectProject(p.id));
-                }
-              }}
-              title={p.id}
             >
-              <span className="rail-project-name">{p.displayName}</span>
-              <span className="rail-project-meta">{p.petdexVersion}</span>
+              <button
+                type="button"
+                className="rail-project-select"
+                title={p.id}
+                onClick={async () => {
+                  setState(await window.studio.selectProject(p.id));
+                }}
+              >
+                <span className="rail-project-name">{p.displayName}</span>
+                <span className="rail-project-meta">{p.petdexVersion}</span>
+              </button>
               <button
                 type="button"
                 className="rail-project-del"
                 aria-label={`删除项目 ${p.displayName}`}
                 title="删除项目（仅删除工作区副本）"
                 onClick={(e) => {
-                  e.stopPropagation(); // 不触发项目切换
+                  e.stopPropagation(); // 防御：删除事件永远不冒泡成行交互
                   void requestRemove(p);
                 }}
               >

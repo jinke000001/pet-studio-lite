@@ -210,6 +210,7 @@ async function storeTests(tmp: string): Promise<void> {
     const a = await store4.importValidatedPack(validated.pack, { type: 'dir', path: srcDir });
     const b = await store4.importValidatedPack(validated.pack, { type: 'dir', path: srcDir });
     const c = await store4.importValidatedPack(validated.pack, { type: 'dir', path: srcDir });
+    check('连续快速导入生成不同项目 ID（同毫秒也不撞）', new Set([a.id, b.id, c.id]).size === 3);
     // 列表顺序：最新在前（c, b, a）；导入后当前 = c
     let idx = (await store4.load()).index;
     check('三次导入后当前项目是最新导入', idx.currentProjectId === c.id);
@@ -729,6 +730,27 @@ async function darkModeTests(): Promise<void> {
   }
 }
 
+// --- 最近项目行结构：选择与删除必须是并列的原生 button（键盘事件不串扰） ------------------
+// 回归：删除按钮曾嵌套在带 role="button" + onKeyDown 的行内，Tab 聚焦删除按钮后
+// 按 Enter/空格会同时触发项目切换和删除。
+
+async function railProjectStructureTests(): Promise<void> {
+  console.log('\n[最近项目行结构]');
+  const app = await fs.readFile(path.join(REPO, 'src', 'renderer', 'App.tsx'), 'utf8');
+  const start = app.indexOf('state.index.projects.map');
+  const end = app.indexOf('</aside>', start);
+  const block = start >= 0 && end > start ? app.slice(start, end) : '';
+  check('最近项目列表 JSX 块存在', block.length > 0);
+  check('项目行不再是 role="button" 的交互容器', !block.includes('role="button"'));
+  check('项目行不再挂 onKeyDown（键盘行为交给原生 button）', !block.includes('onKeyDown'));
+  check('「选择项目」是独立 button', /className="rail-project-select"/.test(block));
+  check('「删除项目」是独立 button', /className="rail-project-del"/.test(block));
+  const selectBtn = /<button[^>]*className="rail-project-select"[\s\S]*?<\/button>/.exec(block)?.[0] ?? '';
+  check('选择按钮内不嵌套删除按钮', selectBtn.length > 0 && !selectBtn.includes('rail-project-del'));
+  check('删除按钮保留 stopPropagation 防御', /className="rail-project-del"[\s\S]*?stopPropagation/.test(block));
+  check('删除按钮有键盘可达的 aria-label', /className="rail-project-del"[\s\S]*?aria-label/.test(block));
+}
+
 // --- 旧数据目录隔离 ---------------------------------------------------------------------
 
 async function isolationCheck(): Promise<void> {
@@ -761,6 +783,7 @@ async function main(): Promise<void> {
     lifecycleTests();
     activateTests();
     await darkModeTests();
+    await railProjectStructureTests();
     await isolationCheck();
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

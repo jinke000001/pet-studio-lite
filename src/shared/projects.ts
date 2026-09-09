@@ -255,7 +255,12 @@ export class ProjectsStore {
     // 用 pet.json 里的稳定 id 作为项目 slug —— 目录导入时 pack.slug 是目录名，
     // 但 ZIP 导入时它是临时解压目录名（petstudio-import-XXX），不能用。
     const stableSlug = pack.id.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || pack.slug;
-    const id = timestampId(stableSlug);
+    // 同一毫秒连续导入同一宠物也不能撞 ID：目录已存在时追加 -2、-3…
+    const baseId = timestampId(stableSlug);
+    let id = baseId;
+    for (let n = 2; await fs.stat(this.projectDir(id)).then(() => true, () => false); n++) {
+      id = `${baseId}-${n}`;
+    }
     const dir = this.projectDir(id);
     try {
       await fs.mkdir(dir, { recursive: true });
