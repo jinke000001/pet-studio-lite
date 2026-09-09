@@ -14,7 +14,7 @@
  * If "is damaged" persists, the user must run:
  *   xattr -dr com.apple.quarantine "/Applications/Pet Studio Lite.app"
  */
-const { execSync } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
 module.exports = async function afterPack(context) {
@@ -23,9 +23,13 @@ module.exports = async function afterPack(context) {
   const appPath = path.join(context.appOutDir, `${appName}.app`);
 
   console.log(`[sign-adhoc] re-signing ${appPath}`);
-  execSync(`codesign --deep --force --sign - "${appPath}"`, { stdio: 'inherit' });
+  // Electron/native dependencies can inherit Finder or provenance metadata
+  // from the download/cache volume. codesign rejects those extended
+  // attributes as bundle detritus, so remove them from the generated copy.
+  execFileSync('xattr', ['-cr', appPath], { stdio: 'inherit' });
+  execFileSync('codesign', ['--deep', '--force', '--sign', '-', appPath], { stdio: 'inherit' });
 
   // Verify
-  execSync(`codesign --verify --deep --strict "${appPath}"`, { stdio: 'inherit' });
+  execFileSync('codesign', ['--verify', '--deep', '--strict', appPath], { stdio: 'inherit' });
   console.log('[sign-adhoc] verified deep ad-hoc signature');
 };
