@@ -1,107 +1,111 @@
 [English](./README.md) | **简体中文**
 
-# nom
+# Pet Studio Lite
 
-一只住在桌面上的宠物，**吃掉你消耗的 AI token** —— 当前从 Claude Code 和 Codex CLI 取食（Cursor 适配在路上）。
+一个把 Petdex 宠物包变成 **Windows 便携桌宠** 的制作台。完全离线，不需要账号、网络或任何 AI 服务。
 
-> **隐私优先**：nom 不向任何地方上传你的数据。它只读用量数字（不读 prompt/response），所有状态存在你机器上的 `~/.nom/`，随时可以 `rm -rf ~/.nom` 清空。
+**闭环**：导入宠物包 → 自动检查 → 动作预览 → 配置 → 导出 Windows x64 便携 ZIP → 解压双击 EXE 运行桌宠。
 
-![nom — 周战绩卡 Game Boy 风](./assets/screenshots/weekly-card.png)
+---
 
-## 功能
+## 这是什么
 
-- **实时吃多源 token** —— 同时监听 `~/.claude/projects/*.jsonl`（Claude Code）和 `~/.codex/sessions/**/*.jsonl`（Codex CLI），每个源右键菜单可独立开关。
-- **新会话问候** —— 你打开新 Claude Code 会话，宠物会醒过来打招呼。
-- **自动游走** —— 没事自己在桌面溜达两步，像个真实的桌面伙伴（右键可关）。
-- **支持换皮** —— 用 `npx petdex install <slug>` 装 [petdex](https://github.com/crafter-station/petdex) 包，再右键 → **选择宠物** 秒切，不用重启。
-- **闲置睡觉、回来唤醒** —— 30 分钟没动静就打盹。
-- **聊天卡气泡** —— 新会话、里程碑、点击聊天、随机吃东西评论，都用聊天卡片样式（粗体标题 + 灰色正文）。默认本地预置台词；**可选**接 LLM 让台词动态、上下文感知（见下面）。
-- **拖动** 任意位置即可移动；窗口位置重启不丢。
-- **多屏友好** —— `⌘⌥N` 一键召回到鼠标所在屏幕。
+Pet Studio Lite 是一个 macOS 上的"制作台"应用。你给它一个宠物包（一个包含 `pet.json` 和一张图集的文件夹，或一个 ZIP），它帮你检查、预览、配置，最后导出一个 **Windows 便携 ZIP**。把这个 ZIP 发给任何 Windows 用户，对方解压后双击里面的 `PetLitePet.exe`，桌面上就会出现一只可以拖动、可以点击、可以缩放的桌宠。
 
-## 安装（最终用户）
+导出的桌宠 **完全独立**：不需要安装 Node.js、Python、Git，不联网，不依赖 Petdex / Codex / 任何命令行。
 
-下面这些链接**永远指向最新版**，存一次就行，不用每次发版都换：
+## 我什么都不懂，怎么用？
 
-### macOS
+### 1. 启动制作台（需要 macOS）
 
-- **Apple Silicon（M1/M2/M3/M4）**：[`nom-arm64.dmg`](https://github.com/dylan-labs/nom-pet/releases/latest/download/nom-arm64.dmg)
-- **Intel Mac**：[`nom-x64.dmg`](https://github.com/dylan-labs/nom-pet/releases/latest/download/nom-x64.dmg)
-
-把 `nom.app` 拖进 `/Applications`。首次打开 macOS 会拦截 —— 打开 **系统设置 → 隐私与安全性**，拉到底，点 nom 旁边的 **仍然打开**，弹窗里再确认一次就行，以后双击直接启动。
-
-### Windows
-
-- [`nom-setup.exe`](https://github.com/dylan-labs/nom-pet/releases/latest/download/nom-setup.exe) —— NSIS 安装向导，x64
-
-双击 setup，走完向导。桌面会有快捷方式，开始菜单也能找到。
-
-> 想看历史版本：[Releases 页面](../../releases)
-
-## 换宠物皮肤
-
-到 **[petdex.crafter.run](https://petdex.crafter.run/zh)** 浏览所有可装的宠物，安装：
-
-```bash
-npx petdex install boba       # 或 doraemon、goku-blue……
-```
-
-右键宠物 → **选择宠物** → 选你新装的。宠物文件存在 `~/.codex/pets/<slug>/` 和 `~/.nom/pets/<slug>/`。
-
-## 右键菜单
-
-| 选项 | 作用 |
-|---|---|
-| ☑ 允许游走 | 自动游走开/关 |
-| ☐ AI 台词 | LLM 动态台词开/关（见下面）|
-| 数据源 → | 各个源独立开关（Claude Code、Codex）|
-| 选择宠物 → | 在已装的 petdex 皮肤之间切换 |
-| 打开配置文件 | 打开 `~/.nom/state.json` 手动编辑 |
-| 关闭宠物 | 退出 |
-
-另外有全局快捷键：`⌘⌥N`（Mac）/ `Ctrl+Alt+N`（Win），把宠物召回到当前屏幕。
-
-## 可选：AI 动态台词
-
-默认 nom 用本地预置台词文件 —— 完全离线、可重复、零网络。如果你想要上下文感知的台词（比如 *"凌晨两点了还在用 Claude，你这个 prompt 写得有点暴躁啊"*），可以接任何 **OpenAI 协议的 chat-completions 端点** —— 你自己的 Anthropic key、本机 Ollama、自建模型……只要对得上 OpenAI 接口就行。
-
-1. 右键宠物 → **设置…**（或快捷键 `⌘,` / `Ctrl+,`）
-2. 找到 **AI 台词** 那张卡片，把 **启用** 拨上
-3. 填 **Endpoint** / **Model** / **API Key**（不需要鉴权的端点 key 可以留空）
-4. 点 **测试连接** —— 配对了会预览一句宠物真实回复；没配对会给出具体错误（HTTP 状态、空响应、超时等）
-5. 点 **保存 AI 配置**
-
-**模型选型**：nom 每次只要一句话，所以 `mini` / `chat` / `instruct` 类模型和推理类模型（`o1` / `r1` / `M2` / `qwq` 等）的速度差距明显 —— 推理模型每次都要先想一遍才肯说话。nom 已经在请求里跨厂商发了 `enable_thinking: false` / `reasoning_effort: 'none'` 等关 thinking 字段，服务端也回退读 `reasoning_content`，但**要快**还是建议用非推理模型。
-
-**隐私契约**：只发元数据（触发类型、时段、token 数字、宠物名字）出去，**绝不发**你的 prompt 和 Claude 的回复。任何 LLM 调用失败 / 超时 → 静默回退本地台词，宠物照常工作。
-
-## 开发
+制作台是开发/制作工具，需要 Node.js 环境运行（仅制作台需要；导出的桌宠不需要）。
 
 ```bash
 npm install
-npm run dev          # electron-vite dev 模式（带 HMR）
-npm run typecheck    # tsc --noEmit
-npm run pack:mac     # 打 .dmg → release/
-npm run pack:win     # 打 .exe → release/
+npm run dev
 ```
 
-需要 Node ≥ 18。
+会打开一个窗口，左侧是 5 个步骤：导入 → 检查 → 预览 → 配置 → 导出。跟着走就行。
 
-架构、技术决策和理由见 [`CLAUDE.md`](./CLAUDE.md)。产品范围和不做的事见 [`PRODUCT.md`](./PRODUCT.md)。
+### 2. 导入宠物包
+
+点 **「选择宠物包目录」** 或 **「选择 ZIP 压缩包」**。还没有宠物包？展开导入页的
+**「第一次使用？如何从 Petdex 获取宠物包」**，按里面的步骤用 Petdex 官方 CLI
+下载（`npx petdex install boba`），再回来选择下载好的目录。
+
+宠物包长这样：
+```
+我的宠物/
+  pet.json          ← 宠物信息（名字、图集文件名、版本）
+  spritesheet.png   ← 图集（一张 PNG 或 WebP）
+```
+
+导入会把包**复制**到制作台自己的工作区，不会动你的原始文件。如果包有问题（缺文件、尺寸不对、JSON 写错、路径不安全），会用中文告诉你哪里错了、怎么修，不会留下坏掉的半成品。
+
+### 3. 检查
+
+导入后自动进入检查。每一项检查都有 通过 / 失败 标记，失败会说明原因。
+
+### 4. 预览
+
+- 上半部分：制作台内直接播放图集的各个动作（待机/行走/说话…）。
+- 点 **「打开桌宠预览」**：弹出一个**真实的透明桌宠窗口**（和最终导出的 Windows 桌宠是同一套代码）。可以拖动它、单击它、右键调缩放。
+
+### 5. 配置
+
+- **宠物显示名称**：1–24 个字符。
+- **默认缩放**：50%–200%，新项目默认 150%（可在配置里改）。
+- **允许闲置时自动游走**：开/关。
+
+配置会保存，并随导出一起进入桌宠。不合法的输入（比如超长名字）不会被保存。
+
+### 6. 导出
+
+点 **「选择导出位置并导出」**，选一个文件夹。制作台会生成一个 **新的、不覆盖旧文件** 的 ZIP，名字类似：
+
+```
+petlite-pet-pack-v1-win-x64-20260908-193000.zip
+```
+
+> 首次导出需要下载一次 Windows 版 Electron 运行时（约 100MB），可能花几分钟。之后就快了。
+
+#### 授权说明
+- `license: "authorized"`（已授权）→ 正常导出分发候选。
+- `license: "internal-test"`（内部测试）→ 导出但明确标记为内部测试包。
+- 没有声明授权 → **不允许导出**，会提示你怎么补授权。
+
+### 7. 发给 Windows 用户
+
+把 ZIP 发给对方。对方：
+1. 解压 ZIP。
+2. 双击 `PetLitePet.exe`。
+3. 桌宠出现在桌面上。
+
+ZIP 里有 `启动说明.txt`（同样这份说明）和 `manifest.json`（版本、来源哈希、授权状态）。
+
+**桌宠操作**：
+- 左键拖动 = 移动
+- 单击 = 宠物回应你一句
+- 右键 = 缩放（50%–200%）/ 关于 / 退出
 
 ## 隐私
 
-nom 在隐私上是偏执的：
+- 制作台和桌宠都 **完全离线**，不发起任何网络请求。
+- 制作台只把数据存在自己的目录（`~/Library/Application Support/pet-studio-lite`），不读取、不修改 `~/.nom`、`~/.codex`、`~/.petdex` 等任何其他产品的数据。导入宠物包时是**只读复制**。
 
-1. **默认零网络请求**。基础体验完全离线 —— 全部从你本机的 Claude Code 文件读。唯一可能联网的是上面那个可选的 AI 台词功能，**只有你主动开启并配置 endpoint 才会发请求**。
-2. **从不读取或发送 prompt/response 内容**。nom 只解析 JSONL 里的 `usage.{input,output,cache_*}_tokens` 数字。开 AI 台词后，发给 LLM 端点的也只有元数据（触发类型、时间、数字），**绝不**包含对话本身。
-3. **启动时会回看历史 JSONL**。打开 nom 时会做两轮扫描：一遍最近 7 天（毫秒级，让"昨日小结"和今日计数立即有数据），一遍全量（后台跑，用来自愈丢失的等级和累计）。两轮**都只读 `usage.*_tokens` 数字**，不读 prompt 内容，不写回 Claude / Codex 的目录。扫描结果只存在 `~/.nom/state.json`，不发任何地方。
-4. **所有状态本地**。`~/.nom/state.json` 是人可读 JSON，删掉就完全重置。
+## 开发者
 
-## Star History
+```bash
+npm install        # 安装依赖
+npm run dev        # 启动制作台（开发模式，带热更新）
+npm test           # 全部自动测试（包校验 + ZIP 安全 + 运行时逻辑）
+npm run typecheck  # TypeScript 类型检查
+npm run build      # 构建制作台
+npm run build:pet  # 构建桌宠运行时
+npm run fixtures   # 重新生成测试用宠物包
+npm run check:export <zip>  # 静态核验一个导出的 ZIP
+```
 
-[![Star History Chart](https://api.star-history.com/svg?repos=dylan-labs/nom-pet&type=Date)](https://www.star-history.com/#dylan-labs/nom-pet&Date)
+仓库无 lint 工具（无 ESLint/Biome），这是事实陈述。
 
-## 许可证
-
-源码用 [MIT](./LICENSE)。打包进去的 sprite 素材有各自的许可证，见 [`CREDITS.md`](./CREDITS.md)。
+更多技术细节见 `AGENT-REPORT.md`，逐项验收见 `ACCEPTANCE.md`。

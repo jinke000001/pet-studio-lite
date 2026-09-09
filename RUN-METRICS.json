@@ -1,0 +1,32 @@
+{
+  "agent": "Kimi Code",
+  "agentVersion": "0.41.0",
+  "model": "kimi-code/k3",
+  "baselineCommit": "10c7f136d942cc42ae5b2b4d1e3aa6d5994c455a",
+  "branch": "kimi/pet-studio-lite-full",
+  "startedAt": "2026-09-08T18:16:48+08:00",
+  "finishedAt": "2026-09-08T21:25:00+08:00",
+  "userQuestions": 0,
+  "permissionPrompts": 0,
+  "commandsRun": "estimated ~120 (Bash ~70 + computer-use ~50)",
+  "testRuns": "estimated 8 (npm test 多轮 + 单项调试)",
+  "failedTestRuns": 2,
+  "failedTestDetail": "test-zip 首轮 2 失败（测试辅助函数位移符号位 + CRC 篡改偏移落在头字段），修正后全绿；npm test 最终 89/0",
+  "commits": ["本任务唯一提交，哈希以 git log 为准（提交时无法自引用），git status 干净"],
+  "artifacts": [
+    {
+      "path": "deliverables/petlite-pet-pack-v1-win-x64-20260908-210229.zip",
+      "sha256": "ff4dea95fcae68f767ee180c2c180fe4e17641ad46ac623b57d84031623f100b",
+      "type": "windows-x64-portable-zip",
+      "note": "静态核验通过（check-export 17/17，PE machine 0x8664=x64）；Windows 实机动态行为未验证"
+    }
+  ],
+  "knownLimitations": [
+    "Windows 实机动态行为未验证（仅静态核验）",
+    "WebP 只验证文件头解析，未渲染真实 WebP 图集",
+    "v2 第 9-10 行语义未知，映射 extra1/extra2",
+    "commandsRun/testRuns 为 estimated（工具未提供精确计数）",
+    "仓库无 lint 工具，未运行 lint",
+    "首次导出需下载 ~113MB Windows Electron 运行时"
+  ]
+}

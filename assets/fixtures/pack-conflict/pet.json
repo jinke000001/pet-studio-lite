@@ -1,0 +1,8 @@
+{
+  "id": "conflict",
+  "displayName": "版本冲突包",
+  "spriteVersionNumber": 1,
+  "version": "v2",
+  "license": "internal-test",
+  "spritesheetPath": "spritesheet.png"
+}

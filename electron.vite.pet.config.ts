@@ -1,24 +1,23 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
-/** 制作台（工作室）构建。 */
+/** 独立桌宠运行时构建（导出 Windows 便携包时打包进产物）。 */
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
-      outDir: 'out/main',
+      outDir: 'out-pet/main',
       rollupOptions: {
-        input: 'src/main/index.ts',
+        input: 'src/pet/main.ts',
       },
     },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
-      outDir: 'out/preload',
+      outDir: 'out-pet/preload',
       rollupOptions: {
         input: {
-          studio: 'src/preload/studio.ts',
           petwin: 'src/preload/petwin.ts',
         },
       },
@@ -27,10 +26,9 @@ export default defineConfig({
   renderer: {
     root: 'src/renderer',
     build: {
-      outDir: 'out/renderer',
+      outDir: 'out-pet/renderer',
       rollupOptions: {
         input: {
-          index: 'src/renderer/index.html',
           pet: 'src/renderer/pet.html',
         },
       },

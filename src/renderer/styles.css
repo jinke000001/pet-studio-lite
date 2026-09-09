@@ -1,0 +1,423 @@
+:root {
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  color: #1d1d1f;
+  background: #f6f7f9;
+}
+
+.layout {
+  display: flex;
+  height: 100vh;
+}
+
+/* 左侧步骤栏 */
+.rail {
+  width: 232px;
+  flex-shrink: 0;
+  background: #eceef1;
+  border-right: 1px solid #dddfe3;
+  display: flex;
+  flex-direction: column;
+  padding-top: 28px; /* macOS 红绿灯留白 */
+}
+
+.brand {
+  padding: 12px 18px 16px;
+}
+.brand-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+.brand-sub {
+  font-size: 12px;
+  color: #86868b;
+  margin-top: 2px;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 10px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.step--on {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.step-no {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #d4d7dc;
+  color: #555;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.step--on .step-no {
+  background: #0a84ff;
+  color: #fff;
+}
+.step-text {
+  display: flex;
+  flex-direction: column;
+}
+.step-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+.step-hint {
+  font-size: 11px;
+  color: #86868b;
+}
+
+.rail-projects {
+  margin-top: auto;
+  padding: 12px 10px 16px;
+  border-top: 1px solid #dddfe3;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.rail-projects-title {
+  font-size: 11px;
+  color: #86868b;
+  padding: 0 8px 6px;
+}
+.rail-empty {
+  font-size: 12px;
+  color: #a1a1a6;
+  padding: 0 8px;
+}
+.rail-project {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.rail-project--on {
+  background: #fff;
+}
+.rail-project-meta {
+  color: #86868b;
+  font-size: 11px;
+}
+
+/* 内容区 */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px 40px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+h2 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+.lead {
+  color: #555;
+  line-height: 1.7;
+  margin: 0 0 18px;
+}
+.muted {
+  color: #86868b;
+  font-size: 12px;
+}
+.mono {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.notice {
+  background: #fff8e1;
+  border: 1px solid #f0e0a8;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.btn {
+  border: 1px solid #d4d7dc;
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn-primary {
+  background: #0a84ff;
+  border-color: #0a84ff;
+  color: #fff;
+}
+.link {
+  border: none;
+  background: none;
+  color: #0a84ff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.import-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.error-panel {
+  background: #fff1f0;
+  border: 1px solid #f3c1bd;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.error-panel-title {
+  font-weight: 700;
+  color: #b3261e;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.error-line {
+  color: #7a271c;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.error-hint {
+  margin-top: 10px;
+  color: #a15c52;
+  font-size: 12px;
+}
+
+.success-panel {
+  background: #eefbf0;
+  border: 1px solid #bfe6c6;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.success-title {
+  font-weight: 700;
+  color: #18794e;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f2;
+}
+.check-row:last-child {
+  border-bottom: none;
+}
+.check-state {
+  margin-left: auto;
+  color: #86868b;
+  font-size: 12px;
+}
+.check-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.check-dot--ok { background: #30a46c; }
+.check-dot--bad { background: #e5484d; }
+.check-dot--pending { background: #c7c9ce; }
+
+.preview-stage {
+  background: repeating-conic-gradient(#e8eaed 0 25%, #f7f8fa 0 50%) 0 0 / 24px 24px;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.preview-sprite {
+  min-height: 180px;
+  display: flex;
+  align-items: flex-end;
+}
+.preview-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  border: 1px solid #d4d7dc;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.chip--on {
+  background: #0a84ff;
+  border-color: #0a84ff;
+  color: #fff;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.field--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.field-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+.field-input {
+  border: 1px solid #d4d7dc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: #fff;
+}
+.field-hint {
+  color: #86868b;
+  font-size: 12px;
+}
+
+.progress-line {
+  padding: 4px 0;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fatal {
+  padding: 48px;
+  max-width: 640px;
+}
+
+/* 新手帮助：如何从 Petdex 获取宠物包（克制、可折叠） */
+.help-box {
+  margin-top: 18px;
+  border: 1px solid #e2e4e9;
+  border-radius: 10px;
+  background: #fbfbfd;
+  max-width: 560px;
+}
+.help-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d1d1f;
+  cursor: pointer;
+  text-align: left;
+}
+.help-arrow {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  color: #86868b;
+}
+.help-arrow--open {
+  transform: rotate(90deg);
+}
+.help-body {
+  padding: 0 14px 12px 14px;
+  font-size: 13px;
+  color: #3a3a3c;
+  line-height: 1.7;
+}
+.help-steps {
+  margin: 0 0 10px 0;
+  padding-left: 20px;
+}
+.help-steps li {
+  margin-bottom: 6px;
+}
+.help-body code {
+  background: #f0f0f3;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+.cmd-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1d1d1f;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  max-width: 420px;
+}
+.cmd-line code {
+  color: #f5f5f7;
+  font-size: 12.5px;
+  flex: 1;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.copy-btn {
+  flex-shrink: 0;
+}

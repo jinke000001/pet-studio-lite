@@ -1,107 +1,111 @@
 **English** | [简体中文](./README.zh-CN.md)
 
-# nom
+# Pet Studio Lite
 
-A desktop pet that lives on your screen and **eats the AI tokens you burn** — feeds on Claude Code and Codex CLI today (Cursor support coming).
+一个把 Petdex 宠物包变成 **Windows 便携桌宠** 的制作台。完全离线，不需要账号、网络或任何 AI 服务。
 
-> **Privacy first**: nom never sends your token data anywhere. It only reads usage numbers (not prompts/responses) from local transcripts, stores everything in `~/.nom/` on your machine, and you can `rm -rf ~/.nom` at any time.
+**闭环**：导入宠物包 → 自动检查 → 动作预览 → 配置 → 导出 Windows x64 便携 ZIP → 解压双击 EXE 运行桌宠。
 
-![nom — weekly token card, Game Boy style](./assets/screenshots/weekly-card.png)
+---
 
-## Features
+## 这是什么
 
-- **Eats tokens in real time, from multiple agents** — tails `~/.claude/projects/*.jsonl` (Claude Code) and `~/.codex/sessions/**/*.jsonl` (Codex CLI). Toggle each source independently from the right-click menu.
-- **Greets new sessions** — wakes up and bubbles a hello when you open a new Claude Code session.
-- **Wanders on its own** — strolls around the screen between activity, like a real desktop companion (toggle off via right-click).
-- **Skin support** — install any [petdex](https://github.com/crafter-station/petdex) pack with `npx petdex install <slug>`, then right-click → **选择宠物** to switch on the fly. No restart.
-- **Sleeps when idle, wakes when you're back** — 30 min of silence and it dozes off.
-- **Chat-card bubbles** — contextual lines on session start, milestones, click-to-talk, eating bursts. Local templates by default; **optional** LLM upgrade for dynamic, situation-aware lines (see below).
-- **Drag anywhere** on the pet to move it; window position remembers across restarts.
-- **Multi-display friendly** — `⌘⌥N` summons it back to whichever screen your cursor is on.
+Pet Studio Lite 是一个 macOS 上的"制作台"应用。你给它一个宠物包（一个包含 `pet.json` 和一张图集的文件夹，或一个 ZIP），它帮你检查、预览、配置，最后导出一个 **Windows 便携 ZIP**。把这个 ZIP 发给任何 Windows 用户，对方解压后双击里面的 `PetLitePet.exe`，桌面上就会出现一只可以拖动、可以点击、可以缩放的桌宠。
 
-## Install (end users)
+导出的桌宠 **完全独立**：不需要安装 Node.js、Python、Git，不联网，不依赖 Petdex / Codex / 任何命令行。
 
-Download links always point to the latest release — bookmark and forget.
+## 我什么都不懂，怎么用？
 
-### macOS
+### 1. 启动制作台（需要 macOS）
 
-- **Apple Silicon (M1/M2/M3/M4)**: [`nom-arm64.dmg`](https://github.com/dylan-labs/nom-pet/releases/latest/download/nom-arm64.dmg)
-- **Intel Mac**: [`nom-x64.dmg`](https://github.com/dylan-labs/nom-pet/releases/latest/download/nom-x64.dmg)
-
-Drag `nom.app` into `/Applications`. First launch macOS will block it — go to **System Settings → Privacy & Security**, scroll to the bottom and click **Open Anyway** next to nom. Confirm in the dialog and it'll launch from then on.
-
-### Windows
-
-- [`nom-setup.exe`](https://github.com/dylan-labs/nom-pet/releases/latest/download/nom-setup.exe) — NSIS installer wizard, x64
-
-Double-click the setup, walk through the wizard. You'll get a desktop shortcut and a Start Menu entry.
-
-> Browsing all versions: [Releases page](../../releases).
-
-## Use a custom pet skin
-
-Browse the catalogue at **[petdex.crafter.run](https://petdex.crafter.run/zh)** and install any pack:
-
-```bash
-npx petdex install boba       # or doraemon, goku-blue, ...
-```
-
-Right-click the pet → **选择宠物** → pick your new skin. Pets live in `~/.codex/pets/<slug>/` and `~/.nom/pets/<slug>/`.
-
-## Right-click menu
-
-| Item | What it does |
-|---|---|
-| ☑ 允许游走 | Toggle auto-wander on/off |
-| ☐ AI 台词 | Toggle LLM-powered dialogue (see below) |
-| 数据源 → | Per-source on/off (Claude Code, Codex) |
-| 选择宠物 → | Switch among installed petdex skins |
-| 打开配置文件 | Open `~/.nom/state.json` for manual edits |
-| 关闭宠物 | Quit |
-
-Plus a global shortcut: `⌘⌥N` (Mac) / `Ctrl+Alt+N` (Win) to summon the pet to the current screen.
-
-## Optional: AI-powered dialogue
-
-By default nom speaks from a local template file — fully offline, deterministic, no network. If you want context-aware lines (e.g. *"凌晨两点了还在用 Claude，你这个 prompt 写得有点暴躁啊"*), wire it to any **OpenAI-compatible chat-completions endpoint** — your own Anthropic key, an Ollama instance, a self-hosted model, anything that speaks the OpenAI API.
-
-1. Right-click the pet → **设置…** (or press `⌘,` / `Ctrl+,`)
-2. Find the **AI 台词** card, flip the toggle on
-3. Fill in **Endpoint** / **Model** / **API Key** (key is optional for endpoints that don't require auth)
-4. Click **测试连接** — you'll get a real reply preview if it's wired up correctly, or a specific error (HTTP code, empty content, timeout, etc) if not
-5. Click **保存 AI 配置**
-
-**Model picking**: nom asks for a one-sentence reply, so the speed difference between a `mini`/`chat`/`instruct` model and a reasoning model (`o1`, `r1`, `M2`, `qwq`…) is large — thinking models burn extra tokens on internal reasoning before saying a single line. nom does send `enable_thinking: false` / `reasoning_effort: 'none'` and friends across the major vendor dialects, and falls back to `reasoning_content` if the server emits the reply there, but if you want snappy bubbles, pick a non-reasoning model.
-
-**Privacy contract**: only metadata (trigger type, time of day, token counts, pet name) ever leaves your machine. Your prompts and Claude's responses are **never** sent to the LLM endpoint. Failed / timed-out LLM calls silently fall back to the local templates — the pet keeps working even if your endpoint goes down.
-
-## Develop
+制作台是开发/制作工具，需要 Node.js 环境运行（仅制作台需要；导出的桌宠不需要）。
 
 ```bash
 npm install
-npm run dev          # electron-vite dev with HMR
-npm run typecheck    # tsc --noEmit
-npm run pack:mac     # build .dmg → release/
-npm run pack:win     # build .exe → release/
+npm run dev
 ```
 
-Requires Node ≥ 18.
+会打开一个窗口，左侧是 5 个步骤：导入 → 检查 → 预览 → 配置 → 导出。跟着走就行。
 
-Architecture, technical decisions, and reasoning are in [`CLAUDE.md`](./CLAUDE.md). Product scope and out-of-scope items are in [`PRODUCT.md`](./PRODUCT.md).
+### 2. 导入宠物包
 
-## Privacy
+点 **「选择宠物包目录」** 或 **「选择 ZIP 压缩包」**。还没有宠物包？展开导入页的
+**「第一次使用？如何从 Petdex 获取宠物包」**，按里面的步骤用 Petdex 官方 CLI
+下载（`npx petdex install boba`），再回来选择下载好的目录。
 
-nom is paranoid by design:
+宠物包长这样：
+```
+我的宠物/
+  pet.json          ← 宠物信息（名字、图集文件名、版本）
+  spritesheet.png   ← 图集（一张 PNG 或 WebP）
+```
 
-1. **No network calls by default.** The base experience is fully offline — everything ships from your local Claude Code transcripts. The optional AI dialogue feature is the only thing that can hit the network, and only when you explicitly enable it and configure an endpoint.
-2. **No prompt/response content ever read or sent.** nom only parses `usage.{input,output,cache_*}_tokens` numbers from JSONL. When AI dialogue is on, only metadata (trigger, time, counts) goes to your LLM endpoint — never the actual conversation.
-3. **Startup re-reads historical JSONL.** Each launch runs two passes: a fast 7-day scan (so "yesterday's recap" and today's counter have data immediately) and a full lifetime scan in the background (used to self-heal if `~/.nom/state.json` was wiped or tampered). Both passes **only read `usage.*_tokens` numbers** — no prompts, no responses, no file paths leave your machine. Results stay in `~/.nom/state.json`.
-4. **All state local.** `~/.nom/state.json` is human-readable JSON. Nuke the dir to fully reset.
+导入会把包**复制**到制作台自己的工作区，不会动你的原始文件。如果包有问题（缺文件、尺寸不对、JSON 写错、路径不安全），会用中文告诉你哪里错了、怎么修，不会留下坏掉的半成品。
 
-## Star History
+### 3. 检查
 
-[![Star History Chart](https://api.star-history.com/svg?repos=dylan-labs/nom-pet&type=Date)](https://www.star-history.com/#dylan-labs/nom-pet&Date)
+导入后自动进入检查。每一项检查都有 通过 / 失败 标记，失败会说明原因。
 
-## License
+### 4. 预览
 
-[MIT](./LICENSE) for source code. Bundled sprite assets carry their own licenses — see [`CREDITS.md`](./CREDITS.md).
+- 上半部分：制作台内直接播放图集的各个动作（待机/行走/说话…）。
+- 点 **「打开桌宠预览」**：弹出一个**真实的透明桌宠窗口**（和最终导出的 Windows 桌宠是同一套代码）。可以拖动它、单击它、右键调缩放。
+
+### 5. 配置
+
+- **宠物显示名称**：1–24 个字符。
+- **默认缩放**：50%–200%，新项目默认 150%（可在配置里改）。
+- **允许闲置时自动游走**：开/关。
+
+配置会保存，并随导出一起进入桌宠。不合法的输入（比如超长名字）不会被保存。
+
+### 6. 导出
+
+点 **「选择导出位置并导出」**，选一个文件夹。制作台会生成一个 **新的、不覆盖旧文件** 的 ZIP，名字类似：
+
+```
+petlite-pet-pack-v1-win-x64-20260908-193000.zip
+```
+
+> 首次导出需要下载一次 Windows 版 Electron 运行时（约 100MB），可能花几分钟。之后就快了。
+
+#### 授权说明
+- `license: "authorized"`（已授权）→ 正常导出分发候选。
+- `license: "internal-test"`（内部测试）→ 导出但明确标记为内部测试包。
+- 没有声明授权 → **不允许导出**，会提示你怎么补授权。
+
+### 7. 发给 Windows 用户
+
+把 ZIP 发给对方。对方：
+1. 解压 ZIP。
+2. 双击 `PetLitePet.exe`。
+3. 桌宠出现在桌面上。
+
+ZIP 里有 `启动说明.txt`（同样这份说明）和 `manifest.json`（版本、来源哈希、授权状态）。
+
+**桌宠操作**：
+- 左键拖动 = 移动
+- 单击 = 宠物回应你一句
+- 右键 = 缩放（50%–200%）/ 关于 / 退出
+
+## 隐私
+
+- 制作台和桌宠都 **完全离线**，不发起任何网络请求。
+- 制作台只把数据存在自己的目录（`~/Library/Application Support/pet-studio-lite`），不读取、不修改 `~/.nom`、`~/.codex`、`~/.petdex` 等任何其他产品的数据。导入宠物包时是**只读复制**。
+
+## 开发者
+
+```bash
+npm install        # 安装依赖
+npm run dev        # 启动制作台（开发模式，带热更新）
+npm test           # 全部自动测试（包校验 + ZIP 安全 + 运行时逻辑）
+npm run typecheck  # TypeScript 类型检查
+npm run build      # 构建制作台
+npm run build:pet  # 构建桌宠运行时
+npm run fixtures   # 重新生成测试用宠物包
+npm run check:export <zip>  # 静态核验一个导出的 ZIP
+```
+
+仓库无 lint 工具（无 ESLint/Biome），这是事实陈述。
+
+更多技术细节见 `AGENT-REPORT.md`，逐项验收见 `ACCEPTANCE.md`。

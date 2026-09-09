@@ -1,0 +1,6 @@
+{
+  "id": "badsize",
+  "displayName": "尺寸错误包",
+  "license": "internal-test",
+  "spritesheetPath": "spritesheet.png"
+}

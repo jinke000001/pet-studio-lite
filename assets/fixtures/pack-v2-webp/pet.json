@@ -1,0 +1,8 @@
+{
+  "id": "demo-fish",
+  "displayName": "演示鱼",
+  "description": "程序生成的 Petdex v2 WebP 测试包（非美术素材）",
+  "spriteVersionNumber": 2,
+  "license": "internal-test",
+  "spritesheetPath": "spritesheet.webp"
+}

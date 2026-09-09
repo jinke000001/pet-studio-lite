@@ -1,26 +1,27 @@
 {
-  "name": "nom",
-  "version": "0.0.25",
-  "description": "A desktop pet that eats your AI tokens.",
+  "name": "pet-studio-lite",
+  "version": "0.1.0",
+  "description": "Pet Studio Lite — 宠物包导入/检查/预览/配置/导出 Windows 便携桌宠",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "build:pet": "electron-vite build --config electron.vite.pet.config.ts",
     "typecheck": "tsc --noEmit",
-    "start": "electron-vite preview",
-    "pack": "electron-vite build && electron-builder",
-    "pack:mac": "electron-vite build && electron-builder --mac",
-    "pack:win": "electron-vite build && electron-builder --win",
-    "journal:test": "esbuild scripts/test-journal.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-journal.bundle.mjs --packages=external && node scripts/test-journal.bundle.mjs --force",
-    "tick:test": "esbuild scripts/test-tick.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-tick.bundle.mjs --packages=external && node scripts/test-tick.bundle.mjs"
+    "test": "npm run test:petpack && npm run test:zip && npm run test:runtime",
+    "test:petpack": "esbuild scripts/test-petpack.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petpack.bundle.mjs --packages=external && node scripts/test-petpack.bundle.mjs",
+    "test:zip": "esbuild scripts/test-zip.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-zip.bundle.mjs --packages=external && node scripts/test-zip.bundle.mjs",
+    "test:runtime": "esbuild scripts/test-runtime.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-runtime.bundle.mjs --packages=external && node scripts/test-runtime.bundle.mjs",
+    "fixtures": "node scripts/make-fixtures.mjs",
+    "check:export": "node scripts/check-export.mjs"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "chokidar": "^4.0.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",

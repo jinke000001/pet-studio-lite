@@ -1,493 +1,627 @@
-import React, { useState, useEffect, useRef } from 'react';
-import type { NomApi } from '../preload';
-import type { DailyReport, DialogueContext, LevelInfo } from '../shared/types';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { StudioApi } from '../preload/studio';
+import type { ExportProgressEvent, PreviewPayload, ProjectMeta, StudioState } from '../shared/types';
+import { licenseExportBlock } from '../shared/manifest';
+import { validatePetConfig, ZOOM_LEVELS } from '../shared/config';
 import { Sprite, type PetState } from './pet/Sprite';
-import greetings from './dialogue/greeting.json';
-import idleLines from './dialogue/idle.json';
-import eatingLines from './dialogue/eating.json';
-import milestoneTemplates from './dialogue/milestone.json';
-import sleepLines from './dialogue/sleep.json';
-import wakeLines from './dialogue/wake.json';
-import sessionLines from './dialogue/session.json';
 
 declare global {
   interface Window {
-    nom: NomApi;
+    studio: StudioApi;
   }
 }
 
-const DRAG_THRESHOLD_PX = 4;
-const SLEEP_AFTER_MS = 30 * 60 * 1000;
-const SLEEP_CHECK_MS = 60 * 1000;
-const MILESTONE_STEP = 1_000_000;
-const EATING_DURATION_MS = 2500;
-const GREETING_DELAY_MS = 800;
+type Step = 'import' | 'check' | 'preview' | 'config' | 'export';
 
-const WANDER_CHECK_MS = 15 * 1000;
-const WANDER_CHANCE = 0.5;
-const WANDER_COOLDOWN_MS = 20 * 1000;
-const WANDER_DISTANCE_MIN = 60;
-const WANDER_SPEED_PX_PER_SEC = 60;
+const STEPS: Array<{ id: Step; label: string; hint: string }> = [
+  { id: 'import',  label: '导入', hint: '选择宠物包' },
+  { id: 'check',   label: '检查', hint: '结构与图集校验' },
+  { id: 'preview', label: '预览', hint: '动作与桌宠效果' },
+  { id: 'config',  label: '配置', hint: '名字 / 缩放 / 行为' },
+  { id: 'export',  label: '导出', hint: 'Windows 便携包' },
+];
 
-function pickFrom<T>(arr: readonly T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!;
-}
+/** 动作预览的中文标签（覆盖全部已知动作行，让用户能主动检查图集每一行）。 */
+const STATE_LABELS: Record<string, string> = {
+  idle: '待机',
+  walking: '行走',
+  running: '奔跑',
+  talking: '说话/挥手',
+  jumping: '跳跃',
+  dragging: '被拖动',
+  waiting: '等待',
+  review: '思考/观察',
+  failed: '失败（不会自动播放）',
+  extra1: '附加动作 1（v2，语义未公开）',
+  extra2: '附加动作 2（v2，语义未公开）',
+};
+/** 展示顺序：先常见动作，再附加动作。 */
+const STATE_ORDER = ['idle', 'walking', 'running', 'talking', 'jumping', 'dragging', 'waiting', 'review', 'failed', 'extra1', 'extra2'];
 
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toString();
-}
-
-function pickGreeting(): string {
-  const h = new Date().getHours();
-  const bucket: keyof typeof greetings =
-    h < 5  ? 'lateNight' :
-    h < 9  ? 'earlyMorning' :
-    h < 12 ? 'morning' :
-    h < 14 ? 'noon' :
-    h < 18 ? 'afternoon' :
-    h < 22 ? 'evening' : 'night';
-  return pickFrom(greetings[bucket]);
-}
-
-function formatMilestone(amount: number): string {
-  return pickFrom(milestoneTemplates).replace('{amount}', formatTokens(amount));
-}
-
-function formatReportFallback(r: DailyReport): string {
-  const parts = [`昨日 ${formatTokens(r.yesterdayTokens)}`];
-  if (r.dayBeforeTokens > 0) {
-    const pct = Math.round((r.yesterdayTokens - r.dayBeforeTokens) / r.dayBeforeTokens * 100);
-    const arrow = pct >= 0 ? '↑' : '↓';
-    parts.push(`vs 前日 ${arrow}${Math.abs(pct)}%`);
-  }
-  if (r.weekAvgTokens > 0) {
-    parts.push(`周均 ${formatTokens(r.weekAvgTokens)}`);
-  }
-  return parts.join(' · ');
-}
+const LICENSE_LABEL: Record<string, string> = {
+  'authorized': '已授权',
+  'internal-test': '内部测试',
+  'unknown': '未声明授权',
+};
 
 export function App() {
-  const [bubble, setBubble] = useState<{ header: string; body: string; gold?: boolean; onClick?: () => void } | null>(null);
-  const [today, setToday] = useState(0);
-  const [, setCumulative] = useState(0);
-  const [petState, setPetState] = useState<PetState>('idle');
-  const [facing, setFacing] = useState<'left' | 'right'>('right');
-  const [level, setLevel] = useState<LevelInfo | null>(null);
+  const [state, setState] = useState<StudioState | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>('import');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const petStateRef = useRef<PetState>('idle');
-  const lastActivityRef = useRef<number>(Date.now());
-  const lastMilestoneRef = useRef<number>(0);
-  const eatingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wanderRafRef = useRef<number | null>(null);
-  const wanderEnabledRef = useRef<boolean>(true);
-
-  function transition(next: PetState) {
-    petStateRef.current = next;
-    setPetState(next);
-  }
-
-  function showBubble(header: string, body: string, ms = 3000, opts?: { gold?: boolean; onClick?: () => void }) {
-    setBubble({ header, body, gold: opts?.gold, onClick: opts?.onClick });
-    if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
-    bubbleTimerRef.current = setTimeout(() => setBubble(null), ms);
-  }
-
-  /**
-   * Try the LLM-backed line first; fall back to the supplied template if
-   * LLM is off / unreachable / returned junk. Fire-and-forget from event
-   * handlers — `void smartBubble(...)`.
-   */
-  async function smartBubble(
-    header: string,
-    ctx: Omit<DialogueContext, 'hour'>,
-    fallback: string,
-    ms = 3000,
-    opts?: { gold?: boolean },
-  ) {
-    const line = await window.nom.getDialogueLine({
-      ...ctx,
-      hour: new Date().getHours(),
-    } as DialogueContext);
-    showBubble(header, line ?? fallback, ms, opts);
-  }
-
-  function recordActivity() {
-    lastActivityRef.current = Date.now();
-  }
-
-  function cancelWander() {
-    if (wanderRafRef.current !== null) {
-      cancelAnimationFrame(wanderRafRef.current);
-      wanderRafRef.current = null;
+  async function refresh() {
+    try {
+      const s = await window.studio.getState();
+      setState(s);
+      setLoadErr(null);
+      if (s.recovered) setNotice('检测到配置索引损坏，已自动备份并恢复为空项目列表（旧文件保留在 userData 下 .corrupt 备份）。');
+    } catch (err) {
+      setLoadErr(err instanceof Error ? err.message : String(err));
     }
   }
 
-  async function tryWander() {
-    if (!wanderEnabledRef.current) return;
-    if (petStateRef.current !== 'idle') return;
-    if (Date.now() - lastActivityRef.current < WANDER_COOLDOWN_MS) return;
-    if (Math.random() > WANDER_CHANCE) return;
+  useEffect(() => { void refresh(); }, []);
 
-    const bounds = await window.nom.getWindowBounds();
-    if (!bounds || petStateRef.current !== 'idle') return;
+  const current: ProjectMeta | null = useMemo(() => {
+    if (!state) return null;
+    return state.index.projects.find((p) => p.id === state.index.currentProjectId) ?? null;
+  }, [state]);
 
-    const { win, workArea } = bounds;
-    const minX = workArea.x;
-    const maxX = workArea.x + workArea.width  - win.w;
-    const minY = workArea.y;
-    const maxY = workArea.y + workArea.height - win.h;
-
-    // Pick a target *anywhere* on screen, not just left/right at the bottom.
-    // Bias Y toward the lower 60% so the pet "lives" down there (gravity
-    // feel), but ~25% of trips climb up into the top 40% so it occasionally
-    // perches near the top of the screen.
-    const goingHigh = Math.random() < 0.25;
-    const yLo = goingHigh ? minY : minY + (maxY - minY) * 0.4;
-    const targetY = yLo + Math.random() * (maxY - yLo);
-    const targetX = minX + Math.random() * (maxX - minX);
-
-    const startX = win.x;
-    const startY = win.y;
-    const dx = targetX - startX;
-    const dy = targetY - startY;
-    const dist = Math.hypot(dx, dy);
-    if (dist < WANDER_DISTANCE_MIN) return; // skip tiny twitches
-
-    const durationMs = (dist / WANDER_SPEED_PX_PER_SEC) * 1000;
-    const startTime = performance.now();
-
-    if      (dx >  1) setFacing('right');
-    else if (dx < -1) setFacing('left');
-    transition('walking');
-
-    function step() {
-      if (petStateRef.current !== 'walking') {
-        wanderRafRef.current = null;
-        return;
+  async function doImport(kind: 'dir' | 'zip') {
+    setBusy('importing');
+    setNotice(null);
+    try {
+      const res = await window.studio.importPack(kind);
+      if (res.ok) {
+        await refresh();
+        setStep('check');
+        setNotice(`已导入「${res.project.displayName}」（${res.project.petdexVersion}）`);
+      } else if (!res.cancelled) {
+        setNotice(null);
+        await refresh();
+        setImportErrors(res.errors);
       }
-      const elapsed = performance.now() - startTime;
-      const t = Math.min(1, elapsed / durationMs);
-      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-      const x = Math.round(startX + dx * eased);
-      const y = Math.round(startY + dy * eased);
-      window.nom.moveWindowTo(x, y);
-      if (t < 1) {
-        wanderRafRef.current = requestAnimationFrame(step);
-      } else {
-        wanderRafRef.current = null;
-        transition('idle');
-        // "Perch" feel: if we landed in the top 40% of the screen, push the
-        // cooldown out 12–30s so the pet stays up there instead of immediately
-        // wandering back down. Reuses lastActivityRef as the next-wander gate.
-        const arrivedY = y - workArea.y;
-        if (arrivedY < workArea.height * 0.4) {
-          const perchExtraMs = 12_000 + Math.random() * 18_000;
-          lastActivityRef.current = Date.now() - WANDER_COOLDOWN_MS + perchExtraMs;
-        }
-      }
-    }
-    wanderRafRef.current = requestAnimationFrame(step);
-  }
-
-  function onPetMouseDown(e: React.MouseEvent) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    cancelWander();
-    recordActivity();
-
-    const startX = e.screenX;
-    const startY = e.screenY;
-    let dragging = false;
-    let lastX = startX;
-    window.nom.dragBegin(startX, startY);
-
-    function onMove(ev: MouseEvent) {
-      const dx = ev.screenX - startX;
-      const dy = ev.screenY - startY;
-      if (!dragging && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
-        dragging = true;
-        if (eatingTimerRef.current) {
-          clearTimeout(eatingTimerRef.current);
-          eatingTimerRef.current = null;
-        }
-        transition('dragging');
-      }
-      if (dragging) {
-        const stepDx = ev.screenX - lastX;
-        if (stepDx > 1) setFacing('right');
-        else if (stepDx < -1) setFacing('left');
-        lastX = ev.screenX;
-        window.nom.dragMove(ev.screenX, ev.screenY);
-      }
-    }
-    function onUp() {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      window.nom.dragEnd();
-      if (dragging) {
-        transition('idle');
-        recordActivity();
-      } else {
-        onPetClick();
-      }
-    }
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }
-
-  function onPetClick() {
-    if (petStateRef.current === 'sleeping') {
-      transition('idle');
-      void smartBubble('醒来', { trigger: 'wake', level: level ?? undefined }, pickFrom(wakeLines), 2500);
-    } else {
-      // Briefly show talking frame while bubble is up.
-      transition('talking');
-      setTimeout(() => {
-        if (petStateRef.current === 'talking') transition('idle');
-      }, 1200);
-      void smartBubble(
-        '聊天',
-        { trigger: 'idle-click', todayTokens: today, level: level ?? undefined },
-        pickFrom(idleLines),
-      );
+    } finally {
+      setBusy(null);
     }
   }
 
-  useEffect(() => {
-    void window.nom.getState().then((s) => {
-      setToday(s.today);
-      setCumulative(s.cumulative);
-      lastMilestoneRef.current = Math.floor(s.today / MILESTONE_STEP) * MILESTONE_STEP;
-    });
-    void window.nom.getLevel().then(setLevel);
-    const t = setTimeout(() => showBubble('打招呼', pickGreeting(), 3000), GREETING_DELAY_MS);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
 
-    // Daily-report check: ~5 seconds after greeting (lets the user settle in
-    // before we hit them with a recap). If the report is pending and there's
-    // actually data for yesterday, show it via smartBubble (so LLM-enabled
-    // users get a sassy line, others get a templated fallback).
-    const reportTimer = setTimeout(() => { void maybeShowDailyReport(); }, GREETING_DELAY_MS + 5000);
-
-    return () => {
-      clearTimeout(t);
-      clearTimeout(reportTimer);
-    };
-  }, []);
-
-  async function maybeShowDailyReport() {
-    const { pending, report } = await window.nom.getDailyReport();
-    if (!pending || !report) return;
-    void window.nom.markDailyReportShown();
-    void smartBubble(
-      '每日小结',
-      { trigger: 'daily-report', report } as Omit<DialogueContext, 'hour'>,
-      formatReportFallback(report),
-      8000,
+  if (loadErr) {
+    return (
+      <div className="fatal">
+        <h1>制作台启动失败</h1>
+        <p>{loadErr}</p>
+        <button className="btn" onClick={() => void refresh()}>重试</button>
+      </div>
     );
   }
-
-  useEffect(() => {
-    return window.nom.onLevelUp((e) => {
-      setLevel(e.to);
-      cancelWander();
-      transition('talking');
-      setTimeout(() => {
-        if (petStateRef.current === 'talking') transition('idle');
-      }, 1500);
-      const header = e.tierJumped ? `🎉 进入 ${e.to.tier}` : '升级';
-      const fallback = e.tierJumped
-        ? `从 ${e.from.tier} 升到 ${e.to.tier} 啦！`
-        : `升到 ${e.to.badge} 啦`;
-      void smartBubble(header, {
-        trigger: 'level-up',
-        level: e.to,
-        levelUp: e,
-      } as Omit<DialogueContext, 'hour'>, fallback, e.tierJumped ? 5000 : 3500, { gold: e.tierJumped });
-    });
-  }, []);
-
-  // Silent recovery: lifetime scan in main process restored cumulative
-  // from canonical transcript files (e.g. user deleted ~/.nom/). Update
-  // numbers in place without a bubble or animation.
-  useEffect(() => {
-    return window.nom.onStateReconciled((e) => {
-      setCumulative(e.snapshot.cumulative);
-      setToday(e.snapshot.today);
-      setLevel(e.level);
-    });
-  }, []);
-
-  // Journal landed on disk — pop a clickable bubble so the user knows
-  // it exists. Without this, the file just appears silently and most
-  // users would never discover the feature.
-  useEffect(() => {
-    return window.nom.journal.onCreated(() => {
-      showBubble(
-        '日记本',
-        '昨天的日记写完了，点我看看？',
-        4500,
-        { onClick: () => window.nom.journal.open() },
-      );
-    });
-  }, []);
-
-  // Pet decided to speak on its own (autonomy tick / homecoming
-  // reaction). Same bubble surface as user-triggered dialogue — we
-  // intentionally don't add special chrome, the surprise is the point.
-  useEffect(() => {
-    return window.nom.onAutonomyBubble((e) => {
-      const header = e.kind === 'return'   ? '回来啦'
-                   : e.kind === 'question' ? '问一句'
-                                           : '想到一件事';
-      showBubble(header, e.text, e.durationMs);
-    });
-  }, []);
-
-  useEffect(() => {
-    return window.nom.onSession((e) => {
-      if (e.kind !== 'start') return;
-      cancelWander();
-      const wasSleeping = petStateRef.current === 'sleeping';
-      if (wasSleeping || petStateRef.current === 'walking') {
-        transition('idle');
-      }
-      recordActivity();
-      void smartBubble('新会话', { trigger: 'session-start' }, pickFrom(sessionLines), 2800);
-    });
-  }, []);
-
-  useEffect(() => {
-    const unsub = window.nom.onTokens((e) => {
-      const wasSleeping = petStateRef.current === 'sleeping';
-      cancelWander();
-      transition('eating');
-      if (eatingTimerRef.current) clearTimeout(eatingTimerRef.current);
-      eatingTimerRef.current = setTimeout(() => transition('idle'), EATING_DURATION_MS);
-      recordActivity();
-
-      setToday(e.snapshot.today);
-      setCumulative(e.snapshot.cumulative);
-
-      const newMilestone = Math.floor(e.snapshot.today / MILESTONE_STEP) * MILESTONE_STEP;
-      const milestoneJustHit = newMilestone > lastMilestoneRef.current && newMilestone > 0;
-      if (milestoneJustHit) lastMilestoneRef.current = newMilestone;
-
-      if (wasSleeping) {
-        void smartBubble('醒来', { trigger: 'wake' }, pickFrom(wakeLines), 2500);
-      } else if (milestoneJustHit) {
-        void smartBubble(
-          '里程碑',
-          { trigger: 'milestone', amount: newMilestone },
-          formatMilestone(newMilestone),
-          3000,
-        );
-      } else if (Math.random() < 0.35) {
-        void smartBubble(
-          '在吃',
-          { trigger: 'eating', delta: e.delta, todayTokens: e.snapshot.today },
-          pickFrom(eatingLines),
-          2000,
-        );
-      }
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (petStateRef.current !== 'idle') return;
-      if (Date.now() - lastActivityRef.current >= SLEEP_AFTER_MS) {
-        transition('sleeping');
-        showBubble('打盹', pickFrom(sleepLines), 2500);
-      }
-    }, SLEEP_CHECK_MS);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    void window.nom.getSettings().then((s) => {
-      wanderEnabledRef.current = s.wanderEnabled;
-    });
-    const unsub = window.nom.onSettingsChanged((s) => {
-      wanderEnabledRef.current = s.wanderEnabled;
-      if (!s.wanderEnabled) {
-        cancelWander();
-        if (petStateRef.current === 'walking') transition('idle');
-      }
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    const id = setInterval(() => { void tryWander(); }, WANDER_CHECK_MS);
-    return () => {
-      clearInterval(id);
-      cancelWander();
-    };
-  }, []);
-
-
-  const lastDateRef = useRef(new Date().toDateString());
-  useEffect(() => {
-    const id = setInterval(() => {
-      const now = new Date().toDateString();
-      if (now !== lastDateRef.current) {
-        lastDateRef.current = now;
-        lastMilestoneRef.current = 0;
-        void window.nom.getState().then((s) => {
-          setToday(s.today);
-          setCumulative(s.cumulative);
-        });
-      }
-    }, 60_000);
-    return () => clearInterval(id);
-  }, []);
+  if (!state) return <div className="fatal"><p>加载中…</p></div>;
 
   return (
-    <div className="container">
-      {bubble && (
-        <div
-          className={`bubble${bubble.gold ? ' bubble--gold' : ''}${bubble.onClick ? ' bubble--clickable' : ''}`}
-          onClick={bubble.onClick}
-          role={bubble.onClick ? 'button' : undefined}
-        >
-          <div className="bubble-header">{bubble.header}</div>
-          <div className="bubble-body">{bubble.body}</div>
+    <div className="layout">
+      <aside className="rail">
+        <div className="brand">
+          <div className="brand-name">Pet Studio Lite</div>
+          <div className="brand-sub">桌宠制作台 · 完全离线</div>
         </div>
-      )}
-      <div
-        className={`pet pet--${petState}`}
-        onMouseDown={onPetMouseDown}
-      >
-        <Sprite state={petState} facing={facing} />
-      </div>
-      <div className="status">
-        {level && (
-          <div className={`badge badge--${tierClass(level.tier)}`} title={`累计 ${formatTokens(level.threshold)}+`}>
-            <span className="badge-text">{level.badge}</span>
-            {level.nextThreshold !== null && (
-              <span className="badge-progress" style={{ width: `${Math.round(level.progress * 100)}%` }} />
-            )}
-          </div>
+        <nav className="steps">
+          {STEPS.map((s, i) => {
+            const locked = s.id !== 'import' && !current;
+            return (
+              <button
+                key={s.id}
+                className={`step ${step === s.id ? 'step--on' : ''}`}
+                disabled={locked}
+                onClick={() => setStep(s.id)}
+              >
+                <span className="step-no">{i + 1}</span>
+                <span className="step-text">
+                  <span className="step-label">{s.label}</span>
+                  <span className="step-hint">{s.hint}</span>
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+        <div className="rail-projects">
+          <div className="rail-projects-title">最近项目</div>
+          {state.index.projects.length === 0 && <div className="rail-empty">还没有项目</div>}
+          {state.index.projects.map((p) => (
+            <button
+              key={p.id}
+              className={`rail-project ${current?.id === p.id ? 'rail-project--on' : ''}`}
+              onClick={async () => {
+                setState(await window.studio.selectProject(p.id));
+              }}
+              title={p.id}
+            >
+              <span className="rail-project-name">{p.displayName}</span>
+              <span className="rail-project-meta">{p.petdexVersion}</span>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      <main className="content">
+        {notice && <div className="notice" onClick={() => setNotice(null)}>{notice}</div>}
+        {step === 'import' && (
+          <ImportStep
+            busy={busy === 'importing'}
+            errors={importErrors}
+            projects={state.index.projects}
+            onImport={doImport}
+            onRemove={async (id) => {
+              setState(await window.studio.removeProject(id));
+              setNotice('项目已删除（仅删除工作区副本，原始包不受影响）');
+            }}
+            onClearErrors={() => setImportErrors([])}
+          />
         )}
-        {today > 0 && <div className="counter">today · {formatTokens(today)}</div>}
-      </div>
+        {step === 'check' && current && <CheckStep project={current} />}
+        {step === 'preview' && current && <PreviewStep project={current} />}
+        {step === 'config' && current && (
+          <ConfigStep
+            project={current}
+            onSaved={(meta) => {
+              setState((s) => s && ({
+                ...s,
+                index: {
+                  ...s.index,
+                  projects: s.index.projects.map((p) => (p.id === meta.id ? meta : p)),
+                },
+              }));
+              setNotice('配置已保存');
+            }}
+          />
+        )}
+        {step === 'export' && current && <ExportStep project={current} />}
+      </main>
     </div>
   );
 }
 
-function tierClass(tier: string): string {
-  switch (tier) {
-    case '新手': return 'rookie';
-    case '学徒': return 'apprentice';
-    case '行家': return 'expert';
-    case '大师': return 'master';
-    case '宗师': return 'grandmaster';
-    case '传说': return 'legend';
-    case '战神': return 'godlike';
-    default:     return 'rookie';
+// --- 步骤 1：导入 -----------------------------------------------------------
+
+/** 命令一键复制（剪贴板 API 不可用时退回 execCommand）。 */
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   }
+  return (
+    <button className="link copy-btn" onClick={() => void copy()}>{copied ? '已复制 ✓' : '复制'}</button>
+  );
+}
+
+function CommandLine({ cmd }: { cmd: string }) {
+  return (
+    <div className="cmd-line">
+      <code>{cmd}</code>
+      <CopyButton text={cmd} />
+    </div>
+  );
+}
+
+/**
+ * 新手帮助：如何从 Petdex 获取宠物包。
+ * 命令与保存位置以 Petdex 官方 CLI（npm: petdex）实际行为为准：
+ * `petdex install <名字>` 会把宠物包放到 ~/.petdex/pets/<名字>/ 并在终端
+ * 输出保存位置；制作台本身不联网、不读取任何 Petdex 目录。
+ */
+function PetdexHelp() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="help-box">
+      <button className="help-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span className={`help-arrow ${open ? 'help-arrow--open' : ''}`}>▸</span>
+        第一次使用？如何从 Petdex 获取宠物包
+      </button>
+      {open && (
+        <div className="help-body">
+          <ol className="help-steps">
+            <li>安装 <strong>Node.js 20 或更高版本</strong>（官网 nodejs.org，安装后重新打开终端）。</li>
+            <li>打开终端（macOS：聚焦搜索输入「终端」；Windows：PowerShell）。</li>
+            <li>
+              用 Petdex 官方 CLI 下载宠物，例如：
+              <CommandLine cmd="npx petdex install boba" />
+              下载完成后，终端会显示保存位置（默认在 <code>~/.petdex/pets/boba/</code>，
+              请以终端实际输出为准）。
+            </li>
+            <li>
+              回到本页面，点「选择宠物包目录」选中刚才的目录；
+              如果你拿到的是 <code>.zip</code> 文件，则点「选择 ZIP 压缩包」。
+            </li>
+          </ol>
+          <p className="muted">
+            高频用户可全局安装一次，之后直接用 <code>petdex</code> 命令：
+          </p>
+          <CommandLine cmd="npm install -g petdex" />
+          <p className="muted">
+            制作台不会自动联网下载，也不会读取你的 Petdex 目录——所有文件都由你主动选择。
+            「在制作台里一键下载并导入」是后续版本的能力，当前版本请先按上面步骤获取宠物包。
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImportStep(props: {
+  busy: boolean;
+  errors: string[];
+  projects: ProjectMeta[];
+  onImport: (kind: 'dir' | 'zip') => void;
+  onRemove: (id: string) => void;
+  onClearErrors: () => void;
+}) {
+  return (
+    <section>
+      <h1>导入宠物包</h1>
+      <p className="lead">
+        选择一个 Petdex 宠物包目录或 ZIP 压缩包。导入会把包复制到制作台自己的工作区，
+        不会修改你的原始文件。
+      </p>
+      <div className="import-actions">
+        <button className="btn btn-primary" disabled={props.busy} onClick={() => props.onImport('dir')}>
+          {props.busy ? '导入中…' : '选择宠物包目录'}
+        </button>
+        <button className="btn" disabled={props.busy} onClick={() => props.onImport('zip')}>
+          选择 ZIP 压缩包
+        </button>
+      </div>
+      <PetdexHelp />
+      {props.errors.length > 0 && (
+        <div className="error-panel">
+          <div className="error-panel-title">
+            导入失败
+            <button className="link" onClick={props.onClearErrors}>知道了</button>
+          </div>
+          {props.errors.map((e, i) => <div className="error-line" key={i}>{e}</div>)}
+          <div className="error-hint">修复后可以重新导入；失败的导入不会留下半成品项目。</div>
+        </div>
+      )}
+      {props.projects.length > 0 && (
+        <p className="muted">已有 {props.projects.length} 个项目。从左侧「最近项目」切换，或在检查 / 预览 / 配置步骤继续。</p>
+      )}
+    </section>
+  );
+}
+
+// --- 步骤 2：检查 -----------------------------------------------------------
+
+function CheckStep({ project }: { project: ProjectMeta }) {
+  const [result, setResult] = useState<{ ok: boolean; errors: string[] } | null>(null);
+  const [running, setRunning] = useState(false);
+
+  async function run() {
+    setRunning(true);
+    try {
+      setResult(await window.studio.recheck(project.id));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  useEffect(() => { void run(); }, [project.id]);
+
+  const items = [
+    { label: '包结构与 pet.json', ok: result?.ok ?? null },
+    { label: `图集尺寸（识别为 ${project.petdexVersion}）`, ok: result?.ok ?? null },
+    { label: '图像可解码性', ok: result?.ok ?? null },
+    { label: '包内路径安全', ok: result?.ok ?? null },
+  ];
+
+  return (
+    <section>
+      <h1>检查「{project.displayName}」</h1>
+      <p className="lead">对项目工作区里的只读副本重新做完整校验。原始来源：{project.sourcePath}</p>
+      <div className="card">
+        {items.map((it) => (
+          <div className="check-row" key={it.label}>
+            <span className={`check-dot ${it.ok === null ? 'check-dot--pending' : it.ok ? 'check-dot--ok' : 'check-dot--bad'}`} />
+            <span>{it.label}</span>
+            <span className="check-state">{it.ok === null ? '检查中…' : it.ok ? '通过' : '失败'}</span>
+          </div>
+        ))}
+        <div className="check-row">
+          <span className="check-dot check-dot--ok" />
+          <span>授权状态</span>
+          <span className="check-state">{LICENSE_LABEL[project.license]}</span>
+        </div>
+      </div>
+      {result && !result.ok && (
+        <div className="error-panel">
+          <div className="error-panel-title">检查未通过</div>
+          {result.errors.map((e, i) => <div className="error-line" key={i}>{e}</div>)}
+          <div className="error-hint">请修复原始包后回到「导入」重新导入（工作区副本不做原地修复）。</div>
+        </div>
+      )}
+      <button className="btn" disabled={running} onClick={() => void run()}>{running ? '检查中…' : '重新检查'}</button>
+    </section>
+  );
+}
+
+// --- 步骤 3：预览 -----------------------------------------------------------
+
+function PreviewStep({ project }: { project: ProjectMeta }) {
+  const [payload, setPayload] = useState<PreviewPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [stateName, setStateName] = useState<PetState>('idle');
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    setPayload(null);
+    setError(null);
+    window.studio.getPreviewPayload(project.id)
+      .then(setPayload)
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+    return () => { void window.studio.stopPetPreview(); };
+  }, [project.id]);
+
+  // 预览窗口的任何关闭途径（制作台按钮 / 宠物右键菜单 / 系统关闭）都会
+  // 收到 main 的通知，保证按钮状态与真实窗口一致。
+  useEffect(() => {
+    return window.studio.onPreviewClosed(() => setPreviewOpen(false));
+  }, []);
+
+  // 按固定顺序展示图集里实际存在的所有动作（含 v2 的 extra1/extra2）。
+  const stateButtons = payload
+    ? STATE_ORDER.filter((s) => s in payload.sprite.states)
+    : [];
+
+  return (
+    <section>
+      <h1>预览「{project.displayName}」</h1>
+      {error && (
+        <div className="error-panel">
+          <div className="error-panel-title">预览加载失败</div>
+          <div className="error-line">{error}</div>
+          <div className="error-hint">可以回到「检查」查看详细原因，或回「导入」重新选择包。</div>
+        </div>
+      )}
+      {payload && (
+        <>
+          <div className="preview-stage">
+            <div className="preview-sprite">
+              <Sprite
+                config={payload.sprite}
+                spritesheetUrl={payload.spritesheetDataUrl}
+                state={stateName}
+                zoom={2}
+              />
+            </div>
+            <div className="preview-controls">
+              {stateButtons.map((s) => (
+                <button
+                  key={s}
+                  className={`chip ${stateName === s ? 'chip--on' : ''}`}
+                  onClick={() => setStateName(s as PetState)}
+                >
+                  {STATE_LABELS[s] ?? s}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="card">
+            <h2>真实桌宠预览</h2>
+            <p className="muted">
+              打开一个透明、无边框、置顶的真实桌宠窗口（与导出的 Windows 桌宠同一套代码）。
+              可以拖动、单击、右键缩放；预览窗口不写任何持久化状态。
+            </p>
+            <button
+              className="btn btn-primary"
+              onClick={async () => {
+                if (previewOpen) {
+                  await window.studio.stopPetPreview();
+                  setPreviewOpen(false);
+                } else {
+                  const res = await window.studio.startPetPreview(project.id);
+                  if (res.ok) setPreviewOpen(true);
+                  else setError(res.error ?? '预览启动失败');
+                }
+              }}
+            >
+              {previewOpen ? '关闭桌宠预览' : '打开桌宠预览'}
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+// --- 步骤 4：配置 -----------------------------------------------------------
+
+function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: ProjectMeta) => void }) {
+  const [name, setName] = useState(project.config.petName);
+  const [zoom, setZoom] = useState(project.config.zoom);
+  const [wander, setWander] = useState(project.config.wanderEnabled);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setName(project.config.petName);
+    setZoom(project.config.zoom);
+    setWander(project.config.wanderEnabled);
+    setErrors([]);
+  }, [project.id]);
+
+  async function save() {
+    const check = validatePetConfig({ petName: name, zoom, wanderEnabled: wander });
+    if (!check.ok) {
+      setErrors(check.errors);
+      return;
+    }
+    setSaving(true);
+    setErrors([]);
+    try {
+      const meta = await window.studio.updateConfig(project.id, check.config);
+      onSaved(meta);
+    } catch (err) {
+      setErrors([err instanceof Error ? err.message : String(err)]);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const dirty =
+    name !== project.config.petName ||
+    zoom !== project.config.zoom ||
+    wander !== project.config.wanderEnabled;
+
+  return (
+    <section>
+      <h1>配置「{project.displayName}」</h1>
+      <p className="lead">配置会保存到项目里，并随导出一起进入独立桌宠。</p>
+      <div className="card">
+        <label className="field">
+          <span className="field-label">宠物显示名称</span>
+          <input
+            className="field-input"
+            value={name}
+            maxLength={24}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <span className="field-hint">1–24 个字符，显示在气泡和关于窗口里。</span>
+        </label>
+        <label className="field">
+          <span className="field-label">默认缩放</span>
+          <select className="field-input" value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
+            {ZOOM_LEVELS.map((z) => (
+              <option key={z} value={z}>{Math.round(z * 100)}%</option>
+            ))}
+          </select>
+          <span className="field-hint">桌宠首次启动时的窗口大小；用户还可用右键菜单调整。</span>
+        </label>
+        <label className="field field--row">
+          <input type="checkbox" checked={wander} onChange={(e) => setWander(e.target.checked)} />
+          <span>允许闲置时自动游走</span>
+        </label>
+        {errors.length > 0 && (
+          <div className="error-panel">
+            {errors.map((e, i) => <div className="error-line" key={i}>{e}</div>)}
+          </div>
+        )}
+        <button className="btn btn-primary" disabled={!dirty || saving} onClick={() => void save()}>
+          {saving ? '保存中…' : '保存配置'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// --- 步骤 5：导出 -----------------------------------------------------------
+
+function ExportStep({ project }: { project: ProjectMeta }) {
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<ExportProgressEvent[]>([]);
+  const [result, setResult] = useState<{ zipPath: string; sha256: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return window.studio.onExportProgress((e) => {
+      setProgress((p) => [...p, e]);
+    });
+  }, []);
+
+  const blocked = licenseExportBlock(project.license);
+
+  async function run() {
+    setRunning(true);
+    setProgress([]);
+    setResult(null);
+    setError(null);
+    try {
+      const res = await window.studio.exportProject(project.id);
+      if (res.ok) setResult({ zipPath: res.zipPath, sha256: res.sha256 });
+      else if (!res.cancelled) setError(res.error);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <section>
+      <h1>导出 Windows 便携包</h1>
+      <p className="lead">
+        导出一个不依赖任何开发环境的 Windows x64 便携 ZIP：解压后双击 EXE 即可运行桌宠。
+        每次导出生成新文件，不会覆盖之前的产物。
+      </p>
+
+      <div className="card">
+        <div className="check-row">
+          <span className={`check-dot ${blocked ? 'check-dot--bad' : 'check-dot--ok'}`} />
+          <span>授权状态</span>
+          <span className="check-state">{LICENSE_LABEL[project.license]}</span>
+        </div>
+        <div className="check-row">
+          <span className="check-dot check-dot--ok" />
+          <span>配置</span>
+          <span className="check-state">
+            {project.config.petName} · {Math.round(project.config.zoom * 100)}% · {project.config.wanderEnabled ? '游走开' : '游走关'}
+          </span>
+        </div>
+      </div>
+
+      {blocked && (
+        <div className="error-panel">
+          <div className="error-panel-title">无法导出候选</div>
+          <div className="error-line">{blocked}</div>
+        </div>
+      )}
+
+      {!blocked && (
+        <button className="btn btn-primary" disabled={running} onClick={() => void run()}>
+          {running ? '导出中，请稍候…' : '选择导出位置并导出'}
+        </button>
+      )}
+
+      {progress.length > 0 && (
+        <div className="card">
+          {progress.map((p, i) => (
+            <div className="progress-line" key={i}>
+              <span className="check-dot check-dot--ok" /> {p.message}
+            </div>
+          ))}
+          {running && <div className="progress-line muted">进行中…（首次导出需要下载 Electron 运行时，可能耗时几分钟）</div>}
+        </div>
+      )}
+
+      {result && (
+        <div className="success-panel">
+          <div className="success-title">导出完成</div>
+          <div className="mono">{result.zipPath}</div>
+          <div className="mono muted">SHA-256：{result.sha256}</div>
+          <button className="btn" onClick={() => void window.studio.revealExport(result.zipPath)}>
+            在访达中显示
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-panel">
+          <div className="error-panel-title">导出失败</div>
+          <div className="error-line">{error}</div>
+          <div className="error-hint">失败不会留下看似成功的 ZIP；修复后可以重试。</div>
+        </div>
+      )}
+    </section>
+  );
 }

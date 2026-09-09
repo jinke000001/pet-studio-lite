@@ -1,0 +1,8 @@
+{
+  "id": "demo-cat",
+  "displayName": "演示猫",
+  "description": "程序生成的 Petdex v1 测试包（非美术素材）",
+  "spriteVersionNumber": 1,
+  "license": "authorized",
+  "spritesheetPath": "spritesheet.png"
+}

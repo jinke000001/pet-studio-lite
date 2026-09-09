@@ -1,0 +1,8 @@
+{
+  "id": "demo-bird",
+  "displayName": "演示鸟",
+  "description": "程序生成的 Petdex v1 WebP 测试包（非美术素材）",
+  "spriteVersionNumber": 1,
+  "license": "authorized",
+  "spritesheetPath": "spritesheet.webp"
+}
