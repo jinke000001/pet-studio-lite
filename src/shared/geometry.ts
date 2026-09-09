@@ -19,6 +19,19 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 /**
+ * 保留窗口尺寸，把一份可能来自旧 DPI / 已断开显示器的 bounds 完整夹紧到
+ * 当前 workArea。持久化坐标不能直接信任：Windows 改缩放比例后，同一组
+ * 坐标可能已经落在新的可视区域之外。
+ */
+export function clampBoundsToWorkArea(bounds: Rect, workArea: Rect): Rect {
+  const maxX = workArea.x + workArea.width - bounds.width;
+  const maxY = workArea.y + workArea.height - bounds.height;
+  const x = maxX < workArea.x ? workArea.x : clamp(Math.round(bounds.x), workArea.x, maxX);
+  const y = maxY < workArea.y ? workArea.y : clamp(Math.round(bounds.y), workArea.y, maxY);
+  return { x, y, width: bounds.width, height: bounds.height };
+}
+
+/**
  * 计算缩放后的窗口位置与尺寸。
  *
  * @param prev      缩放前窗口的实际 bounds（屏幕坐标）
@@ -36,13 +49,7 @@ export function computeAnchoredZoomBounds(prev: Rect, nextSize: number, workArea
   let x = Math.round(anchorX - nextSize / 2);
   let y = Math.round(anchorBottom - nextSize);
 
-  const maxX = workArea.x + workArea.width - nextSize;
-  const maxY = workArea.y + workArea.height - nextSize;
-  // workArea 比窗口还小时 hi < lo，直接把窗口贴到 workArea 原点。
-  x = maxX < workArea.x ? workArea.x : clamp(x, workArea.x, maxX);
-  y = maxY < workArea.y ? workArea.y : clamp(y, workArea.y, maxY);
-
-  return { x, y, width: nextSize, height: nextSize };
+  return clampBoundsToWorkArea({ x, y, width: nextSize, height: nextSize }, workArea);
 }
 
 /**

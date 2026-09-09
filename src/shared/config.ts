@@ -7,14 +7,14 @@
 
 /**
  * 全产品统一的三档缩放档位与标签（唯一事实来源）：
- * 小 125% / 中 150%（默认、推荐）/ 大 200%。
+ * 小 125% / 中 150% / 大 200%（默认、推荐）。
  * 制作台配置页下拉与桌宠右键菜单都消费 ZOOM_OPTIONS，文案不会漂移。
  */
 export const ZOOM_LEVELS = [1.25, 1.5, 2] as const;
 export const ZOOM_OPTIONS: ReadonlyArray<{ zoom: number; label: string }> = [
   { zoom: 1.25, label: '小 125%' },
-  { zoom: 1.5, label: '中 150%（推荐）' },
-  { zoom: 2, label: '大 200%' },
+  { zoom: 1.5, label: '中 150%' },
+  { zoom: 2, label: '大 200%（推荐）' },
 ];
 export const PET_NAME_MAX = 24;
 
@@ -26,7 +26,7 @@ const LEGACY_ZOOM_PROMOTE: ReadonlyMap<number, number> = new Map([[0.5, 1.25], [
  * - 旧档位 0.5 / 0.75 / 1 → 1.25（迁移为小 125%）；
  * - 仅 1.25 / 1.5 / 2 原样保留 —— 1.2、1.7 等任意中间值不受支持；
  * - 非数字、非有限、不受支持的值 → null（调用方安全回落：持久化状态回落
- *   随包配置；配置校验与项目迁移回落默认 150%）。
+ *   随包配置；配置校验与项目迁移回落默认 200%）。
  */
 export function normalizeZoom(raw: unknown): number | null {
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
@@ -46,9 +46,9 @@ export interface PetRuntimeConfig {
 
 export const DEFAULT_PET_CONFIG: PetRuntimeConfig = {
   petName: '桌宠',
-  // 真实 Windows 反馈：100% 偏小，150% 是合适的默认标准大小。
+  // 真实 Windows 反馈：系统缩放 100% 时，200% 是合适的默认标准大小。
   // 只影响"新项目/缺省配置"——已有项目保存过的 zoom 不会被覆盖。
-  zoom: 1.5,
+  zoom: 2,
   wanderEnabled: true,
 };
 
@@ -75,7 +75,7 @@ export function validatePetConfig(raw: unknown): { ok: true; config: PetRuntimeC
   let zoom = DEFAULT_PET_CONFIG.zoom;
   if (o['zoom'] !== undefined) {
     // 严格档位契约：旧档静默迁移为 125%；中间值/越界/非数字一律安全
-    // 回落默认 150%（不报错——配置值永远合法，坏数据进不了状态与导出产物）。
+    // 回落默认 200%（不报错——配置值永远合法，坏数据进不了状态与导出产物）。
     zoom = normalizeZoom(o['zoom']) ?? DEFAULT_PET_CONFIG.zoom;
   }
 

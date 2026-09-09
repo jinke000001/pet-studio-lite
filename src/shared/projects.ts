@@ -169,7 +169,7 @@ export class ProjectsStore {
       }
     }
     // 缩放档位简化迁移：旧项目保存的 50%/75% 提升为 100%；非法/越界值
-    // 回落默认 150%。已有的 100%/150%/200% 原样保留。
+    // 回落当前默认 200%。已有的合法档位原样保留。
     for (let i = 0; i < index.projects.length; i++) {
       const p = index.projects[i]!;
       const cfg = p.config;

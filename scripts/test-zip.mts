@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 import { inspectZip, extractPetPackFromZip, ZIP_LIMITS } from '../src/shared/zip.ts';
 import { createZip } from '../src/shared/zipw.ts';
@@ -107,7 +108,8 @@ async function main(): Promise<void> {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'zip-test-'));
   console.log(`fixture 根目录：${tmp}\n`);
   // 直接用仓库 fixture 的图集
-  const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  // URL.pathname 会把包含空格的仓库路径保留为 %20；必须转回本地文件路径。
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const sheet = await fs.readFile(path.join(repoRoot, 'assets', 'fixtures', 'pack-v1', 'spritesheet.png'));
 
   async function writeZip(name: string, buf: Buffer): Promise<string> {

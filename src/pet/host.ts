@@ -1,5 +1,5 @@
 import { BrowserWindow, Menu, screen, ipcMain } from 'electron';
-import { computeAnchoredZoomBounds, computeWorkAreaHomePosition } from '../shared/geometry';
+import { clampBoundsToWorkArea, computeAnchoredZoomBounds, computeWorkAreaHomePosition } from '../shared/geometry';
 import { normalizeZoom } from '../shared/config';
 import { FlushableDebouncer } from '../shared/debounce';
 import type { PetWindowPayload } from '../shared/types';
@@ -60,6 +60,7 @@ export class PetWindowHost implements PetIpcTarget {
   private zoom = 1;
   private wanderEnabled = true;
   private dragOrigin: { mouseX: number; mouseY: number; winX: number; winY: number } | null = null;
+  private displayMetricsListener: ((event: Electron.Event, display: Electron.Display, changedMetrics: string[]) => void) | null = null;
 
   constructor(readonly opts: PetHostOptions) {}
 
@@ -122,8 +123,10 @@ export class PetWindowHost implements PetIpcTarget {
       const prev = this.win.getBounds();
       const display = screen.getDisplayMatching(prev);
       const bounds = computeAnchoredZoomBounds(prev, size, display.workArea);
-      this.win.setSize(bounds.width, bounds.height);
-      this.win.setPosition(bounds.x, bounds.y);
+      // Windows 对 setSize / setPosition 两步更新会分别派发原生 move/resize，
+      // DPI 边界附近可能在中间态自行修正坐标。一次 setBounds 保证尺寸与位置
+      // 原子提交，不会留下“窗口可拖动但精灵已经在屏外”的透明区域。
+      this.win.setBounds(bounds);
       this.win.webContents.send('pet:zoom', this.zoom);
     }
     this.opts.onZoomChange?.(this.zoom);
@@ -156,13 +159,13 @@ export class PetWindowHost implements PetIpcTarget {
     const size = windowSizeFor(this.zoom);
 
     const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-    const pos = this.opts.initialPosition ?? defaultPosition(cursorDisplay, size);
+    const requestedPos = this.opts.initialPosition ?? defaultPosition(cursorDisplay, size);
+    const requestedBounds = { x: requestedPos.x, y: requestedPos.y, width: size, height: size };
+    const initialDisplay = screen.getDisplayMatching(requestedBounds);
+    const initialBounds = clampBoundsToWorkArea(requestedBounds, initialDisplay.workArea);
 
     const win = new BrowserWindow({
-      width: size,
-      height: size,
-      x: pos.x,
-      y: pos.y,
+      ...initialBounds,
       transparent: true,
       frame: false,
       hasShadow: false,
@@ -184,6 +187,19 @@ export class PetWindowHost implements PetIpcTarget {
       win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     }
 
+    // Electron 的窗口坐标使用 DIP，交给 Windows 负责 100%/125%/150% 等
+    // 屏幕缩放；系统缩放或 workArea 动态变化后，再按相同逻辑尺寸围绕
+    // bottom-center 重新夹紧，避免窗口坐标仍合法但可见内容落出新工作区。
+    this.displayMetricsListener = (_event, _display, changedMetrics) => {
+      if (!changedMetrics.some((metric) => metric === 'bounds' || metric === 'workArea' || metric === 'scaleFactor')) return;
+      if (!this.win || this.win.isDestroyed()) return;
+      const current = this.win.getBounds();
+      const display = screen.getDisplayMatching(current);
+      const next = computeAnchoredZoomBounds(current, windowSizeFor(this.zoom), display.workArea);
+      this.win.setBounds(next);
+    };
+    screen.on('display-metrics-changed', this.displayMetricsListener);
+
     // 位置保存走可冲刷防抖：移动停止 400ms 后落盘（体验不变）；窗口关闭时
     // flush() 立即保存待写的最终位置 —— 复位/拖动后立刻退出也不丢位置。
     const positionSaver = new FlushableDebouncer<{ x: number; y: number; displayId: number }>(
@@ -199,6 +215,10 @@ export class PetWindowHost implements PetIpcTarget {
 
     win.on('closed', () => {
       positionSaver.flush();
+      if (this.displayMetricsListener) {
+        screen.removeListener('display-metrics-changed', this.displayMetricsListener);
+        this.displayMetricsListener = null;
+      }
       this.win = null;
       this.dragOrigin = null;
       if (activeHost === this) activeHost = null;
@@ -224,6 +244,10 @@ export class PetWindowHost implements PetIpcTarget {
   }
 
   close(): void {
+    if (this.displayMetricsListener) {
+      screen.removeListener('display-metrics-changed', this.displayMetricsListener);
+      this.displayMetricsListener = null;
+    }
     if (this.win && !this.win.isDestroyed()) this.win.destroy();
     this.win = null;
     this.dragOrigin = null;

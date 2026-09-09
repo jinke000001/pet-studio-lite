@@ -17,8 +17,6 @@ import { PetWindowHost } from '../src/pet/host';
 import { DEFAULT_PET_CONFIG, type PetRuntimeConfig } from '../src/shared/config';
 
 const REPO = path.resolve(__dirname, '..');
-const SAMPLES = '/Users/jinke00001/Desktop/pet/local-pets';
-
 let passed = 0;
 let failed = 0;
 function check(name: string, cond: boolean, detail = ''): void {
@@ -67,40 +65,41 @@ async function main(): Promise<void> {
   const pngRes = await importLikeMain(path.join(REPO, 'assets/fixtures/pack-v1'));
   check('PNG 目录导入（回归）', pngRes.ok, pngRes.ok ? '' : pngRes.errors.join('；'));
 
-  // 2. Doraemon WebP v1 目录导入
-  const doraSrc = path.join(SAMPLES, 'doraemon');
+  // 2. 仓库内 WebP v1 fixture 目录导入（冒烟不依赖旧项目或用户文件）
+  const doraSrc = path.join(REPO, 'assets/fixtures/pack-v1-webp');
   const doraHashBefore = await sha256File(path.join(doraSrc, 'spritesheet.webp'));
   const doraRes = await importLikeMain(doraSrc);
-  check('Doraemon WebP v1 (1536×1872) 目录导入', doraRes.ok, doraRes.ok ? '' : doraRes.errors.join('；'));
+  check('内置 WebP v1 (1536×1872) 目录导入', doraRes.ok, doraRes.ok ? '' : doraRes.errors.join('；'));
   if (doraRes.ok) {
-    check('Doraemon 导入副本哈希与原文件一致',
+    check('WebP v1 导入副本哈希与原文件一致',
       doraRes.meta.hashes.spritesheet === doraHashBefore &&
       (await sha256File(path.join(store.projectDir(doraRes.meta.id), 'spritesheet.webp'))) === doraHashBefore);
-    check('Doraemon 项目记录真实 petId', doraRes.meta.petId === 'doraemon');
+    check('WebP v1 项目记录真实 petId', doraRes.meta.petId === 'demo-bird');
   }
-  check('Doraemon 原始文件未被修改', (await sha256File(path.join(doraSrc, 'spritesheet.webp'))) === doraHashBefore);
+  check('WebP v1 原始文件未被修改', (await sha256File(path.join(doraSrc, 'spritesheet.webp'))) === doraHashBefore);
 
-  // 3. Wukong WebP v2 目录导入
-  const wukRes = await importLikeMain(path.join(SAMPLES, 'wukong'));
-  check('Wukong WebP v2 (1536×2288) 目录导入', wukRes.ok && wukRes.pack.version === 'v2',
+  // 3. 仓库内 WebP v2 fixture 目录导入
+  const wukSrc = path.join(REPO, 'assets/fixtures/pack-v2-webp');
+  const wukRes = await importLikeMain(wukSrc);
+  check('内置 WebP v2 (1536×2288) 目录导入', wukRes.ok && wukRes.pack.version === 'v2',
     wukRes.ok ? '' : wukRes.errors.join('；'));
 
-  // 4. 同等内容 ZIP 导入（用 wukong 内容在临时目录制作 ZIP；源目录不动）
-  const wukZipPath = path.join(tmp, 'wukong.zip');
+  // 4. 同等内容 ZIP 导入（用内置 fixture 制作临时 ZIP；源目录不动）
+  const wukZipPath = path.join(tmp, 'demo-fish.zip');
   await fs.writeFile(wukZipPath, createZip([
-    { name: 'wukong/pet.json', data: await fs.readFile(path.join(SAMPLES, 'wukong', 'pet.json')) },
-    { name: 'wukong/spritesheet.webp', data: await fs.readFile(path.join(SAMPLES, 'wukong', 'spritesheet.webp')) },
+    { name: 'demo-fish/pet.json', data: await fs.readFile(path.join(wukSrc, 'pet.json')) },
+    { name: 'demo-fish/spritesheet.webp', data: await fs.readFile(path.join(wukSrc, 'spritesheet.webp')) },
   ]));
   const wukZipRes = await importLikeMain(wukZipPath);
-  check('Wukong WebP ZIP 导入', wukZipRes.ok, wukZipRes.ok ? '' : wukZipRes.errors.join('；'));
+  check('内置 WebP v2 ZIP 导入', wukZipRes.ok, wukZipRes.ok ? '' : wukZipRes.errors.join('；'));
   if (wukZipRes.ok) {
     check('ZIP 导入记录原始 ZIP SHA-256',
       wukZipRes.meta.source.type === 'zip' && wukZipRes.meta.source.zipSha256 === await sha256File(wukZipPath));
-    check('ZIP 导入 slug 用真实 pet id（非临时目录名）', wukZipRes.meta.slug === 'wukong');
+    check('ZIP 导入 slug 用真实 pet id（非临时目录名）', wukZipRes.meta.slug === 'demo-fish');
   }
 
   // 5. 损坏 WebP（截断）拒绝 + 不留半成品
-  const wukSheet = await fs.readFile(path.join(SAMPLES, 'wukong', 'spritesheet.webp'));
+  const wukSheet = await fs.readFile(path.join(wukSrc, 'spritesheet.webp'));
   const badDir = path.join(tmp, 'bad-webp');
   await fs.mkdir(badDir, { recursive: true });
   await fs.writeFile(path.join(badDir, 'pet.json'),
@@ -150,31 +149,31 @@ async function main(): Promise<void> {
     const wuk = wukRes.pack;
 
     // 轮 1：打开 → host.close()（= 制作台"关闭桌宠预览"路径）
-    let h = await openPreview(dora, 'Doraemon');
+    let h = await openPreview(dora, '演示鸟');
     let wid = h.window!.webContents.executeJavaScript('window.pet.getPayload().then(p => p.sprite.id)');
-    check('轮1 打开：payload 经真实 IPC 到达 renderer', (await wid) === 'doraemon');
+    check('轮1 打开：payload 经真实 IPC 到达 renderer', (await wid) === 'demo-bird');
     h.close();
     await sleep(300);
     check('轮1 关闭：onClosed 触发', closedEvents === 1, `closedEvents=${closedEvents}`);
 
     // 轮 2：打开 → win.close()（= 系统关闭路径）
-    h = await openPreview(dora, 'Doraemon');
+    h = await openPreview(dora, '演示鸟');
     h.window!.close();
     await sleep(300);
     check('轮2 系统关闭路径：onClosed 触发', closedEvents === 2, `closedEvents=${closedEvents}`);
     check('轮2 关闭后 window 引用清空', h.window === null);
 
     // 轮 3：再次打开（此前版本的根因：第二次必崩）—— 现在应正常工作
-    h = await openPreview(dora, 'Doraemon');
+    h = await openPreview(dora, '演示鸟');
     check('轮3 再次打开成功（无重复 handler 崩溃）', h.window !== null && !h.window.isDestroyed());
-    check('轮3 payload 仍为当前宠物', (await h.window!.webContents.executeJavaScript('window.pet.getPayload().then(p => p.sprite.id)')) === 'doraemon');
+    check('轮3 payload 仍为当前宠物', (await h.window!.webContents.executeJavaScript('window.pet.getPayload().then(p => p.sprite.id)')) === 'demo-bird');
     h.close();
     await sleep(300);
 
     // 切换项目后打开（Doraemon → Wukong）
-    h = await openPreview(wuk, 'wukong');
-    check('切换项目后打开预览：payload 切到 wukong',
-      (await h.window!.webContents.executeJavaScript('window.pet.getPayload().then(p => p.sprite.id)')) === 'wukong');
+    h = await openPreview(wuk, '演示鱼');
+    check('切换项目后打开预览：payload 切到 demo-fish',
+      (await h.window!.webContents.executeJavaScript('window.pet.getPayload().then(p => p.sprite.id)')) === 'demo-fish');
     check('切换项目后 WebP v2 图集经 data URL 加载',
       (await h.window!.webContents.executeJavaScript('window.pet.getPayload().then(p => p.spritesheetDataUrl.startsWith("data:image/webp"))')) === true);
     h.close();
@@ -217,19 +216,19 @@ async function main(): Promise<void> {
       })()`);
     }
 
-    // 默认 zoom=1.5（新项目默认值）
+    // 默认 zoom=2（Windows 系统缩放 100% 时的新项目默认值）
     const [winW, winH] = h.window!.getSize();
-    check('默认 150%：窗口为 300×300', winW === 300 && winH === 300, `${winW}x${winH}`);
+    check('默认 200%：窗口为 400×400', winW === 400 && winH === 400, `${winW}x${winH}`);
     let g = await bubbleGeom();
     check('气泡存在且有指向宠物的小箭头', g.bubble !== null && g.arrowW === '6px', JSON.stringify({ arrowW: g.arrowW }));
     if (g.bubble) {
       const gap = g.petTop - g.bubble.bottom; // 气泡底到宠物头顶（含箭头 6px）
       check('气泡贴近宠物头部（间距 ≤ 24px）', gap >= -2 && gap <= 24, `gap=${gap.toFixed(1)}`);
-      check('气泡不越出窗口（150%）',
+      check('气泡不越出窗口（200%）',
         g.bubble.top >= 0 && g.bubble.left >= 0 && g.bubble.right <= g.winW && g.bubble.bottom <= g.winH);
     }
-    // 100% / 200% 也不裁切
-    h.setZoom(1);
+    // 125% / 200% 也不裁切
+    h.setZoom(1.25);
     await sleep(400);
     await wc.executeJavaScript(`(() => {
       const pet = document.querySelector('.pet');
@@ -239,8 +238,8 @@ async function main(): Promise<void> {
     })()`);
     await sleep(300);
     g = await bubbleGeom();
-    check('100%：窗口 200×200 且气泡不裁切',
-      g.winW === 200 && g.bubble !== null && g.bubble.top >= 0 && g.bubble.right <= g.winW && g.petTop - g.bubble.bottom <= 24,
+    check('125%：窗口 250×250 且气泡不裁切',
+      g.winW === 250 && g.bubble !== null && g.bubble.top >= 0 && g.bubble.right <= g.winW && g.petTop - g.bubble.bottom <= 24,
       JSON.stringify({ winW: g.winW, gap: g.bubble ? g.petTop - g.bubble.bottom : null }));
     h.setZoom(2);
     await sleep(400);

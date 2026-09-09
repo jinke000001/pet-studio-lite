@@ -1,8 +1,8 @@
 // 生成第七轮 Windows x64 候选 ZIP（缩放档位修正轮：全产品统一严格三档缩放
-// 小 125% / 中 150%（默认、推荐）/ 大 200%，配置页与右键菜单共用同一份
+// 小 125% / 中 150% / 大 200%（默认、推荐），配置页与右键菜单共用同一份
 // 档位标签定义 ZOOM_OPTIONS；底层契约只接受 1.25/1.5/2——1.2、1.7 等任意
 // 中间值不再接受；旧档 50%/75%/100% 自动迁移为 125%；非法/非数字/非有限/
-// 不受支持的值安全回落默认 150%；迁移覆盖旧制作台项目与 pet-state.json）。
+// 不受支持的值安全回落当前默认 200%；迁移覆盖旧制作台项目与 pet-state.json）。
 // 与前几轮相同：直接使用「没有 license 的真实 Petdex Wukong WebP 包」
 // （~/.petdex/pets/wukong-6），不修改 pet.json 一个字节 —— 导入时自动成为
 // usageMode=internal-test，产物 distribution=internal-test-only。
@@ -41,7 +41,9 @@ async function main(): Promise<void> {
     `sourceLicense=${meta.license}`, `usageMode=${meta.usageMode}`, 'zoom=', meta.config.zoom);
 
   // 3. 与制作台一致的导出（不覆盖已有 ZIP，目标目录 deliverables/ 已被 gitignore）
-  const outcome = await exportWindowsZip(meta, store.projectDir(meta.id), path.join(REPO, 'deliverables'), {
+  const deliverablesDir = path.join(REPO, 'deliverables');
+  await fs.mkdir(deliverablesDir, { recursive: true });
+  const outcome = await exportWindowsZip(meta, store.projectDir(meta.id), deliverablesDir, {
     repoRoot: REPO,
     productVersion: '0.1.0',
     onProgress: (phase, message) => console.log(`[${phase}] ${message}`),
