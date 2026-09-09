@@ -1,5 +1,5 @@
 import type { MenuItemConstructorOptions } from 'electron';
-import { ZOOM_LEVELS } from '../shared/config';
+import { ZOOM_OPTIONS } from '../shared/config';
 
 /**
  * 桌宠右键菜单的纯构建函数（type-only 引用 electron，Node 可直接单测）。
@@ -39,11 +39,11 @@ export function buildPetContextMenu(model: PetMenuModel, actions: PetMenuActions
     },
     {
       label: '🔍  缩放',
-      submenu: ZOOM_LEVELS.map((z) => ({
-        label: `${Math.round(z * 100)}%`,
+      submenu: ZOOM_OPTIONS.map((o) => ({
+        label: o.label,
         type: 'radio' as const,
-        checked: Math.abs(model.zoom - z) < 0.001,
-        click: () => actions.onSetZoom(z),
+        checked: Math.abs(model.zoom - o.zoom) < 0.001,
+        click: () => actions.onSetZoom(o.zoom),
       })),
     },
     { type: 'separator' },

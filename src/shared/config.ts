@@ -5,34 +5,40 @@
  * 导出写入前的最终把关 —— 非法值在任何一层都不能进入状态或导出产物。
  */
 
-export const ZOOM_MIN = 1;
-export const ZOOM_MAX = 2;
-/** 全产品统一的三档缩放：小 100% / 中 150%（默认、推荐）/ 大 200%。 */
-export const ZOOM_LEVELS = [1, 1.5, 2] as const;
+/**
+ * 全产品统一的三档缩放档位与标签（唯一事实来源）：
+ * 小 125% / 中 150%（默认、推荐）/ 大 200%。
+ * 制作台配置页下拉与桌宠右键菜单都消费 ZOOM_OPTIONS，文案不会漂移。
+ */
+export const ZOOM_LEVELS = [1.25, 1.5, 2] as const;
+export const ZOOM_OPTIONS: ReadonlyArray<{ zoom: number; label: string }> = [
+  { zoom: 1.25, label: '小 125%' },
+  { zoom: 1.5, label: '中 150%（推荐）' },
+  { zoom: 2, label: '大 200%' },
+];
 export const PET_NAME_MAX = 24;
 
-/** 旧档位（50% / 75%）自动提升为"小 100%"；100% / 150% / 200% 原样保留。 */
-const LEGACY_ZOOM_PROMOTE: ReadonlyMap<number, number> = new Map([[0.5, 1], [0.75, 1]]);
+/** 旧档位（50% / 75% / 100%）自动迁移为"小 125%"。 */
+const LEGACY_ZOOM_PROMOTE: ReadonlyMap<number, number> = new Map([[0.5, 1.25], [0.75, 1.25], [1, 1.25]]);
 
 /**
- * 缩放值规范化（历史数据兼容的唯一入口）：
- * - 旧档位 0.5 / 0.75 → 1（提升为小 100%）；
- * - 范围内的有限数字（1–2，含 100%/150%/200%）原样保留；
- * - 非数字、非有限、超范围 → null（调用方安全回落：状态回落随包配置 /
- *   配置校验报错回落默认值）。
+ * 缩放值规范化（严格档位契约 + 历史数据兼容的唯一入口）：
+ * - 旧档位 0.5 / 0.75 / 1 → 1.25（迁移为小 125%）；
+ * - 仅 1.25 / 1.5 / 2 原样保留 —— 1.2、1.7 等任意中间值不受支持；
+ * - 非数字、非有限、不受支持的值 → null（调用方安全回落：持久化状态回落
+ *   随包配置；配置校验与项目迁移回落默认 150%）。
  */
 export function normalizeZoom(raw: unknown): number | null {
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
   const promoted = LEGACY_ZOOM_PROMOTE.get(raw);
   if (promoted !== undefined) return promoted;
-  if (raw < ZOOM_MIN || raw > ZOOM_MAX) return null;
-  return raw;
+  return (ZOOM_LEVELS as readonly number[]).includes(raw) ? raw : null;
 }
 
 export interface PetRuntimeConfig {
   /** 宠物显示名称（1–24 字符）。 */
   petName: string;
-  /** 窗口缩放倍数（三档：1 / 1.5 / 2；旧档 0.5 / 0.75 自动提升为 1）。 */
+  /** 窗口缩放倍数（严格三档：1.25 / 1.5 / 2；旧档 0.5 / 0.75 / 1 迁移为 1.25）。 */
   zoom: number;
   /** 基础行为开关：闲置时自动游走。 */
   wanderEnabled: boolean;
@@ -68,17 +74,9 @@ export function validatePetConfig(raw: unknown): { ok: true; config: PetRuntimeC
 
   let zoom = DEFAULT_PET_CONFIG.zoom;
   if (o['zoom'] !== undefined) {
-    if (typeof o['zoom'] !== 'number' || !Number.isFinite(o['zoom'])) {
-      errors.push('缩放必须是有限数字');
-    } else {
-      // 旧档 0.5 / 0.75 静默提升为 1；其余越界值报错（调用方回落默认）。
-      const normalized = normalizeZoom(o['zoom']);
-      if (normalized === null) {
-        errors.push(`缩放超出范围（${ZOOM_MIN}–${ZOOM_MAX}）`);
-      } else {
-        zoom = normalized;
-      }
-    }
+    // 严格档位契约：旧档静默迁移为 125%；中间值/越界/非数字一律安全
+    // 回落默认 150%（不报错——配置值永远合法，坏数据进不了状态与导出产物）。
+    zoom = normalizeZoom(o['zoom']) ?? DEFAULT_PET_CONFIG.zoom;
   }
 
   let wanderEnabled = DEFAULT_PET_CONFIG.wanderEnabled;

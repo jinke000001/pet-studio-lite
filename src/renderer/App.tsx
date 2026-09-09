@@ -3,7 +3,7 @@ import type { StudioApi } from '../preload/studio';
 import type { ExportProgressEvent, PreviewPayload, ProjectMeta, StudioState } from '../shared/types';
 import { resolveDistribution, distributionNote } from '../shared/manifest';
 import { removeConfirmMessage } from '../shared/messages';
-import { validatePetConfig, ZOOM_LEVELS } from '../shared/config';
+import { validatePetConfig, ZOOM_OPTIONS } from '../shared/config';
 import { Sprite, type PetState } from './pet/Sprite';
 
 declare global {
@@ -546,8 +546,8 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
         <label className="field">
           <span className="field-label">默认缩放</span>
           <select className="field-input" value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
-            {ZOOM_LEVELS.map((z) => (
-              <option key={z} value={z}>{Math.round(z * 100)}%</option>
+            {ZOOM_OPTIONS.map((o) => (
+              <option key={o.zoom} value={o.zoom}>{o.label}</option>
             ))}
           </select>
           <span className="field-hint">桌宠首次启动时的窗口大小；用户还可用右键菜单调整。</span>

@@ -13,7 +13,7 @@ import { normalizeZoom, type PetRuntimeConfig } from './config';
 export interface PersistedPetState {
   /** 上次退出时的窗口位置；null = 用屏幕右下角默认位。 */
   windowPosition: { x: number; y: number; displayId?: number } | null;
-  /** 用户通过右键菜单调整的缩放；null = 用随包配置。旧档 50%/75% 读取时提升为 100%。 */
+  /** 用户通过右键菜单调整的缩放；null = 用随包配置。旧档 50%/75%/100% 读取时迁移为 125%。 */
   zoom: number | null;
   /** 用户通过右键菜单调整的"自动游走"开关；null = 用随包配置。 */
   wanderEnabled: boolean | null;

@@ -73,7 +73,7 @@ html, body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  /* border-box：padding/border 计入 max-width —— 最小档（100%）窗口下
+  /* border-box：padding/border 计入 max-width —— 最小档（125%）窗口下
      气泡总宽度（含内边距与描边）也不超过 88% 窗口宽，不会被裁切。 */
   box-sizing: border-box;
   width: max-content;

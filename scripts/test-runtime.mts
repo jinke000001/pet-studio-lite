@@ -2,10 +2,10 @@
 // 运行：npm run test:runtime
 //
 // 覆盖（对应任务书 §6）：
-//   ✓ 缩放 bottom-center 锚点 + workArea 夹紧（含右下角 100%→200%）
+//   ✓ 缩放 bottom-center 锚点 + workArea 夹紧（含右下角 125%→200%）
 //   ✓ "回到屏幕右下角"复位几何（多显示器负原点 / 缩放 DIP / 小 workArea 夹紧）
-//   ✓ 配置校验：合法值、非法类型、越界数字、空名字、超长名字、
-//     三档缩放（100%/150%/200%）与旧档 50%/75% 自动提升为 100%
+//   ✓ 配置校验：合法值、非法类型、空名字、超长名字、
+//     严格三档缩放（125%/150%/200%）、中间值拒绝、旧档 50%/75%/100% 迁移为 125%
 //   ✓ IPC 校验器：非法类型 / 枚举 / 项目 id 注入
 //   ✓ 项目存储：导入复制不修改源、哈希核对、版本化目录、索引损坏恢复、
 //     非法配置不入库、删除语义（当前项目切换 / 源包不变）
@@ -30,7 +30,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { computeAnchoredZoomBounds, computeWorkAreaHomePosition, type Rect } from '../src/shared/geometry.ts';
-import { validatePetConfig, normalizeZoom, ZOOM_LEVELS, DEFAULT_PET_CONFIG } from '../src/shared/config.ts';
+import { validatePetConfig, normalizeZoom, ZOOM_LEVELS, ZOOM_OPTIONS, DEFAULT_PET_CONFIG } from '../src/shared/config.ts';
 import { requireProjectId, requireEnum, requireFiniteNumber, requireBoolean, IpcValidationError } from '../src/shared/ipc-validate.ts';
 import { ProjectsStore, packFingerprint, defaultUsageMode } from '../src/shared/projects.ts';
 import { removeConfirmMessage } from '../src/shared/messages.ts';
@@ -80,24 +80,24 @@ function geometryTests(): void {
   console.log('[缩放几何]');
   const workArea: Rect = { x: 0, y: 0, width: 1920, height: 1055 };
   {
-    // 右下角默认位置 100%→200%：底边锚点保持；水平方向锚点与右缘冲突时
-    // 夹紧优先（以 1788 为中心的 400px 窗口会越出右缘）。
-    const prev: Rect = { x: 1920 - 200 - 32, y: 1055 - 200 - 32, width: 200, height: 200 };
+    // 右下角默认位置 小 125%→大 200%（250→400px）：底边锚点保持；水平方向锚点
+    // 与右缘冲突时夹紧优先（以 1763 为中心的 400px 窗口会越出右缘）。
+    const prev: Rect = { x: 1920 - 250 - 32, y: 1055 - 250 - 32, width: 250, height: 250 };
     const next = computeAnchoredZoomBounds(prev, 400, workArea);
-    check('右下角 100%→200%：底边锚点保持', next.y + next.height === prev.y + prev.height, JSON.stringify(next));
-    check('右下角 100%→200%：夹紧到 workArea 右缘', next.x === workArea.x + workArea.width - 400);
-    check('右下角 100%→200%：整体可见',
+    check('右下角 125%→200%：底边锚点保持', next.y + next.height === prev.y + prev.height, JSON.stringify(next));
+    check('右下角 125%→200%：夹紧到 workArea 右缘', next.x === workArea.x + workArea.width - 400);
+    check('右下角 125%→200%：整体可见',
       next.x >= 0 && next.y >= 0 && next.x + next.width <= workArea.width && next.y + next.height <= workArea.height);
   }
   {
-    // 屏幕中间的窗口 100%→200%：锚点完全保持，无夹紧。
-    const prev: Rect = { x: 700, y: 400, width: 200, height: 200 };
+    // 屏幕中间的窗口 125%→200%（250→400px）：锚点完全保持，无夹紧。
+    const prev: Rect = { x: 700, y: 400, width: 250, height: 250 };
     const next = computeAnchoredZoomBounds(prev, 400, workArea);
-    check('屏幕中间 100%→200%：bottom-center 完全保持',
+    check('屏幕中间 125%→200%：bottom-center 完全保持',
       next.x + next.width / 2 === prev.x + prev.width / 2 && next.y + next.height === prev.y + prev.height);
   }
   {
-    const prev: Rect = { x: 500, y: 0, width: 200, height: 200 };
+    const prev: Rect = { x: 500, y: 0, width: 250, height: 250 };
     const next = computeAnchoredZoomBounds(prev, 400, workArea);
     check('顶缘越界被夹紧', next.y === workArea.y);
   }
@@ -108,8 +108,8 @@ function geometryTests(): void {
   }
   {
     const prev: Rect = { x: 1000, y: 300, width: 400, height: 400 };
-    const next = computeAnchoredZoomBounds(prev, 200, workArea);
-    check('200%→100% 缩小：锚点保持',
+    const next = computeAnchoredZoomBounds(prev, 250, workArea);
+    check('200%→125% 缩小：锚点保持',
       next.x + next.width / 2 === prev.x + prev.width / 2 && next.y + next.height === prev.y + prev.height);
   }
 }
@@ -122,31 +122,47 @@ function configTests(): void {
   check('空对象用默认值', validatePetConfig({}).ok);
   expectThrowSync('空名字被拒绝', validatePetConfig({ petName: '  ' }).ok === false);
   expectThrowSync('超长名字被拒绝', validatePetConfig({ petName: 'x'.repeat(25) }).ok === false);
-  expectThrowSync('zoom 越界被拒绝', validatePetConfig({ zoom: 3 }).ok === false);
-  expectThrowSync('zoom 低于最小档被拒绝', validatePetConfig({ zoom: 0.4 }).ok === false);
-  expectThrowSync('zoom 非数字被拒绝', validatePetConfig({ zoom: 'big' }).ok === false);
   expectThrowSync('wander 非布尔被拒绝', validatePetConfig({ wanderEnabled: 'yes' }).ok === false);
   expectThrowSync('非对象被拒绝', validatePetConfig('str').ok === false);
 
-  // 缩放档位简化：全产品只剩 小 100% / 中 150% / 大 200% 三档
-  check('缩放档位恰好三档（100%/150%/200%）',
-    ZOOM_LEVELS.length === 3 && ZOOM_LEVELS[0] === 1 && ZOOM_LEVELS[1] === 1.5 && ZOOM_LEVELS[2] === 2);
-  // 历史数据兼容：旧档 50%/75% 自动提升为 100%（不报错）
+  // 严格三档契约：全产品只剩 小 125% / 中 150%（推荐）/ 大 200%
+  check('缩放档位恰好三档（125%/150%/200%）',
+    ZOOM_LEVELS.length === 3 && ZOOM_LEVELS[0] === 1.25 && ZOOM_LEVELS[1] === 1.5 && ZOOM_LEVELS[2] === 2);
+  check('档位标签与档位一一对应（配置页与右键菜单共用）',
+    ZOOM_OPTIONS.length === 3 &&
+    ZOOM_OPTIONS[0]!.zoom === 1.25 && ZOOM_OPTIONS[0]!.label === '小 125%' &&
+    ZOOM_OPTIONS[1]!.zoom === 1.5 && ZOOM_OPTIONS[1]!.label === '中 150%（推荐）' &&
+    ZOOM_OPTIONS[2]!.zoom === 2 && ZOOM_OPTIONS[2]!.label === '大 200%');
+  // 历史数据兼容：旧档 50%/75%/100% 自动迁移为 125%（不报错）
   const legacy50 = validatePetConfig({ zoom: 0.5 });
-  check('旧档 50% 提升为 100%（不报错）', legacy50.ok && legacy50.config.zoom === 1);
+  check('旧档 50% 迁移为 125%（不报错）', legacy50.ok && legacy50.config.zoom === 1.25);
   const legacy75 = validatePetConfig({ zoom: 0.75 });
-  check('旧档 75% 提升为 100%（不报错）', legacy75.ok && legacy75.config.zoom === 1);
-  check('normalizeZoom：非数字/越界回落 null',
-    normalizeZoom('big') === null && normalizeZoom(NaN) === null && normalizeZoom(3) === null && normalizeZoom(0) === null);
-  check('normalizeZoom：100%/150%/200% 原样保留',
-    normalizeZoom(1) === 1 && normalizeZoom(1.5) === 1.5 && normalizeZoom(2) === 2);
+  check('旧档 75% 迁移为 125%（不报错）', legacy75.ok && legacy75.config.zoom === 1.25);
+  const legacy100 = validatePetConfig({ zoom: 1 });
+  check('旧档 100% 迁移为 125%（不报错）', legacy100.ok && legacy100.config.zoom === 1.25);
+  // 任意中间值不再接受：安全回落默认 150%（不报错、不保留原值）
+  const mid12 = validatePetConfig({ zoom: 1.2 });
+  check('中间值 1.2 不被接受（回落默认 150%）', mid12.ok && mid12.config.zoom === 1.5);
+  const mid17 = validatePetConfig({ zoom: 1.7 });
+  check('中间值 1.7 不被接受（回落默认 150%）', mid17.ok && mid17.config.zoom === 1.5);
+  const oob = validatePetConfig({ zoom: 3 });
+  check('越界值 3 回落默认 150%', oob.ok && oob.config.zoom === 1.5);
+  const nonNum = validatePetConfig({ zoom: 'big' });
+  check('非数字回落默认 150%', nonNum.ok && nonNum.config.zoom === 1.5);
+  check('normalizeZoom：非数字/非有限/中间值/越界一律 null',
+    normalizeZoom('big') === null && normalizeZoom(NaN) === null && normalizeZoom(Infinity) === null &&
+    normalizeZoom(1.2) === null && normalizeZoom(1.7) === null && normalizeZoom(3) === null && normalizeZoom(0.9) === null);
+  check('normalizeZoom：旧档 0.5/0.75/1 → 1.25',
+    normalizeZoom(0.5) === 1.25 && normalizeZoom(0.75) === 1.25 && normalizeZoom(1) === 1.25);
+  check('normalizeZoom：125%/150%/200% 原样保留',
+    normalizeZoom(1.25) === 1.25 && normalizeZoom(1.5) === 1.5 && normalizeZoom(2) === 2);
 
   // 默认缩放：新项目 / 缺省配置 = 150%（真实 Windows 反馈 100% 偏小）
   check('默认 zoom 为 1.5', DEFAULT_PET_CONFIG.zoom === 1.5);
   const def = validatePetConfig({});
   check('缺省配置解析出 zoom=1.5', def.ok && def.config.zoom === 1.5);
-  const kept = validatePetConfig({ zoom: 1 });
-  check('用户明确保存的 zoom=1 不被默认值覆盖', kept.ok && kept.config.zoom === 1);
+  const kept = validatePetConfig({ zoom: 2 });
+  check('用户明确保存的 zoom=2 不被默认值覆盖', kept.ok && kept.config.zoom === 2);
   const runtimeCfg = buildRuntimeConfig(DEFAULT_PET_CONFIG);
   check('导出运行时配置与制作台默认一致（zoom=1.5）', runtimeCfg.zoom === 1.5);
 
@@ -210,14 +226,19 @@ async function storeTests(tmp: string): Promise<void> {
   // 配置更新
   const updated = await store2.updateConfig(meta.id, { petName: '新名字', zoom: 1.5 });
   check('配置更新落盘', updated.config.petName === '新名字' && updated.config.zoom === 1.5);
-  await expectThrow('非法配置不入库', '超出范围', () => store2.updateConfig(meta.id, { zoom: 9 }));
-  const after = await store2.get(meta.id);
-  check('非法配置失败后配置未被污染', after?.config.zoom === 1.5);
+  // 严格档位契约：不受支持的缩放值不抛错、不保留原值，安全回落默认 150%
+  const fell = await store2.updateConfig(meta.id, { zoom: 9 });
+  check('越界缩放安全回落默认 150%', fell.config.zoom === 1.5);
+  const mid = await store2.updateConfig(meta.id, { zoom: 1.7 });
+  check('中间值缩放安全回落默认 150%', mid.config.zoom === 1.5);
+  const mig100 = await store2.updateConfig(meta.id, { zoom: 1 });
+  check('旧档 100% 经配置更新迁移为 125%', mig100.config.zoom === 1.25);
+  await expectThrow('非法名字仍被拒绝入库', '空', () => store2.updateConfig(meta.id, { petName: '  ' }));
 
   // 用户明确保存的缩放不被默认值覆盖
-  await store2.updateConfig(meta.id, { zoom: 1 });
+  await store2.updateConfig(meta.id, { zoom: 2 });
   const renamed = await store2.updateConfig(meta.id, { petName: '只改名字' });
-  check('用户保存的 zoom=1 在后续更新中保持', renamed.config.zoom === 1);
+  check('用户保存的 zoom=2 在后续更新中保持', renamed.config.zoom === 2);
 
   // 索引损坏恢复：写坏 projects.json
   await fs.writeFile(path.join(root, 'projects.json'), '{broken json', 'utf8');
@@ -338,7 +359,7 @@ async function storeTests(tmp: string): Promise<void> {
     check('旧项目迁移出 declaredVersion', migrated?.declaredVersion === 'v1');
     check('旧项目迁移出内容指纹（dir 来源）',
       migrated?.source.type === 'dir' && migrated.source.fingerprint === packFingerprint(migrated.hashes));
-    check('迁移不覆盖用户已保存的 zoom', migrated?.config.zoom === 1);
+    check('旧项目保存的 100% 缩放迁移为 125%（其余字段不动）', migrated?.config.zoom === 1.25);
     check('迁移不改变内部实例 id 与 sourcePath',
       migrated?.id === legacyId && migrated.sourcePath === '/Users/someone/pets/demo-cat');
     check('authorized 旧项目迁移出 usageMode=general', migrated?.usageMode === 'general');
@@ -372,11 +393,11 @@ async function storeTests(tmp: string): Promise<void> {
     check('迁移保留项目 ID / 配置 / 哈希 / 路径',
       migrated?.id === legacyId && migrated.config.petName === '无授权包' &&
       migrated.hashes.petJson === 'c'.repeat(64) && migrated.sourcePath === '/Users/someone/pets/mystery');
-    check('旧项目保存的 75% 缩放迁移后提升为 100%', migrated?.config.zoom === 1);
+    check('旧项目保存的 75% 缩放迁移为 125%', migrated?.config.zoom === 1.25);
   }
 
-  // 缩放档位迁移：旧项目的 50% → 100%；非法/越界值回落默认 150%；
-  // 已有的 100%/150%/200% 不被触碰。
+  // 缩放档位迁移：旧项目的 50% → 125%；非法/越界/中间值回落默认 150%；
+  // 已有的 125%/150%/200% 不被触碰。
   {
     const { index } = await store.load();
     const mk = (id: string, zoom: unknown) => ({
@@ -391,13 +412,17 @@ async function storeTests(tmp: string): Promise<void> {
     index.projects.push(
       mk('zoom50-20250101000000', 0.5) as never,
       mk('zoom150-20250101000000', 1.5) as never,
+      mk('zoom125-20250101000000', 1.25) as never,
+      mk('zoommid-20250101000000', 1.7) as never,
       mk('zoombad-20250101000000', 9) as never,
     );
     await fs.writeFile(path.join(root, 'projects.json'), JSON.stringify(index, null, 2), 'utf8');
 
     const store6 = new ProjectsStore(root);
-    check('旧项目 50% 缩放提升为 100%', (await store6.get('zoom50-20250101000000'))?.config.zoom === 1);
+    check('旧项目 50% 缩放迁移为 125%', (await store6.get('zoom50-20250101000000'))?.config.zoom === 1.25);
     check('旧项目 150% 缩放保持不变', (await store6.get('zoom150-20250101000000'))?.config.zoom === 1.5);
+    check('旧项目 125% 缩放保持不变', (await store6.get('zoom125-20250101000000'))?.config.zoom === 1.25);
+    check('旧项目中间值 1.7 缩放回落默认 150%', (await store6.get('zoommid-20250101000000'))?.config.zoom === 1.5);
     check('旧项目越界缩放回落默认 150%', (await store6.get('zoombad-20250101000000'))?.config.zoom === 1.5);
   }
 
@@ -876,13 +901,16 @@ function petStateTests(): void {
 
   const bad = parsePersistedPetState({ zoom: 'big', wanderEnabled: 'yes', windowPosition: { x: 'a', y: 1 } });
   check('坏字段丢弃为 null（不进入运行时）', bad.zoom === null && bad.wanderEnabled === null && bad.windowPosition === null);
-  // 历史数据兼容：pet-state.json 里的旧档 50%/75% 提升为 100%；越界/非数字回落 null
-  check('持久化的旧档 50%/75% 提升为 100%',
-    parsePersistedPetState({ zoom: 0.5 }).zoom === 1 && parsePersistedPetState({ zoom: 0.75 }).zoom === 1);
-  check('持久化的 100%/150%/200% 原样保留',
-    parsePersistedPetState({ zoom: 1 }).zoom === 1 &&
+  // 历史数据兼容：pet-state.json 里的旧档 50%/75%/100% 迁移为 125%；
+  // 中间值/越界/非数字回落 null（用随包配置）
+  check('持久化的旧档 50%/75%/100% 迁移为 125%',
+    parsePersistedPetState({ zoom: 0.5 }).zoom === 1.25 &&
+    parsePersistedPetState({ zoom: 0.75 }).zoom === 1.25 && parsePersistedPetState({ zoom: 1 }).zoom === 1.25);
+  check('持久化的 125%/150%/200% 原样保留',
+    parsePersistedPetState({ zoom: 1.25 }).zoom === 1.25 &&
     parsePersistedPetState({ zoom: 1.5 }).zoom === 1.5 && parsePersistedPetState({ zoom: 2 }).zoom === 2);
-  check('持久化的越界缩放回落 null（用随包配置）',
+  check('持久化的中间值/越界缩放回落 null（用随包配置）',
+    parsePersistedPetState({ zoom: 1.2 }).zoom === null && parsePersistedPetState({ zoom: 1.7 }).zoom === null &&
     parsePersistedPetState({ zoom: 3 }).zoom === null && parsePersistedPetState({ zoom: 0.4 }).zoom === null);
   const noDisplay = parsePersistedPetState({ windowPosition: { x: 1, y: 2 } });
   check('位置缺 displayId 仍合法', noDisplay.windowPosition?.x === 1 && noDisplay.windowPosition.displayId === undefined);
@@ -924,17 +952,17 @@ async function petStateStoreTests(tmp: string): Promise<void> {
   check('原子写无临时文件残留', !(await fs.stat(`${file}.tmp`).then(() => true, () => false)));
 
   // 连续更新：最终快照包含所有字段（后写覆盖同名字段，保留其他字段）
-  await store.update({ zoom: 1 });
+  await store.update({ zoom: 1.25 });
   await store.update({ wanderEnabled: true });
   await store.flush();
   const disk2 = parsePersistedPetState(JSON.parse(await fs.readFile(file, 'utf8')));
   check('连续更新合并完整（zoom 最新、位置保留）',
-    disk2.zoom === 1 && disk2.wanderEnabled === true && disk2.windowPosition?.x === 100);
+    disk2.zoom === 1.25 && disk2.wanderEnabled === true && disk2.windowPosition?.x === 100);
 
   // 重启恢复：新实例读同一文件
   const store2 = await PetStateStore.load(file);
   check('重启后恢复最终状态',
-    store2.current.zoom === 1 && store2.current.wanderEnabled === true && store2.current.windowPosition?.x === 100);
+    store2.current.zoom === 1.25 && store2.current.wanderEnabled === true && store2.current.windowPosition?.x === 100);
 
   // 坏数据容错：损坏 JSON / 坏字段都不崩、回落 null
   await fs.writeFile(file, '{broken json', 'utf8');
@@ -946,9 +974,9 @@ async function petStateStoreTests(tmp: string): Promise<void> {
   const blocker = path.join(tmp, 'blocker');
   await fs.writeFile(blocker, 'x');
   const store4 = await PetStateStore.load(path.join(blocker, 'pet-state.json'));
-  await store4.update({ zoom: 1 });
+  await store4.update({ zoom: 1.25 });
   await store4.flush();
-  check('写入失败不抛出、内存状态仍正确', store4.current.zoom === 1);
+  check('写入失败不抛出、内存状态仍正确', store4.current.zoom === 1.25);
 }
 
 // --- 关闭前刷新（FlushableDebouncer：复位/拖动后立刻退出不丢最终位置） ---------------------------
@@ -1018,17 +1046,19 @@ function petMenuTests(): void {
 
   const wanderItem = items[0]!;
   check('自动游走是 checkbox 且反映当前状态（开）', wanderItem.type === 'checkbox' && wanderItem.checked === true);
-  const offItems = buildPetContextMenu({ wanderEnabled: false, zoom: 1, closeLabel: '关闭预览' }, actions);
+  const offItems = buildPetContextMenu({ wanderEnabled: false, zoom: 1.25, closeLabel: '关闭预览' }, actions);
   check('开关关闭时 checkbox 不勾选', offItems[0]!.type === 'checkbox' && offItems[0]!.checked === false);
 
   // 模拟点击勾选框：Electron 传勾选后的新状态
   (wanderItem.click as (item: { checked: boolean }) => void)({ checked: false });
   check('点击自动游走传回勾选后的新状态', calls[0] === 'wander:false');
   const zoomSub = items[1]!.submenu as Array<{ label?: string; checked?: boolean }>;
-  check('缩放子菜单恰好三档（100%/150%/200%）',
-    zoomSub.length === 3 && zoomSub.map((s) => s.label).join(',') === '100%,150%,200%');
+  check('缩放子菜单恰好三档（小 125% / 中 150%（推荐）/ 大 200%）',
+    zoomSub.length === 3 && zoomSub.map((s) => s.label).join(',') === '小 125%,中 150%（推荐）,大 200%');
+  check('菜单标签与共享档位定义一致（无文案漂移）',
+    zoomSub.map((s) => s.label).join(',') === ZOOM_OPTIONS.map((o) => o.label).join(','));
   check('缩放子菜单恰好一个档位选中（当前 150%）',
-    zoomSub.filter((s) => s.checked).length === 1 && zoomSub.find((s) => s.checked)?.label === '150%');
+    zoomSub.filter((s) => s.checked).length === 1 && zoomSub.find((s) => s.checked)?.label === '中 150%（推荐）');
 
   (items[3]!.click as () => void)();
   check('点击"回到屏幕右下角"派发复位动作', calls.includes('home'));
@@ -1095,9 +1125,9 @@ async function bubbleCssTests(): Promise<void> {
     const pct = Number(/max-width:\s*(\d+)%/.exec(bubble)?.[1]);
     const padX = Number(/padding:\s*\d+px\s+(\d+)px/.exec(bubble)?.[1]);
     const borderW = Number(/border:\s*(\d+)px/.exec(bubble)?.[1]);
-    // 窗口最小尺寸：基准 200px × 最小缩放档 100% = 200px（src/pet/host.ts PET_WIN_BASE_SIZE）
-    const minWinPx = 200 * 1;
-    check('100% 缩放（最小窗口 200px）：气泡总宽 = max-width ≤ 窗口',
+    // 窗口最小尺寸：基准 200px × 最小缩放档 125% = 250px（src/pet/host.ts PET_WIN_BASE_SIZE）
+    const minWinPx = 200 * 1.25;
+    check('125% 缩放（最小窗口 250px）：气泡总宽 = max-width ≤ 窗口',
       (pct / 100) * minWinPx <= minWinPx && (pct / 100) * minWinPx - 2 * padX - 2 * borderW > 0,
       `max=${(pct / 100) * minWinPx}px 窗口=${minWinPx}px`);
   }
@@ -1144,6 +1174,10 @@ async function uxWiringTests(): Promise<void> {
   const appSrc = await fs.readFile(path.join(REPO, 'src', 'renderer', 'App.tsx'), 'utf8');
   check('配置页含自动行为说明文案', appSrc.includes('等待和思考会在闲置后自动触发；点击或拖动会重新计时。'));
   check('导出成功页有"打开所在文件夹"按钮', appSrc.includes('打开所在文件夹') && appSrc.includes('revealExport'));
+  // 两处 UI 共用同一份档位/标签定义（ZOOM_OPTIONS），文案不漂移
+  const menuSrc = await fs.readFile(path.join(REPO, 'src', 'pet', 'menu.ts'), 'utf8');
+  check('配置页缩放下拉使用共享 ZOOM_OPTIONS', /ZOOM_OPTIONS\.map/.test(appSrc));
+  check('右键缩放菜单使用共享 ZOOM_OPTIONS', /ZOOM_OPTIONS\.map/.test(menuSrc));
 
   const exportSrc = await fs.readFile(path.join(REPO, 'src', 'main', 'export-win.ts'), 'utf8');
   check('启动说明包含新菜单项', exportSrc.includes('回到屏幕右下角') && exportSrc.includes('自动游走'));
