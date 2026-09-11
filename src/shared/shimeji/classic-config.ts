@@ -5,11 +5,20 @@ const MAX_ELEMENTS = 5_000;
 const MAX_ACTIONS = 256;
 const MAX_BEHAVIORS = 512;
 const MAX_REFERENCES = 4_096;
+const MAX_POSES = 4_096;
 const MAX_DEPTH = 64;
 const MAX_NAME_LENGTH = 128;
 const REQUIRED_NAMES = ['ChaseMouse', 'Fall', 'Dragged', 'Thrown'] as const;
 
 export type ClassicActionKind = 'stand' | 'walk' | 'fall' | 'dragged' | 'thrown' | 'chase-mouse' | 'jump' | 'climb' | 'unknown';
+
+export interface ClassicPose {
+  /** 经典包内图片文件名；只允许单层 PNG basename。 */
+  image: string;
+  /** 非对称角色可显式提供朝右帧。 */
+  imageRight: string | null;
+  durationMs: number | null;
+}
 
 export interface ClassicAction {
   name: string;
@@ -18,6 +27,7 @@ export interface ClassicAction {
   border: 'floor' | 'wall' | 'ceiling' | null;
   durationMs: number | null;
   references: string[];
+  poses: ClassicPose[];
 }
 
 export interface ClassicBehaviorReference {
@@ -63,6 +73,14 @@ function safeName(raw: string | undefined, label: string): string {
   const value = raw?.trim() ?? '';
   if (!value || value.length > MAX_NAME_LENGTH || /[\u0000-\u001f]/.test(value)) {
     throw new Error(`${label}名称无效`);
+  }
+  return value;
+}
+
+function safeImageName(raw: string | undefined, label: string): string {
+  const value = raw?.trim().replace(/^\/+/, '') ?? '';
+  if (!value || value.length > 255 || !/^[^/\\\u0000-\u001f]+\.png$/i.test(value)) {
+    throw new Error(`${label}必须是单层 PNG 文件名`);
   }
   return value;
 }
@@ -115,6 +133,7 @@ function parseClassicDocument(xml: string, label: string): ParsedDocument {
   const stack: string[] = [];
   let elements = 0;
   let references = 0;
+  let poses = 0;
   let currentAction: ClassicAction | null = null;
   let currentBehavior: ClassicBehavior | null = null;
 
@@ -142,6 +161,7 @@ function parseClassicDocument(xml: string, label: string): ParsedDocument {
           border,
           durationMs: duration,
           references: [],
+          poses: [],
         };
         actions.push(currentAction);
       } catch (error) {
@@ -155,6 +175,24 @@ function parseClassicDocument(xml: string, label: string): ParsedDocument {
       references += 1;
       if (references > MAX_REFERENCES) throw new Error(`${label}引用数量超过 ${MAX_REFERENCES}`);
       currentAction.references.push(safeName(attr(tag, 'Name'), `动作 ${currentAction.name} 引用`));
+      return;
+    }
+
+    if (name === 'Pose' && currentAction) {
+      poses += 1;
+      if (poses > MAX_POSES) throw new Error(`${label}姿势数量超过 ${MAX_POSES}`);
+      try {
+        const imageRightRaw = attr(tag, 'ImageRight');
+        currentAction.poses.push({
+          image: safeImageName(attr(tag, 'Image'), `动作 ${currentAction.name} Pose Image`),
+          imageRight: imageRightRaw === undefined
+            ? null
+            : safeImageName(imageRightRaw, `动作 ${currentAction.name} Pose ImageRight`),
+          durationMs: literalNumber(attr(tag, 'Duration'), `动作 ${currentAction.name} Pose Duration`, 86_400_000),
+        });
+      } catch (error) {
+        warnings.push(`${currentAction.name} Pose：${error instanceof Error ? error.message : String(error)}，已跳过`);
+      }
       return;
     }
 

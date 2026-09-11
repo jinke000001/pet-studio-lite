@@ -242,8 +242,13 @@ console.log('\n[经典 Shimeji 配置兼容]');
 
 const classicActions = `<?xml version="1.0"?>
 <Mascot xmlns="http://www.group-finity.com/Mascot"><ActionList>
-  <Action Name="Stand" Type="Pause" BorderType="Floor" Duration="600" />
-  <Action Name="Walk" Type="Move" BorderType="Floor" Duration="1200" />
+  <Action Name="Stand" Type="Pause" BorderType="Floor" Duration="600"><Animation>
+    <Pose Image="/shime1.png" ImageRight="/shime1-r.png" Duration="250" />
+  </Animation></Action>
+  <Action Name="Walk" Type="Move" BorderType="Floor" Duration="1200"><Animation>
+    <Pose Image="/shime2.png" Duration="6" />
+    <Pose Image="../escape.png" Duration="#{dynamic}" />
+  </Animation></Action>
   <Action Name="Fall" Type="Embedded" Class="com.group_finity.mascot.action.Fall" />
   <Action Name="Dragged" Type="Embedded" Class="com.group_finity.mascot.action.Dragged" />
   <Action Name="Thrown" Type="Embedded" Class="com.group_finity.mascot.action.Thrown" />
@@ -266,6 +271,13 @@ const compiledClassic = compileClassicShimeji(classicActions, classicBehaviors);
 check('解析经典 Action/Behavior 与后继权重', compiledClassic.ok
   && compiledClassic.profile.actions.length === 6
   && compiledClassic.profile.behaviors.find((behavior) => behavior.name === 'Stand')?.next.length === 2);
+check('安全提取 Pose 图片、右向帧和固定时长', compiledClassic.ok
+  && compiledClassic.profile.actions.find((action) => action.name === 'Stand')?.poses[0]?.image === 'shime1.png'
+  && compiledClassic.profile.actions.find((action) => action.name === 'Stand')?.poses[0]?.imageRight === 'shime1-r.png'
+  && compiledClassic.profile.actions.find((action) => action.name === 'Stand')?.poses[0]?.durationMs === 250);
+check('Pose 路径逃逸与动态时长被跳过而不执行', compiledClassic.ok
+  && compiledClassic.profile.actions.find((action) => action.name === 'Walk')?.poses.length === 1
+  && compiledClassic.warnings.some((warning) => warning.includes('Walk Pose')));
 check('动态表达式不执行并从兼容子集中排除', compiledClassic.ok
   && !compiledClassic.profile.actions.some((action) => action.name === 'Dynamic')
   && compiledClassic.warnings.some((warning) => warning.includes('Dynamic')));
