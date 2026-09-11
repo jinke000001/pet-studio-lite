@@ -163,6 +163,27 @@ function advanceFalling(
   dt: number,
   options: DesktopMotionOptions,
 ): DesktopActor {
+  // 外部拖拽或显示器工作区骤变可能让 actor 的脚底暂时落到地面以下。
+  // 连续碰撞只处理“从上向下穿越”，因此先把这种输入恢复到合法地面，
+  // 避免 y 持续增长而宿主窗口只能反复夹紧在屏幕底部。
+  if (actor.y + actor.height > terrain.floorY) {
+    const minX = terrain.workArea.x;
+    const maxX = Math.max(minX, terrain.workArea.x + terrain.workArea.width - actor.width);
+    const x = Math.max(minX, Math.min(actor.x, maxX));
+    const vx = actor.vx || (actor.facing === 'right' ? options.walkSpeed : -options.walkSpeed);
+    return {
+      ...actor,
+      x,
+      y: terrain.floorY - actor.height,
+      state: 'walking',
+      facing: vx < 0 ? 'left' : 'right',
+      vx,
+      vy: 0,
+      supportId: 'work-area-floor',
+      supportOffsetX: x + actor.width / 2 - terrain.workArea.x,
+      climb: null,
+    };
+  }
   const nextVy = Math.min(options.maxFallSpeed, actor.vy + options.gravity * dt);
   const nextY = actor.y + nextVy * dt;
   const minX = terrain.workArea.x;

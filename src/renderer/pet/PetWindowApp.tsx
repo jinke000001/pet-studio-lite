@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { PetWindowPayload } from '../../shared/types';
 import type { PetWindowApi } from '../../preload/petwin';
 import { ClassicPetBehaviorScheduler, PetBehaviorScheduler, stopWalkingState, type BehaviorScheduler } from '../../shared/pet-behavior';
-import { computeWorkAreaHomePosition } from '../../shared/geometry';
+import { clampBoundsToWorkArea, computeWorkAreaHomePosition } from '../../shared/geometry';
 import { DesktopRuntimeSession } from '../../shared/shimeji/desktop-runtime-session';
 import type { DesktopTerrain } from '../../shared/shimeji/desktop-terrain';
 import { PointerVelocityTracker, type PointerVelocity } from '../../shared/shimeji/pointer-velocity';
@@ -126,7 +126,10 @@ export function PetWindowApp() {
     try {
       const bounds = await window.pet.getWindowBounds();
       if (!bounds || !desktopTerrainRef.current) return;
-      const actorBounds = { x: bounds.win.x, y: bounds.win.y, width: bounds.win.w, height: bounds.win.h };
+      const actorBounds = clampBoundsToWorkArea(
+        { x: bounds.win.x, y: bounds.win.y, width: bounds.win.w, height: bounds.win.h },
+        bounds.workArea,
+      );
       if (desktopSessionRef.current && forceReset) desktopSessionRef.current.reset(actorBounds);
       else if (!desktopSessionRef.current) desktopSessionRef.current = new DesktopRuntimeSession(actorBounds, facing);
       desktopLastPositionRef.current = { x: bounds.win.x, y: bounds.win.y };
@@ -145,7 +148,10 @@ export function PetWindowApp() {
       if (!desktopTerrainRef.current) return;
       const bounds = await window.pet.getWindowBounds();
       if (!bounds || !desktopTerrainRef.current) return;
-      const actorBounds = { x: bounds.win.x, y: bounds.win.y, width: bounds.win.w, height: bounds.win.h };
+      const actorBounds = clampBoundsToWorkArea(
+        { x: bounds.win.x, y: bounds.win.y, width: bounds.win.w, height: bounds.win.h },
+        bounds.workArea,
+      );
       if (desktopSessionRef.current) desktopSessionRef.current.reset(actorBounds);
       else desktopSessionRef.current = new DesktopRuntimeSession(actorBounds, facing);
       desktopSessionRef.current.release(velocity);

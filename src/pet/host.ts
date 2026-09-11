@@ -339,6 +339,9 @@ export class PetWindowHost implements PetIpcTarget {
       const display = screen.getDisplayMatching(current);
       const next = computeAnchoredZoomBounds(current, windowSizeFor(this.zoom), display.workArea);
       this.win.setBounds(next);
+      // 复用缩放同步通道通知 renderer 以新原生 bounds 重建物理会话；否则
+      // DPI/工作区改变后旧 actor 会在下一帧把窗口推回过期坐标。
+      this.win.webContents.send('pet:zoom', this.zoom);
       if (this.terrainUnsubscribe) this.publishDesktopTerrain(sharedDesktopWindows.snapshot);
     };
     screen.on('display-metrics-changed', this.displayMetricsListener);

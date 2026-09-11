@@ -1291,7 +1291,8 @@ async function uxWiringTests(): Promise<void> {
   check('监听 Windows DPI/workArea 动态变化并重新夹紧',
     hostSrc.includes("screen.on('display-metrics-changed'") &&
     hostSrc.includes("screen.removeListener('display-metrics-changed'") &&
-    hostSrc.includes("metric === 'scaleFactor'"));
+    hostSrc.includes("metric === 'scaleFactor'") &&
+    /displayMetricsListener[\s\S]{0,700}?webContents\.send\('pet:zoom', this\.zoom\)/.test(hostSrc));
 
   const petMainSrc = await fs.readFile(path.join(REPO, 'src', 'pet', 'main.ts'), 'utf8');
   check('运行时用单一内存状态存储（PetStateStore）', petMainSrc.includes('PetStateStore'));
@@ -1316,6 +1317,8 @@ async function uxWiringTests(): Promise<void> {
     petAppSrc.includes('DesktopRuntimeSession') && petAppSrc.includes('onDesktopTerrain'));
   check('渲染器把拖拽释放速度交给共享 Shimeji 会话',
     petAppSrc.includes('PointerVelocityTracker') && petAppSrc.includes('.release(velocity)'));
+  check('拖到工作区外松手前先夹紧物理 actor，避免无限坠落',
+    (petAppSrc.match(/clampBoundsToWorkArea\(/g)?.length ?? 0) >= 2);
   check('渲染器收到经典计划后改用安全加权调度器并沿用转换时长',
     petAppSrc.includes('new ClassicPetBehaviorScheduler(p.classicBehaviorPlan')
     && petAppSrc.includes('startWander(decision.durationMs || undefined)'));

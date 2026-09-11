@@ -125,6 +125,17 @@ check('坠落跨过工作区底边时不会穿透', landedOnFloor.state === 'wal
 check('坠落结束后落在工作区底边', landedOnFloor.y + landedOnFloor.height === 1040);
 check('落地后记录工作区底边支撑', landedOnFloor.supportId === 'work-area-floor');
 
+const recoveredBelowFloor = advanceDesktopActor({
+  ...fallingAfterClose,
+  x: 2_200,
+  y: 1_200,
+  state: 'falling',
+}, buildDesktopTerrain(workArea, []), 16);
+check('拖到工作区下方松手后会立即恢复到可见地面',
+  recoveredBelowFloor.state === 'walking'
+  && recoveredBelowFloor.y + recoveredBelowFloor.height === workArea.height
+  && recoveredBelowFloor.x + recoveredBelowFloor.width <= workArea.width);
+
 const movedWhileStanding = advanceDesktopActor(
   { ...reachedTop, supportOffsetX: 200 },
   buildDesktopTerrain(workArea, [
