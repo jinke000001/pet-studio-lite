@@ -21,6 +21,33 @@
 
 Windows x64 导出候选必须保持 `internal-test-only` 并通过 ZIP 静态核验；具体候选文件名和 SHA-256 在每次测试交接时单独记录，避免报告中的自引用哈希失效。静态核验不能替代 Windows 实机视觉和交互验收。
 
+## 逐包权利审查（2026-09-11）
+
+结论：**未获得对外再分发或商业使用许可，状态保持 `not-cleared`。** 这不阻止用户本人在受控环境中进行兼容测试，但 Pet Studio 不得把 Mario 素材放入公开安装包、角色市场、演示下载或可转售产品。
+
+| 审查层 | 当前证据 | 判定 |
+| --- | --- | --- |
+| 素材来源与署名 | Shimejis.xyz 角色页署名 `Diva-Don`，并链接到其 DeviantArt 的 Paper Mario Shimeji 页面 | 来源可追溯，但署名不等于许可 |
+| 包内许可证 | 只读快照仅含 50 张 PNG、`actions.xml`、`behaviors.xml`；没有 `LICENSE`、`COPYING`、README 或授权声明 | 没有可执行的再分发许可 |
+| 目录站上传规则 | Shimejis.xyz FAQ 要求提交者只分享本人制作或有权分享的包并注明原作者，同时说明目录从 2026 年起允许用户直接发布且无审核队列 | 最多是上传者声明规则，不能推导出 Pet Studio 获得改编、打包或商业授权 |
+| 角色知识产权 | Mario/Super Mario 属于 Nintendo 的角色与标识体系；Nintendo 的公开内容指南仅覆盖特定视频/图片分享，并明确其他 IP 使用（含 fan art）不在该指南授权范围内 | 原画作者许可本身也不足以自动解决角色 IP 的产品分发权 |
+| 站点/扩展源码 | 角色页、FAQ 与站点页未提供该网站或扩展的官方源码仓库/开源许可证；搜索到的 Shimeji GitHub 项目是其他实现 | 不复制站点/扩展代码，不把第三方仓库许可证套用到本网站或 Mario 素材 |
+
+正式解除 `not-cleared` 至少需要：
+
+1. 能与当前快照和作者身份对应的书面授权，明确允许修改格式、嵌入 Pet Studio、再分发以及计划中的商业使用；
+2. 对 Mario/Nintendo 角色权利取得适用于目标地区和分发方式的许可或专业法律确认；
+3. 把授权文件、适用范围、署名要求、到期/撤销条件和素材 SHA-256 一并归档，再把包状态从 `unknown/internal-test` 改为可分发。
+
+在以上条件完成前，网页上的“Get it”、免费使用、社区分享或作者署名都不能作为商业授权证据。可替代路线是使用 Pet Studio 自有原创角色、委托并签署完整权利转让/许可的角色，或许可证明确覆盖修改与再分发的原创素材。
+
+审查依据：
+
+- <https://shimejis.xyz/directory/shimeji/mario-mario-by-diva-don>
+- <https://shimejis.xyz/faq>
+- <https://www.nintendo.co.jp/networkservice_guideline/en/index.html>
+- <https://en-americas-support.nintendo.com/app/answers/detail/a_id/55888/>
+
 ## 当前转换结果
 
 | 项目 | 源包 | 当前安全转换 |
