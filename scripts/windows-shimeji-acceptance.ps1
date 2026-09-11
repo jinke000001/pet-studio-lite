@@ -1,6 +1,9 @@
 param(
   [string]$AppPath = (Join-Path $PSScriptRoot 'PetLitePet.exe'),
-  [int]$ObserveSeconds = 24
+  [ValidateRange(8, 3600)][int]$ObserveSeconds = 24,
+  [ValidateRange(0, 180)][int]$SoakMinutes = 0,
+  [ValidateRange(5, 300)][int]$SampleSeconds = 30,
+  [ValidateRange(1, 30)][int]$LifecycleCycleMinutes = 5
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,15 +36,26 @@ function Add-Check([string]$Name, [bool]$Passed, [string]$Detail) {
   Write-Host "$mark $Name - $Detail"
 }
 
-function Get-AppProcessIds {
+function Get-AppProcesses {
   $target = [IO.Path]::GetFullPath($AppPath)
-  $ids = @()
+  $found = @()
   foreach ($process in Get-Process -ErrorAction SilentlyContinue) {
     try {
-      if ($process.Path -and [IO.Path]::GetFullPath($process.Path) -eq $target) { $ids += [uint32]$process.Id }
+      if ($process.Path -and [IO.Path]::GetFullPath($process.Path) -eq $target) { $found += $process }
     } catch {}
   }
-  return @($ids)
+  return @($found)
+}
+
+function Get-AppProcessIds {
+  return @(Get-AppProcesses | ForEach-Object { [uint32]$_.Id })
+}
+
+function Get-AppProbeProcessCount([uint32[]]$ParentIds) {
+  if ($ParentIds.Count -eq 0) { return 0 }
+  $children = @(Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $ParentIds -contains [uint32]$_.ParentProcessId })
+  return $children.Count
 }
 
 trap {
@@ -146,12 +160,115 @@ $moved = ($beforeMotion -join '|') -ne ($afterMotion -join '|')
 Add-Check '自动游走触发可观察的位置变化' $moved ("before=" + ($beforeMotion -join ';') + " after=" + ($afterMotion -join ';'))
 Save-Screenshot '03-after-motion.png'
 
-if ($afterMotionWindows.Count -ge 2) {
-  [void][PetStudioWin32]::PostMessage([IntPtr]$afterMotionWindows[0].hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+$soakSamples = [System.Collections.Generic.List[object]]::new()
+$lifecycleCycles = 0
+$soakHealthy = $true
+if ($SoakMinutes -gt 0) {
+  $soakStartedAt = Get-Date
+  $soakDeadline = $soakStartedAt.AddMinutes($SoakMinutes)
+  $nextLifecycleAt = $soakStartedAt.AddMinutes($LifecycleCycleMinutes)
+  Write-Host "`n开始长稳验收：$SoakMinutes 分钟；每 $SampleSeconds 秒采样；每 $LifecycleCycleMinutes 分钟召唤并关闭一只宠物。"
+
+  do {
+    $now = Get-Date
+    if ($now -ge $nextLifecycleAt -and $now -lt $soakDeadline) {
+      $beforeCycle = @(Get-PetWindows)
+      if ($beforeCycle.Count -ge 1 -and $beforeCycle.Count -lt 8) {
+        [void](Start-Process -FilePath $AppPath -PassThru)
+        $spawnedCycle = @(Wait-PetWindows ($beforeCycle.Count + 1))
+        if ($spawnedCycle.Count -eq ($beforeCycle.Count + 1)) {
+          [void][PetStudioWin32]::PostMessage([IntPtr]$spawnedCycle[0].hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+          Start-Sleep -Seconds 3
+          $afterCycle = @(Get-PetWindows)
+          if ($afterCycle.Count -eq $beforeCycle.Count) { $lifecycleCycles += 1 }
+          else { $soakHealthy = $false }
+        } else {
+          $soakHealthy = $false
+        }
+      } else {
+        $soakHealthy = $false
+      }
+      do { $nextLifecycleAt = $nextLifecycleAt.AddMinutes($LifecycleCycleMinutes) } while ($nextLifecycleAt -le $now)
+    }
+
+    $appProcesses = @(Get-AppProcesses)
+    $processIds = @()
+    $workingSetBytes = [double]0
+    $handleCount = 0
+    $unresponsiveCount = 0
+    foreach ($appProcess in $appProcesses) {
+      try {
+        $appProcess.Refresh()
+        $processIds += [uint32]$appProcess.Id
+        $workingSetBytes += [double]$appProcess.WorkingSet64
+        $handleCount += [int]$appProcess.HandleCount
+        if ($appProcess.MainWindowHandle -ne 0 -and -not $appProcess.Responding) { $unresponsiveCount += 1 }
+      } catch {
+        # A short-lived second-instance helper may exit between enumeration and
+        # sampling. It is omitted instead of turning a healthy soak into a race.
+      }
+    }
+    $petWindows = @(Get-PetWindows)
+    $probeChildren = Get-AppProbeProcessCount $processIds
+    $sample = [ordered]@{
+      timestamp = (Get-Date).ToString('o')
+      processCount = $processIds.Count
+      visibleWindows = $petWindows.Count
+      responding = ($unresponsiveCount -eq 0)
+      workingSetMb = [Math]::Round(([double]$workingSetBytes / 1MB), 2)
+      handleCount = [int]$handleCount
+      probeChildren = [int]$probeChildren
+    }
+    $soakSamples.Add($sample)
+    Write-Host ("[SOAK] {0} processes={1} windows={2} memory={3}MB handles={4} probes={5}" -f $sample.timestamp, $sample.processCount, $sample.visibleWindows, $sample.workingSetMb, $sample.handleCount, $sample.probeChildren)
+    if ($processIds.Count -eq 0 -or $petWindows.Count -eq 0 -or $unresponsiveCount -gt 0) {
+      $soakHealthy = $false
+      break
+    }
+
+    $remainingSeconds = [Math]::Max(0, ($soakDeadline - (Get-Date)).TotalSeconds)
+    if ($remainingSeconds -gt 0) {
+      Start-Sleep -Seconds ([Math]::Min($SampleSeconds, [Math]::Ceiling($remainingSeconds)))
+    }
+  } while ((Get-Date) -lt $soakDeadline)
+
+  $sampleArray = @($soakSamples)
+  $sampleArray | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $evidenceDir 'soak-samples.json') -Encoding UTF8
+  Add-Check '长稳期间进程、窗口与响应状态持续正常' $soakHealthy ("samples=" + $sampleArray.Count)
+
+  $expectedCycles = [Math]::Max(0, [Math]::Ceiling($SoakMinutes / $LifecycleCycleMinutes) - 1)
+  Add-Check '长稳期间反复召唤并关闭宠物' ($lifecycleCycles -ge $expectedCycles) ("cycles=$lifecycleCycles expected>=$expectedCycles")
+
+  $maxProbeChildren = if ($sampleArray.Count -gt 0) {
+    [int](($sampleArray | Measure-Object -Property probeChildren -Maximum).Maximum)
+  } else { 0 }
+  Add-Check 'PowerShell 窗口探测子进程没有持续堆积' ($maxProbeChildren -le 2) ("maxConcurrent=$maxProbeChildren")
+
+  $edgeCount = [Math]::Min(3, $sampleArray.Count)
+  if ($edgeCount -gt 0) {
+    $firstMemory = [double](($sampleArray | Select-Object -First $edgeCount | Measure-Object -Property workingSetMb -Average).Average)
+    $lastMemory = [double](($sampleArray | Select-Object -Last $edgeCount | Measure-Object -Property workingSetMb -Average).Average)
+    $memoryGrowth = [Math]::Round($lastMemory - $firstMemory, 2)
+    $memoryAllowance = [Math]::Max(128, $firstMemory * 0.5)
+    Add-Check '长稳工作集没有明显持续增长' ($memoryGrowth -le $memoryAllowance) ("first=${firstMemory}MB last=${lastMemory}MB growth=${memoryGrowth}MB allowance=${memoryAllowance}MB")
+
+    $firstHandles = [double](($sampleArray | Select-Object -First $edgeCount | Measure-Object -Property handleCount -Average).Average)
+    $lastHandles = [double](($sampleArray | Select-Object -Last $edgeCount | Measure-Object -Property handleCount -Average).Average)
+    $handleGrowth = [Math]::Round($lastHandles - $firstHandles, 2)
+    $handleAllowance = [Math]::Max(512, $firstHandles * 0.5)
+    Add-Check '长稳句柄数没有明显持续增长' ($handleGrowth -le $handleAllowance) ("first=$firstHandles last=$lastHandles growth=$handleGrowth allowance=$handleAllowance")
+  }
+  Save-Screenshot '04-after-soak.png'
+}
+
+$beforeSingleClose = @(Get-PetWindows)
+if ($beforeSingleClose.Count -ge 2) {
+  [void][PetStudioWin32]::PostMessage([IntPtr]$beforeSingleClose[0].hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
   Start-Sleep -Seconds 3
 }
 $remaining = @(Get-PetWindows)
-Add-Check '关闭其中一只不会退出另一只' ($remaining.Count -ge 1) ("visibleWindows=" + $remaining.Count)
+$expectedRemaining = [Math]::Max(1, $beforeSingleClose.Count - 1)
+Add-Check '关闭其中一只不会退出另一只' ($remaining.Count -eq $expectedRemaining) ("before=$($beforeSingleClose.Count) after=$($remaining.Count) expected=$expectedRemaining")
 
 foreach ($window in $remaining) {
   [void][PetStudioWin32]::PostMessage([IntPtr]$window.hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
@@ -171,6 +288,13 @@ $result = [ordered]@{
   manifest = $manifest
   dpi = $dpi
   virtualScreen = $virtual
+  soak = [ordered]@{
+    requestedMinutes = $SoakMinutes
+    sampleSeconds = $SampleSeconds
+    lifecycleCycleMinutes = $LifecycleCycleMinutes
+    lifecycleCycles = $lifecycleCycles
+    samples = @($soakSamples)
+  }
   checks = $checks
   passed = @($checks | Where-Object { $_.passed }).Count
   failed = @($checks | Where-Object { -not $_.passed }).Count

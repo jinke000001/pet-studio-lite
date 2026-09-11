@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   buildDesktopTerrain,
   findLandingSurface,
@@ -483,6 +486,20 @@ check('为含中文的 Windows PowerShell 5.1 脚本添加 UTF-8 BOM',
   bomScript.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf]))
   && bomScript.subarray(3).equals(utf8Script));
 check('已有 UTF-8 BOM 时保持字节稳定', ensureUtf8Bom(bomScript).equals(bomScript));
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const acceptanceScript = await fs.readFile(path.join(repoRoot, 'scripts', 'windows-shimeji-acceptance.ps1'), 'utf8');
+check('Windows 验收脚本提供可选 1 小时长稳模式',
+  acceptanceScript.includes('$SoakMinutes')
+  && acceptanceScript.includes('$SampleSeconds')
+  && acceptanceScript.includes('soak-samples.json'));
+check('长稳模式采集工作集、句柄和直属 PowerShell 探测进程',
+  acceptanceScript.includes('WorkingSet64')
+  && acceptanceScript.includes('HandleCount')
+  && acceptanceScript.includes('Get-AppProbeProcessCount'));
+check('长稳模式循环召唤/关闭宠物并在结尾检查残留',
+  acceptanceScript.includes('lifecycleCycles')
+  && acceptanceScript.includes('关闭最后一只后运行时完全退出'));
 
 console.log(`\n结果：${passed} 通过，${failed} 失败`);
 if (failed > 0) process.exitCode = 1;
