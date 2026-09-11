@@ -15,6 +15,11 @@ import {
 import { SharedWindowSnapshotSource, WindowSnapshotMonitor } from '../src/pet/window-snapshot-monitor';
 import { DesktopRuntimeSession } from '../src/shared/shimeji/desktop-runtime-session';
 import {
+  clampWindowPositionByActor,
+  deriveBottomCenteredActorLayout,
+  windowPositionForActor,
+} from '../src/shared/shimeji/desktop-actor-layout';
+import {
   compileClassicShimeji,
   compileClassicRuntimePlan,
   selectClassicBehavior,
@@ -170,6 +175,39 @@ walkingSession.setWalking(true, 'right');
 walkingSession.advance(buildDesktopTerrain(workArea, []), 16);
 const walkedOnFloor = walkingSession.advance(buildDesktopTerrain(workArea, []), 500);
 check('会话开始游走后使用共享运动核心推进', walkedOnFloor.x > 10 && walkingSession.visualState === 'walking');
+
+console.log('\n[Shimeji 可见角色碰撞布局]');
+
+const actorLayout = deriveBottomCenteredActorLayout(
+  { x: 100, y: 200, width: 400, height: 400 },
+  { width: 153.6, height: 166.4 },
+);
+check('碰撞使用底部居中的角色尺寸而不是整个透明窗口',
+  actorLayout.actor.x === 223
+  && actorLayout.actor.y === 434
+  && actorLayout.actor.width === 154
+  && actorLayout.actor.height === 166);
+check('角色位置可无损换算回窗口左上角',
+  windowPositionForActor(actorLayout.actor, actorLayout.insets).x === 100
+  && windowPositionForActor(actorLayout.actor, actorLayout.insets).y === 200);
+
+const topTouchingWindow = clampWindowPositionByActor(
+  { x: 100, y: -500, width: 400, height: 400 },
+  actorLayout.insets,
+  workArea,
+);
+check('角色碰到屏幕顶边时只允许透明留白出屏',
+  topTouchingWindow.y === -234
+  && topTouchingWindow.y + actorLayout.insets.top === workArea.y);
+
+const rightTouchingWindow = clampWindowPositionByActor(
+  { x: 2_000, y: 300, width: 400, height: 400 },
+  actorLayout.insets,
+  workArea,
+);
+check('角色碰到屏幕右边时不会隔着一个透明窗口留白',
+  rightTouchingWindow.x === 1_643
+  && rightTouchingWindow.x + 400 - actorLayout.insets.right === 1_920);
 
 console.log('\n[Windows 窗口桥协议]');
 

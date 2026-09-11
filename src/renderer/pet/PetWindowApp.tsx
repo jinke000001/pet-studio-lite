@@ -6,6 +6,12 @@ import { clampBoundsToWorkArea, computeWorkAreaHomePosition } from '../../shared
 import { DesktopRuntimeSession } from '../../shared/shimeji/desktop-runtime-session';
 import type { DesktopTerrain } from '../../shared/shimeji/desktop-terrain';
 import { PointerVelocityTracker, type PointerVelocity } from '../../shared/shimeji/pointer-velocity';
+import {
+  deriveBottomCenteredActorLayout,
+  windowPositionForActor,
+  type DesktopActorInsets,
+} from '../../shared/shimeji/desktop-actor-layout';
+import type { PetSpriteConfig } from '../../shared/petpack';
 import { Sprite, type PetState } from './Sprite';
 import lines from './lines.json';
 
@@ -61,6 +67,9 @@ export function PetWindowApp() {
   const desktopResetPendingRef = useRef(false);
   const desktopSuspendedRef = useRef(false);
   const shimejiVisualRef = useRef<PetState | null>(null);
+  const desktopActorInsetsRef = useRef<DesktopActorInsets | null>(null);
+  const spriteConfigRef = useRef<PetSpriteConfig | null>(null);
+  const zoomRef = useRef(1);
 
   function transition(next: PetState) {
     petStateRef.current = next;
@@ -99,7 +108,10 @@ export function PetWindowApp() {
       desktopLastFrameRef.current = now;
       if (session && terrain && !desktopSuspendedRef.current) {
         const actor = session.advance(terrain, Math.min(50, Math.max(0, now - previous)));
-        const nextPosition = { x: Math.round(actor.x), y: Math.round(actor.y) };
+        const insets = desktopActorInsetsRef.current;
+        const nextPosition = insets
+          ? windowPositionForActor(actor, insets)
+          : { x: Math.round(actor.x), y: Math.round(actor.y) };
         const lastPosition = desktopLastPositionRef.current;
         if (!lastPosition || lastPosition.x !== nextPosition.x || lastPosition.y !== nextPosition.y) {
           desktopLastPositionRef.current = nextPosition;
@@ -126,10 +138,20 @@ export function PetWindowApp() {
     try {
       const bounds = await window.pet.getWindowBounds();
       if (!bounds || !desktopTerrainRef.current) return;
-      const actorBounds = clampBoundsToWorkArea(
+      const sprite = spriteConfigRef.current;
+      if (!sprite) return;
+      const layout = deriveBottomCenteredActorLayout(
         { x: bounds.win.x, y: bounds.win.y, width: bounds.win.w, height: bounds.win.h },
+        {
+          width: sprite.frame.width * sprite.displayScale * zoomRef.current,
+          height: sprite.frame.height * sprite.displayScale * zoomRef.current,
+        },
+      );
+      const actorBounds = clampBoundsToWorkArea(
+        layout.actor,
         bounds.workArea,
       );
+      desktopActorInsetsRef.current = layout.insets;
       if (desktopSessionRef.current && forceReset) desktopSessionRef.current.reset(actorBounds);
       else if (!desktopSessionRef.current) desktopSessionRef.current = new DesktopRuntimeSession(actorBounds, facing);
       desktopLastPositionRef.current = { x: bounds.win.x, y: bounds.win.y };
@@ -148,10 +170,20 @@ export function PetWindowApp() {
       if (!desktopTerrainRef.current) return;
       const bounds = await window.pet.getWindowBounds();
       if (!bounds || !desktopTerrainRef.current) return;
-      const actorBounds = clampBoundsToWorkArea(
+      const sprite = spriteConfigRef.current;
+      if (!sprite) return;
+      const layout = deriveBottomCenteredActorLayout(
         { x: bounds.win.x, y: bounds.win.y, width: bounds.win.w, height: bounds.win.h },
+        {
+          width: sprite.frame.width * sprite.displayScale * zoomRef.current,
+          height: sprite.frame.height * sprite.displayScale * zoomRef.current,
+        },
+      );
+      const actorBounds = clampBoundsToWorkArea(
+        layout.actor,
         bounds.workArea,
       );
+      desktopActorInsetsRef.current = layout.insets;
       if (desktopSessionRef.current) desktopSessionRef.current.reset(actorBounds);
       else desktopSessionRef.current = new DesktopRuntimeSession(actorBounds, facing);
       desktopSessionRef.current.release(velocity);
@@ -238,11 +270,14 @@ export function PetWindowApp() {
       .then((p) => {
         setPayload(p);
         setZoom(p.config.zoom);
+        zoomRef.current = p.config.zoom;
+        spriteConfigRef.current = p.sprite;
         wanderEnabledRef.current = p.config.wanderEnabled;
         schedulerRef.current = p.classicBehaviorPlan?.length
           ? new ClassicPetBehaviorScheduler(p.classicBehaviorPlan, Math.random, Date.now())
           : new PetBehaviorScheduler(Math.random, undefined, Date.now());
         armAutoCheck();
+        void syncDesktopSessionFromWindow();
         // 启动问候：说话/挥手 + 气泡
         setTimeout(() => {
           if (petStateRef.current !== 'idle') return;
@@ -259,6 +294,7 @@ export function PetWindowApp() {
       .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)));
     const offZoom = window.pet.onZoomChanged((nextZoom) => {
       setZoom(nextZoom);
+      zoomRef.current = nextZoom;
       setTimeout(() => { void syncDesktopSessionFromWindow(true); }, 0);
     });
     const offWander = window.pet.onWanderChanged(applyWanderEnabled);
@@ -283,6 +319,8 @@ export function PetWindowApp() {
       cancelWander();
       desktopTerrainRef.current = null;
       desktopSessionRef.current = null;
+      desktopActorInsetsRef.current = null;
+      spriteConfigRef.current = null;
       if (desktopRafRef.current !== null) cancelAnimationFrame(desktopRafRef.current);
       desktopRafRef.current = null;
     };

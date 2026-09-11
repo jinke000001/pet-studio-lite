@@ -6,6 +6,11 @@ import type { PetWindowPayload } from '../shared/types';
 import { registerPetIpc, type PetIpcSenderKind, type PetIpcTarget } from './ipc-router';
 import { buildPetContextMenu } from './menu';
 import { buildDesktopTerrain, type DesktopTerrain, type DesktopWindowSnapshot } from '../shared/shimeji/desktop-terrain';
+import {
+  clampWindowPositionByActor,
+  deriveBottomCenteredActorLayout,
+  type DesktopActorInsets,
+} from '../shared/shimeji/desktop-actor-layout';
 import { SharedWindowSnapshotSource } from './window-snapshot-monitor';
 import { captureDesktopWindows } from './windows-window-probe';
 
@@ -97,6 +102,8 @@ export class PetWindowHost implements PetIpcTarget {
   private displayMetricsListener: ((event: Electron.Event, display: Electron.Display, changedMetrics: string[]) => void) | null = null;
   private desktopTerrain: DesktopTerrain | null = null;
   private terrainUnsubscribe: (() => void) | null = null;
+  private actorInsets: DesktopActorInsets = { left: 0, top: 0, right: 0, bottom: 0 };
+  private spriteLayout: PetWindowPayload['sprite'] | null = null;
 
   constructor(readonly opts: PetHostOptions) {}
 
@@ -174,12 +181,32 @@ export class PetWindowHost implements PetIpcTarget {
 
   moveTo(x: number, y: number): void {
     if (!this.win) return;
-    const wa = screen.getDisplayMatching(this.win.getBounds()).workArea;
     const [w, h] = this.win.getSize();
-    this.win.setPosition(
-      Math.max(wa.x, Math.min(Math.round(x), wa.x + wa.width - w)),
-      Math.max(wa.y, Math.min(Math.round(y), wa.y + wa.height - h)),
-    );
+    const requested = { x: Math.round(x), y: Math.round(y), width: w, height: h };
+    const actorBounds = {
+      x: requested.x + this.actorInsets.left,
+      y: requested.y + this.actorInsets.top,
+      width: requested.width - this.actorInsets.left - this.actorInsets.right,
+      height: requested.height - this.actorInsets.top - this.actorInsets.bottom,
+    };
+    const wa = screen.getDisplayMatching(actorBounds).workArea;
+    const clamped = clampWindowPositionByActor(requested, this.actorInsets, wa);
+    this.win.setPosition(clamped.x, clamped.y);
+  }
+
+  private updateActorInsets(size: number): void {
+    const sprite = this.spriteLayout;
+    if (!sprite) {
+      this.actorInsets = { left: 0, top: 0, right: 0, bottom: 0 };
+      return;
+    }
+    this.actorInsets = deriveBottomCenteredActorLayout(
+      { x: 0, y: 0, width: size, height: size },
+      {
+        width: sprite.frame.width * sprite.displayScale * this.zoom,
+        height: sprite.frame.height * sprite.displayScale * this.zoom,
+      },
+    ).insets;
   }
 
   /**
@@ -193,6 +220,7 @@ export class PetWindowHost implements PetIpcTarget {
     this.zoom = normalized;
     if (this.win && !this.win.isDestroyed()) {
       const size = windowSizeFor(this.zoom);
+      this.updateActorInsets(size);
       const prev = this.win.getBounds();
       const display = screen.getDisplayMatching(prev);
       const bounds = computeAnchoredZoomBounds(prev, size, display.workArea);
@@ -296,7 +324,9 @@ export class PetWindowHost implements PetIpcTarget {
     const payload = await this.opts.getPayload();
     this.zoom = payload.config.zoom;
     this.wanderEnabled = payload.config.wanderEnabled;
+    this.spriteLayout = payload.sprite;
     const size = windowSizeFor(this.zoom);
+    this.updateActorInsets(size);
 
     const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const requestedPos = this.opts.initialPosition ?? defaultPosition(cursorDisplay, size);

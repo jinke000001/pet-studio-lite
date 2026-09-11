@@ -1286,6 +1286,10 @@ async function uxWiringTests(): Promise<void> {
   check('宿主在窗口关闭时 flush 待写位置', /'closed'[\s\S]{0,300}?positionSaver\.flush\(\)/.test(hostSrc));
   check('缩放用单次 setBounds 原子更新尺寸与位置',
     hostSrc.includes('this.win.setBounds(bounds)') && !hostSrc.includes('this.win.setSize(bounds.width, bounds.height)'));
+  check('宿主移动夹紧使用可见角色 actor 而不是整个透明窗口',
+    hostSrc.includes('deriveBottomCenteredActorLayout')
+    && hostSrc.includes('clampWindowPositionByActor')
+    && hostSrc.includes('this.actorInsets'));
   check('启动时夹紧历史越界坐标',
     hostSrc.includes('clampBoundsToWorkArea(requestedBounds, initialDisplay.workArea)'));
   check('监听 Windows DPI/workArea 动态变化并重新夹紧',
@@ -1315,6 +1319,9 @@ async function uxWiringTests(): Promise<void> {
   check('渲染器复位用共享几何 + 受控移动', petAppSrc.includes('computeWorkAreaHomePosition') && petAppSrc.includes('onGoHome'));
   check('渲染器用共享 Shimeji 会话驱动窗口位置',
     petAppSrc.includes('DesktopRuntimeSession') && petAppSrc.includes('onDesktopTerrain'));
+  check('渲染器在可见精灵碰撞坐标与原生窗口坐标之间换算',
+    petAppSrc.includes('deriveBottomCenteredActorLayout')
+    && petAppSrc.includes('windowPositionForActor'));
   check('渲染器把拖拽释放速度交给共享 Shimeji 会话',
     petAppSrc.includes('PointerVelocityTracker') && petAppSrc.includes('.release(velocity)'));
   check('拖到工作区外松手前先夹紧物理 actor，避免无限坠落',
