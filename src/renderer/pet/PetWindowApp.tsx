@@ -7,6 +7,7 @@ import { DesktopRuntimeSession } from '../../shared/shimeji/desktop-runtime-sess
 import type { DesktopTerrain } from '../../shared/shimeji/desktop-terrain';
 import { PointerVelocityTracker, type PointerVelocity } from '../../shared/shimeji/pointer-velocity';
 import {
+  approachWindowPosition,
   deriveBottomCenteredActorLayout,
   windowPositionForActor,
   type DesktopActorInsets,
@@ -32,6 +33,7 @@ const JUMP_MS = 1000;
 const BUBBLE_GAP_PX = 4;
 const SHIMEJI_WANDER_MIN_MS = 6_000;
 const SHIMEJI_WANDER_MAX_MS = 12_000;
+const DESKTOP_CATCH_UP_SPEED_PX_PER_SEC = 900;
 
 function pickFrom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
@@ -107,12 +109,21 @@ export function PetWindowApp() {
       const previous = desktopLastFrameRef.current ?? now;
       desktopLastFrameRef.current = now;
       if (session && terrain && !desktopSuspendedRef.current) {
-        const actor = session.advance(terrain, Math.min(50, Math.max(0, now - previous)));
+        const elapsedMs = Math.min(50, Math.max(0, now - previous));
+        const actor = session.advance(terrain, elapsedMs);
         const insets = desktopActorInsetsRef.current;
-        const nextPosition = insets
+        const targetPosition = insets
           ? windowPositionForActor(actor, insets)
           : { x: Math.round(actor.x), y: Math.round(actor.y) };
         const lastPosition = desktopLastPositionRef.current;
+        const nextPosition = lastPosition
+          ? approachWindowPosition(
+            lastPosition,
+            targetPosition,
+            elapsedMs,
+            DESKTOP_CATCH_UP_SPEED_PX_PER_SEC,
+          )
+          : targetPosition;
         if (!lastPosition || lastPosition.x !== nextPosition.x || lastPosition.y !== nextPosition.y) {
           desktopLastPositionRef.current = nextPosition;
           window.pet.moveWindowTo(nextPosition.x, nextPosition.y);

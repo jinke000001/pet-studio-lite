@@ -15,6 +15,7 @@ import {
 import { SharedWindowSnapshotSource, WindowSnapshotMonitor } from '../src/pet/window-snapshot-monitor';
 import { DesktopRuntimeSession } from '../src/shared/shimeji/desktop-runtime-session';
 import {
+  approachWindowPosition,
   clampWindowPositionByActor,
   deriveBottomCenteredActorLayout,
   windowPositionForActor,
@@ -215,6 +216,17 @@ const rightTouchingWindow = clampWindowPositionByActor(
 check('角色碰到屏幕右边时不会隔着一个透明窗口留白',
   rightTouchingWindow.x === 1_643
   && rightTouchingWindow.x + 400 - actorLayout.insets.right === 1_920);
+
+const smoothedWindow = approachWindowPosition(
+  { x: 0, y: 0 },
+  { x: 300, y: 400 },
+  100,
+  1_000,
+);
+check('地形快照跳变时窗口按速率连续追赶而不是瞬移',
+  smoothedWindow.x === 60 && smoothedWindow.y === 80);
+check('普通小步移动不被额外延迟',
+  approachWindowPosition({ x: 10, y: 20 }, { x: 11, y: 21 }, 16, 1_000).x === 11);
 
 console.log('\n[Windows 窗口桥协议]');
 

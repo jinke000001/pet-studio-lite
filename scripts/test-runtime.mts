@@ -1322,6 +1322,8 @@ async function uxWiringTests(): Promise<void> {
   check('渲染器在可见精灵碰撞坐标与原生窗口坐标之间换算',
     petAppSrc.includes('deriveBottomCenteredActorLayout')
     && petAppSrc.includes('windowPositionForActor'));
+  check('渲染器对地形快照造成的大幅位移做连续追赶',
+    petAppSrc.includes('approachWindowPosition'));
   check('渲染器把拖拽释放速度交给共享 Shimeji 会话',
     petAppSrc.includes('PointerVelocityTracker') && petAppSrc.includes('.release(velocity)'));
   check('拖到工作区外松手前先夹紧物理 actor，避免无限坠落',

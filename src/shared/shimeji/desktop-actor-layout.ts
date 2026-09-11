@@ -39,6 +39,38 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
 }
 
+/**
+ * 让原生窗口以有限速度追赶物理 actor。普通逐帧移动会直接命中目标；
+ * 只有窗口地形快照造成的大幅坐标变化才会被拆成连续的小步。
+ */
+export function approachWindowPosition(
+  current: { x: number; y: number },
+  target: { x: number; y: number },
+  deltaMs: number,
+  maxSpeedPxPerSecond: number,
+): { x: number; y: number } {
+  if (![current.x, current.y, target.x, target.y, deltaMs, maxSpeedPxPerSecond].every(Number.isFinite)) {
+    return current;
+  }
+
+  const dx = target.x - current.x;
+  const dy = target.y - current.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance === 0) return target;
+
+  const maxStep = Math.max(0, deltaMs) * Math.max(0, maxSpeedPxPerSecond) / 1_000;
+  if (maxStep <= 0) return current;
+  if (distance <= maxStep) {
+    return { x: Math.round(target.x), y: Math.round(target.y) };
+  }
+
+  const ratio = maxStep / distance;
+  return {
+    x: Math.round(current.x + dx * ratio),
+    y: Math.round(current.y + dy * ratio),
+  };
+}
+
 /** 根据 CSS 的底部居中布局，从原生窗口换算实际参与碰撞的精灵单格。 */
 export function deriveBottomCenteredActorLayout(
   windowBounds: DesktopRect,
