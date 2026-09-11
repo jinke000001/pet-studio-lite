@@ -7,14 +7,18 @@ import { PetStateStore, applyPersistedPetState } from '../shared/pet-state';
 import type { PetWindowPayload } from '../shared/types';
 import { PetWindowHost } from './host';
 
+export const MAX_PET_COUNT = 8;
+const PET_CASCADE_X = 48;
+const PET_CASCADE_Y = -32;
+
 /**
  * 导出的独立桌宠运行时（Windows/macOS 同一份代码）。
  *
  * - 完全离线：不发起任何网络请求。
  * - 宠物包与配置随包封装在 resources/petpack/，首次启动不下载任何东西。
  * - 自己的 userData 命名空间（pet-lite-pet），只存窗口位置、缩放与"自动游走"开关。
- * - 右键菜单：自动游走开关、连续尺寸滑杆（bottom-center 锚点 + workArea 夹紧）、
- *   回到屏幕右下角、关于、真正退出。
+ * - 右键菜单：自动游走、召唤分身（最多 8 只）、连续尺寸滑杆、复位、
+ *   关闭单只与退出全部；第二次启动同一程序也会召唤分身。
  * - 状态写盘：单一内存状态 + 串行原子写（PetStateStore），退出前先 flush。
  */
 
@@ -75,37 +79,74 @@ async function main() {
     license: pack.license,
   };
 
-  const host = new PetWindowHost({
-    getPayload: async () => ({
-      ...payload,
-      config: applyPersistedPetState(payload.config, stateStore.current),
-    }),
-    preloadFile: path.join(__dirname, '../preload/petwin.js'),
-    rendererUrl: `file://${path.join(__dirname, '../renderer/pet.html')}`,
-    sizeControlPreloadFile: path.join(__dirname, '../preload/sizeControl.js'),
-    sizeControlRendererUrl: `file://${path.join(__dirname, '../renderer/size-control.html')}`,
-    initialPosition: persisted.windowPosition,
-    onPositionChange: (pos) => { void stateStore.update({ windowPosition: pos }); },
-    onZoomChange: (zoom) => { void stateStore.update({ zoom }); },
-    onWanderChange: (enabled) => { void stateStore.update({ wanderEnabled: enabled }); },
-    closeLabel: '👋  退出',
-    onInfo: () => {
-      void dialog.showMessageBox({
-        type: 'info',
-        title: '关于这只宠物',
-        message: config.petName,
-        detail: [
-          `包 id：${pack.id}`,
-          `Petdex 版本：${pack.version}`,
-          `授权状态：${pack.license}`,
-          '由 Pet Studio Lite 导出 · 完全离线运行',
-        ].join('\n'),
-      });
-    },
-    onClosed: () => quitAfterFlush(),
+  const hosts = new Set<PetWindowHost>();
+
+  const spawnPet = async (source: PetWindowHost | null = null): Promise<void> => {
+    if (quitting || hosts.size >= MAX_PET_COUNT) return;
+    const sourceBounds = source?.window && !source.window.isDestroyed()
+      ? source.window.getBounds()
+      : null;
+    const isPrimary = hosts.size === 0;
+    const initialPosition = sourceBounds
+      ? { x: sourceBounds.x + PET_CASCADE_X, y: sourceBounds.y + PET_CASCADE_Y }
+      : isPrimary ? persisted.windowPosition : null;
+
+    let host!: PetWindowHost;
+    host = new PetWindowHost({
+      getPayload: async () => ({
+        ...payload,
+        config: applyPersistedPetState(payload.config, stateStore.current),
+      }),
+      preloadFile: path.join(__dirname, '../preload/petwin.js'),
+      rendererUrl: `file://${path.join(__dirname, '../renderer/pet.html')}`,
+      sizeControlPreloadFile: path.join(__dirname, '../preload/sizeControl.js'),
+      sizeControlRendererUrl: `file://${path.join(__dirname, '../renderer/size-control.html')}`,
+      initialPosition,
+      // 只让首只宠物维护下次启动位置，临时召唤的分身不会覆盖主位置。
+      onPositionChange: isPrimary ? (pos) => { void stateStore.update({ windowPosition: pos }); } : undefined,
+      onZoomChange: (zoom) => { void stateStore.update({ zoom }); },
+      onWanderChange: (enabled) => { void stateStore.update({ wanderEnabled: enabled }); },
+      closeLabel: '✕  关闭这只宠物',
+      canSpawn: () => hosts.size < MAX_PET_COUNT,
+      onSpawn: () => {
+        void spawnPet(host).catch((error) => console.error('[pet] spawn failed:', error));
+      },
+      onQuit: () => quitAfterFlush(),
+      onInfo: () => {
+        void dialog.showMessageBox({
+          type: 'info',
+          title: '关于这只宠物',
+          message: config.petName,
+          detail: [
+            `包 id：${pack.id}`,
+            `Petdex 版本：${pack.version}`,
+            `授权状态：${pack.license}`,
+            `当前数量：${hosts.size} / ${MAX_PET_COUNT}`,
+            '由 Pet Studio Lite 导出 · 完全离线运行',
+          ].join('\n'),
+        });
+      },
+      onClosed: () => {
+        hosts.delete(host);
+        if (hosts.size === 0) quitAfterFlush();
+      },
+    });
+    hosts.add(host);
+    try {
+      await host.open();
+    } catch (error) {
+      hosts.delete(host);
+      host.close();
+      throw error;
+    }
+  };
+
+  app.on('second-instance', () => {
+    const source = [...hosts].at(-1) ?? null;
+    void spawnPet(source).catch((error) => console.error('[pet] second-instance spawn failed:', error));
   });
 
-  await host.open();
+  await spawnPet();
 
   // 关掉窗口 = 真正退出进程（不驻留托盘）；退出前先 flush 状态写盘。
   app.on('window-all-closed', () => quitAfterFlush());

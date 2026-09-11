@@ -1130,12 +1130,14 @@ function petMenuTests(): void {
     onOpenSizeControl: () => { calls.push('size-control'); },
     onGoHome: () => { calls.push('home'); },
     onInfo: () => { calls.push('info'); },
+    onSpawn: () => { calls.push('spawn'); },
     onClose: () => { calls.push('close'); },
+    onQuit: () => { calls.push('quit'); },
   };
-  const items = buildPetContextMenu({ wanderEnabled: true, closeLabel: '👋  退出' }, actions);
+  const items = buildPetContextMenu({ wanderEnabled: true, closeLabel: '✕  关闭这只宠物', canSpawn: true }, actions);
   const order = items.map((i) => (i.type === 'separator' ? '|' : i.label));
-  check('菜单顺序：自动游走 / 缩放 / 回到屏幕右下角 / 关于 / 退出',
-    order.join('') === '🐾  自动游走🔍  调整宠物尺寸…|📍  回到屏幕右下角ℹ️  关于这只宠物|👋  退出',
+  check('运行时菜单包含召唤、单只关闭和全部退出',
+    order.join('') === '🐾  自动游走🐣  再召唤一只🔍  调整宠物尺寸…|📍  回到屏幕右下角ℹ️  关于这只宠物|✕  关闭这只宠物👋  退出全部宠物',
     order.join(' '));
 
   const wanderItem = items[0]!;
@@ -1146,15 +1148,31 @@ function petMenuTests(): void {
   // 模拟点击勾选框：Electron 传勾选后的新状态
   (wanderItem.click as (item: { checked: boolean }) => void)({ checked: false });
   check('点击自动游走传回勾选后的新状态', calls[0] === 'wander:false');
-  check('尺寸入口不再包含三档子菜单', !items[1]!.submenu);
-  (items[1]!.click as () => void)();
+  const spawnItem = items[1]!;
+  check('召唤入口在未达上限时可用', spawnItem.enabled !== false);
+  (spawnItem.click as () => void)();
+  check('点击召唤入口创建另一只宠物', calls.includes('spawn'));
+  check('尺寸入口不再包含三档子菜单', !items[2]!.submenu);
+  (items[2]!.click as () => void)();
   check('点击尺寸入口打开连续滑杆面板', calls.includes('size-control'));
 
-  (items[3]!.click as () => void)();
-  check('点击"回到屏幕右下角"派发复位动作', calls.includes('home'));
   (items[4]!.click as () => void)();
-  (items[6]!.click as () => void)();
-  check('关于 / 退出动作派发', calls.includes('info') && calls.includes('close'));
+  check('点击"回到屏幕右下角"派发复位动作', calls.includes('home'));
+  (items[5]!.click as () => void)();
+  (items[7]!.click as () => void)();
+  (items[8]!.click as () => void)();
+  check('关于 / 单只关闭 / 全部退出分别派发', calls.includes('info') && calls.includes('close') && calls.includes('quit'));
+
+  const cappedItems = buildPetContextMenu({ wanderEnabled: true, closeLabel: '✕  关闭这只宠物', canSpawn: false }, actions);
+  check('达到数量上限后召唤入口禁用', cappedItems[1]!.enabled === false);
+
+  const previewItems = buildPetContextMenu({ wanderEnabled: false, closeLabel: '关闭预览' }, {
+    ...actions,
+    onSpawn: undefined,
+    onQuit: undefined,
+  });
+  check('工作室单宠物预览不显示召唤与退出全部',
+    !previewItems.some((item) => item.label === '🐣  再召唤一只' || item.label === '👋  退出全部宠物'));
 }
 
 // --- 关闭自动游走的即时收尾（只收 walking，不影响 waiting/review） ------------------------------
@@ -1254,6 +1272,8 @@ async function uxWiringTests(): Promise<void> {
   check('运行时持久化游走开关选择', /onWanderChange:[\s\S]{0,80}?stateStore\.update\(\{ wanderEnabled/.test(petMainSrc));
   check('运行时启动时合并持久化状态', petMainSrc.includes('applyPersistedPetState'));
   check('运行时退出前 flush 状态写盘', /stateStore\.flush\(\)[\s\S]{0,40}?app\.quit\(\)/.test(petMainSrc));
+  check('导出运行时支持最多八只宠物并由第二次启动继续召唤',
+    petMainSrc.includes('MAX_PET_COUNT = 8') && petMainSrc.includes("app.on('second-instance'") && petMainSrc.includes('spawnPet'));
 
   const preloadSrc = await fs.readFile(path.join(REPO, 'src', 'preload', 'petwin.ts'), 'utf8');
   check('窄桥暴露游走开关监听', preloadSrc.includes('onWanderChanged'));

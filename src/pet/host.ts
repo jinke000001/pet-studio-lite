@@ -39,6 +39,12 @@ export interface PetHostOptions {
   onWanderChange?: (enabled: boolean) => void;
   /** "关于 / 信息"菜单项回调。 */
   onInfo?: () => void;
+  /** 导出运行时“再召唤一只”；工作室预览不传。 */
+  onSpawn?: () => void;
+  /** 是否还可召唤；在右键打开菜单时实时求值。 */
+  canSpawn?: () => boolean;
+  /** 导出运行时退出全部宠物；工作室预览不传。 */
+  onQuit?: () => void;
   /** 最后一个菜单项文案（运行时 = 退出；工作室预览 = 关闭预览）。 */
   closeLabel?: string;
   /** 窗口关闭回调。 */
@@ -368,13 +374,19 @@ export class PetWindowHost implements PetIpcTarget {
     win.webContents.on('context-menu', () => {
       if (!this.win) return;
       const items = buildPetContextMenu(
-        { wanderEnabled: this.wanderEnabled, closeLabel: this.opts.closeLabel ?? '👋  退出' },
+        {
+          wanderEnabled: this.wanderEnabled,
+          closeLabel: this.opts.closeLabel ?? '👋  退出',
+          canSpawn: this.opts.canSpawn?.(),
+        },
         {
           onToggleWander: (enabled) => this.setWanderEnabled(enabled),
           onOpenSizeControl: () => this.openSizeControl(),
           onGoHome: () => this.goHome(),
           onInfo: () => this.opts.onInfo?.(),
+          onSpawn: this.opts.onSpawn,
           onClose: () => this.win?.close(),
+          onQuit: this.opts.onQuit,
         },
       );
       Menu.buildFromTemplate(items).popup({ window: this.win });
