@@ -180,6 +180,22 @@ async function main(): Promise<void> {
     await sleep(300);
     check('四轮开关后 onClosed 计数正确', closedEvents === 4, `closedEvents=${closedEvents}`);
 
+    // 两只宠物同时打开：每个 renderer 必须拿到自己的 payload，不能被
+    // “最后打开的宿主”覆盖。这是多宠物 IPC 隔离的真实 Electron 证据。
+    const petA = await openPreview(dora, '并存鸟');
+    const petB = await openPreview(wuk, '并存鱼');
+    const [payloadA, payloadB] = await Promise.all([
+      petA.window!.webContents.executeJavaScript('window.pet.getPayload().then(p => p.sprite.id)'),
+      petB.window!.webContents.executeJavaScript('window.pet.getPayload().then(p => p.sprite.id)'),
+    ]);
+    check('两只真实 Electron 宠物窗口可同时存在',
+      BrowserWindow.getAllWindows().filter((window) => !window.isDestroyed()).length >= 2);
+    check('并存宠物的 IPC payload 不串宠', payloadA === 'demo-bird' && payloadB === 'demo-fish', `${payloadA}/${payloadB}`);
+    petA.close();
+    petB.close();
+    await sleep(300);
+    check('并存宠物可独立关闭并清理宿主路由', closedEvents === 6, `closedEvents=${closedEvents}`);
+
     // IPC 通道没有随开关次数累积（on 通道可公开计数）
     check('pet:drag:begin 监听器没有累积', ipcMain.listenerCount('pet:drag:begin') === 1,
       `count=${ipcMain.listenerCount('pet:drag:begin')}`);

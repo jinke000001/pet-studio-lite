@@ -3,7 +3,7 @@ import { clampBoundsToWorkArea, computeAnchoredZoomBounds, computeWorkAreaHomePo
 import { normalizeZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../shared/config';
 import { FlushableDebouncer } from '../shared/debounce';
 import type { PetWindowPayload } from '../shared/types';
-import { registerPetIpc, type PetIpcTarget } from './ipc-router';
+import { registerPetIpc, type PetIpcSenderKind, type PetIpcTarget } from './ipc-router';
 import { buildPetContextMenu } from './menu';
 import { buildDesktopTerrain, type DesktopTerrain, type DesktopWindowSnapshot } from '../shared/shimeji/desktop-terrain';
 import { WindowSnapshotMonitor } from './window-snapshot-monitor';
@@ -14,9 +14,8 @@ import { captureDesktopWindows } from './windows-window-probe';
  * 用户拿到的"。差异（持久化、信息弹窗）通过 options 注入。
  *
  * pet:* 是进程级全局 IPC 通道（见 ./ipc-router.ts）：整个进程只注册一次，
- * handler 委托给"当前活动宿主"（activeHost）。因此反复 打开→关闭→再打开
- * 预览、或切换项目后再打开，都不会重复注册 handler（重复注册会让
- * Electron 抛 "second handler" 错误，这正是上一版预览只能开一次的根因）。
+ * handler 按 webContents id 路由到所属宿主。既支持反复开关预览，也为多个
+ * 宠物并存提供严格隔离，避免“最后打开的窗口”接走其他宠物的命令。
  */
 
 export interface PetHostOptions {
@@ -46,8 +45,15 @@ export interface PetHostOptions {
   onClosed?: () => void;
 }
 
-/** 当前接收 pet:* 消息的宿主（每个进程同一时刻只有一个桌宠窗口）。 */
-let activeHost: PetWindowHost | null = null;
+const hostsByPetSenderId = new Map<number, PetWindowHost>();
+
+function resolvePetIpcTarget(senderId: number, kind: PetIpcSenderKind): PetWindowHost | null {
+  if (kind === 'pet') return hostsByPetSenderId.get(senderId) ?? null;
+  for (const host of new Set(hostsByPetSenderId.values())) {
+    if (host.ownsSizeControlSender(senderId)) return host;
+  }
+  return null;
+}
 
 export const PET_WIN_BASE_SIZE = 200;
 const MOVE_DEBOUNCE_MS = 400;
@@ -281,7 +287,7 @@ export class PetWindowHost implements PetIpcTarget {
   }
 
   async open(): Promise<void> {
-    registerPetIpc(ipcMain, () => activeHost);
+    registerPetIpc(ipcMain, resolvePetIpcTarget);
     const payload = await this.opts.getPayload();
     this.zoom = payload.config.zoom;
     this.wanderEnabled = payload.config.wanderEnabled;
@@ -309,7 +315,8 @@ export class PetWindowHost implements PetIpcTarget {
       },
     });
     this.win = win;
-    activeHost = this;
+    const petSenderId = win.webContents.id;
+    hostsByPetSenderId.set(petSenderId, this);
     this.prepareDesktopTerrainMonitor();
 
     win.setAlwaysOnTop(true, 'screen-saver');
@@ -354,7 +361,7 @@ export class PetWindowHost implements PetIpcTarget {
       }
       this.win = null;
       this.dragOrigin = null;
-      if (activeHost === this) activeHost = null;
+      hostsByPetSenderId.delete(petSenderId);
       this.opts.onClosed?.();
     });
 
@@ -384,9 +391,10 @@ export class PetWindowHost implements PetIpcTarget {
       this.displayMetricsListener = null;
     }
     this.closeSizeControl();
+    const petSenderId = this.win && !this.win.isDestroyed() ? this.win.webContents.id : null;
     if (this.win && !this.win.isDestroyed()) this.win.destroy();
+    if (petSenderId !== null) hostsByPetSenderId.delete(petSenderId);
     this.win = null;
     this.dragOrigin = null;
-    if (activeHost === this) activeHost = null;
   }
 }

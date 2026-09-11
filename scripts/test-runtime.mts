@@ -602,13 +602,16 @@ function petIpcRouterTests(): void {
   }
 
   const ipc = makeFakeIpc();
-  let active: PetIpcTarget | null = null;
-  const getActive = () => active;
+  const petSenders = new Map<number, PetIpcTarget>();
+  const sizeSenders = new Map<number, PetIpcTarget>();
+  const resolveSender = (senderId: number, kind: 'pet' | 'size-control') => (
+    (kind === 'pet' ? petSenders : sizeSenders).get(senderId) ?? null
+  );
 
   // 模拟"打开→关闭→再打开→再开关"：每个新宿主 open() 都会调 registerPetIpc
   let threw = false;
   try {
-    for (let i = 0; i < 5; i++) registerPetIpc(ipc, getActive); // 三轮以上反复注册
+    for (let i = 0; i < 5; i++) registerPetIpc(ipc, resolveSender); // 三轮以上反复注册
   } catch { threw = true; }
   check('连续 5 次注册不抛"second handler"', !threw);
   check('每个通道恰好注册一次',
@@ -618,39 +621,45 @@ function petIpcRouterTests(): void {
     PET_IPC_ON_CHANNELS.every((c) => ipc.listeners.has(c)),
     `handlers=${[...ipc.handlers.keys()]}`);
 
-  // 委托跟随当前活动宿主（模拟：宿主 A 关闭 → 宿主 B 打开）
+  // 两只宠物同时存在时，必须按消息发送窗口路由，不能依赖“最后打开者”。
   const hostA = fakeHost('A');
   const hostB = fakeHost('B');
-  active = hostA;
-  void ipc.handlers.get('pet:payload')!();
-  active = null; // A 关闭
-  active = hostB; // B 打开（同一进程再次预览，对应"切换项目后再打开"）
-  const r = ipc.handlers.get('pet:payload')!() as Promise<{ tag: string }>;
-  check('payload 委托给当前活动宿主', hostA.calls.length === 1 && hostB.calls.length === 1);
-  const desktopTerrain = ipc.handlers.get('pet:shimeji:terrain')!() as { tag: string };
-  check('桌面地形查询委托给当前活动宿主', desktopTerrain.tag === 'B');
-  void r.then((v) => check('payload 返回当前宿主的数据', v.tag === 'B'));
+  petSenders.set(11, hostA);
+  petSenders.set(12, hostB);
+  const payloadA = ipc.handlers.get('pet:payload')!({ sender: { id: 11 } } as never) as Promise<{ tag: string }>;
+  const payloadB = ipc.handlers.get('pet:payload')!({ sender: { id: 12 } } as never) as Promise<{ tag: string }>;
+  check('两只宠物的 payload 按发送窗口隔离', hostA.calls.includes('payload:A') && hostB.calls.includes('payload:B'));
+  const desktopTerrain = ipc.handlers.get('pet:shimeji:terrain')!({ sender: { id: 12 } } as never) as { tag: string };
+  check('桌面地形查询委托给发送方所属宿主', desktopTerrain.tag === 'B');
+  void Promise.all([payloadA, payloadB]).then(([a, b]) => check('并存宠物各自返回自己的数据', a.tag === 'A' && b.tag === 'B'));
+
+  ipc.listeners.get('pet:drag:begin')![0]!({ sender: { id: 11 } } as never, { x: 1, y: 2 } as never);
+  ipc.listeners.get('pet:drag:begin')![0]!({ sender: { id: 12 } } as never, { x: 3, y: 4 } as never);
+  check('两只宠物的拖拽命令不会串到另一宿主',
+    hostA.calls.filter((call) => call === 'dragBegin:A').length === 1
+    && hostB.calls.filter((call) => call === 'dragBegin:B').length === 1);
 
   // 窗口未打开时 pet:payload 明确报错而不是静默
-  active = null;
   let errMsg = '';
-  try { ipc.handlers.get('pet:payload')!(); } catch (e) { errMsg = e instanceof Error ? e.message : ''; }
-  check('无活动宿主时 pet:payload 报错', errMsg.includes('未打开'), errMsg);
-  check('无活动宿主时 drag/move 静默忽略（不崩）', (() => {
+  try { ipc.handlers.get('pet:payload')!({ sender: { id: 99 } } as never); } catch (e) { errMsg = e instanceof Error ? e.message : ''; }
+  check('未知发送窗口请求 payload 时明确报错', errMsg.includes('未打开'), errMsg);
+  check('未知发送窗口的 drag/move 静默忽略（不崩）', (() => {
     try {
-      ipc.listeners.get('pet:drag:begin')![0]!(null, { x: 1, y: 2 });
-      ipc.listeners.get('pet:drag:move')![0]!(null, { x: 1, y: 2 });
-      ipc.listeners.get('pet:drag:end')![0]!(null as never);
+      const unknown = { sender: { id: 99 } } as never;
+      ipc.listeners.get('pet:drag:begin')![0]!(unknown, { x: 1, y: 2 });
+      ipc.listeners.get('pet:drag:move')![0]!(unknown, { x: 1, y: 2 });
+      ipc.listeners.get('pet:drag:end')![0]!(unknown);
       return true;
     } catch { return false; }
   })());
 
   // 非法坐标被丢弃
-  active = hostB;
-  ipc.listeners.get('pet:drag:begin')![0]!(null as never, { x: 'bad', y: 2 } as never);
-  check('非法拖动坐标被丢弃', hostB.calls.filter((c) => c === 'dragBegin:B').length === 0);
+  const validDragCount = hostB.calls.filter((c) => c === 'dragBegin:B').length;
+  ipc.listeners.get('pet:drag:begin')![0]!({ sender: { id: 12 } } as never, { x: 'bad', y: 2 } as never);
+  check('非法拖动坐标被丢弃', hostB.calls.filter((c) => c === 'dragBegin:B').length === validDragCount);
 
   // 尺寸面板 IPC 必须校验发送窗口，不能让桌宠 renderer 或其他窗口越权调用。
+  sizeSenders.set(41, hostB);
   const sizeState = ipc.handlers.get('pet:size-control:state')!({ sender: { id: 41 } } as never) as { zoom: number };
   check('尺寸面板可读取连续缩放状态', sizeState.zoom === 2);
   ipc.listeners.get('pet:size-control:set-zoom')![0]!({ sender: { id: 41 } } as never, 2.35 as never);

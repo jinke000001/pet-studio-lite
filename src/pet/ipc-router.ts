@@ -1,10 +1,9 @@
 /**
  * pet:* 全局 IPC 路由（无 Electron 依赖，Node 可直接单测）。
  *
- * pet:* 通道是进程级全局的：整个进程只注册一次，handler 通过 getActive()
- * 委托给"当前活动桌宠宿主"。这样反复 打开→关闭→再打开 预览、或切换项目
- * 后再打开，都不会重复注册 handler（Electron 对重复 ipcMain.handle 会直接
- * 抛错 —— 上一版预览只能开一次、第二次必崩，根因就在这里）。
+ * pet:* 通道是进程级全局的：整个进程只注册一次，handler 通过发送方的
+ * webContents id 找到所属宿主。这样既不会重复注册 handler，也能让多个
+ * 桌宠并存而不把 payload、拖拽或尺寸控制命令串到“最后打开”的宠物。
  */
 
 /** 生产环境 = ipcMain；测试注入假实现。 */
@@ -29,6 +28,9 @@ export interface PetIpcTarget {
   setZoom(zoom: number): void;
   closeSizeControl(): void;
 }
+
+export type PetIpcSenderKind = 'pet' | 'size-control';
+export type ResolvePetIpcTarget = (senderId: number, kind: PetIpcSenderKind) => PetIpcTarget | null;
 
 /** 每个 IPC 对象只注册一次（WeakSet：测试里每个假 ipc 互不影响）。 */
 const registeredIpc = new WeakSet<PetIpcLike>();
@@ -56,45 +58,55 @@ function parsePoint(raw: unknown): { x: number; y: number } | null {
   return { x, y };
 }
 
-/** 注册 pet:* 全局通道（幂等）；handler 全部委托给 getActive() 的当前宿主。 */
-export function registerPetIpc(ipc: PetIpcLike, getActive: () => PetIpcTarget | null): void {
+function senderIdOf(event: unknown): number | null {
+  const id = (event as { sender?: { id?: unknown } } | null)?.sender?.id;
+  return typeof id === 'number' && Number.isInteger(id) && id >= 0 ? id : null;
+}
+
+function targetFor(event: unknown, kind: PetIpcSenderKind, resolveTarget: ResolvePetIpcTarget): PetIpcTarget | null {
+  const senderId = senderIdOf(event);
+  return senderId === null ? null : resolveTarget(senderId, kind);
+}
+
+/** 注册 pet:* 全局通道（幂等）；handler 全部按发送窗口委托给所属宿主。 */
+export function registerPetIpc(ipc: PetIpcLike, resolveTarget: ResolvePetIpcTarget): void {
   if (registeredIpc.has(ipc)) return;
   registeredIpc.add(ipc);
 
-  ipc.handle('pet:payload', () => {
-    const host = getActive();
+  ipc.handle('pet:payload', (event: unknown) => {
+    const host = targetFor(event, 'pet', resolveTarget);
     if (!host) throw new Error('桌宠窗口未打开');
     return host.getPayload();
   });
 
-  ipc.on('pet:drag:begin', (_event: unknown, raw: unknown) => getActive()?.dragBegin(parsePoint(raw)));
-  ipc.on('pet:drag:move', (_event: unknown, raw: unknown) => getActive()?.dragMove(parsePoint(raw)));
-  ipc.on('pet:drag:end', () => getActive()?.dragEnd());
+  ipc.on('pet:drag:begin', (event: unknown, raw: unknown) => targetFor(event, 'pet', resolveTarget)?.dragBegin(parsePoint(raw)));
+  ipc.on('pet:drag:move', (event: unknown, raw: unknown) => targetFor(event, 'pet', resolveTarget)?.dragMove(parsePoint(raw)));
+  ipc.on('pet:drag:end', (event: unknown) => targetFor(event, 'pet', resolveTarget)?.dragEnd());
 
-  ipc.handle('pet:window:bounds', () => getActive()?.getBoundsInfo() ?? null);
-  ipc.handle('pet:shimeji:terrain', () => getActive()?.getDesktopTerrain() ?? null);
-  ipc.on('pet:window:moveTo', (_event: unknown, raw: unknown) => {
+  ipc.handle('pet:window:bounds', (event: unknown) => targetFor(event, 'pet', resolveTarget)?.getBoundsInfo() ?? null);
+  ipc.handle('pet:shimeji:terrain', (event: unknown) => targetFor(event, 'pet', resolveTarget)?.getDesktopTerrain() ?? null);
+  ipc.on('pet:window:moveTo', (event: unknown, raw: unknown) => {
     const p = parsePoint(raw);
-    if (p) getActive()?.moveTo(p.x, p.y);
+    if (p) targetFor(event, 'pet', resolveTarget)?.moveTo(p.x, p.y);
   });
 
-  ipc.handle('pet:size-control:state', (event: { sender?: { id?: unknown } }) => {
-    const host = getActive();
-    const senderId = event.sender?.id;
+  ipc.handle('pet:size-control:state', (event: unknown) => {
+    const senderId = senderIdOf(event);
+    const host = targetFor(event, 'size-control', resolveTarget);
     if (!host || typeof senderId !== 'number' || !host.ownsSizeControlSender(senderId)) {
       throw new Error('无权访问宠物尺寸面板');
     }
     return host.getSizeControlState();
   });
-  ipc.on('pet:size-control:set-zoom', (event: { sender?: { id?: unknown } }, raw: unknown) => {
-    const host = getActive();
-    const senderId = event.sender?.id;
+  ipc.on('pet:size-control:set-zoom', (event: unknown, raw: unknown) => {
+    const senderId = senderIdOf(event);
+    const host = targetFor(event, 'size-control', resolveTarget);
     if (!host || typeof senderId !== 'number' || !host.ownsSizeControlSender(senderId)) return;
     if (typeof raw === 'number' && Number.isFinite(raw)) host.setZoom(raw);
   });
-  ipc.on('pet:size-control:close', (event: { sender?: { id?: unknown } }) => {
-    const host = getActive();
-    const senderId = event.sender?.id;
+  ipc.on('pet:size-control:close', (event: unknown) => {
+    const senderId = senderIdOf(event);
+    const host = targetFor(event, 'size-control', resolveTarget);
     if (host && typeof senderId === 'number' && host.ownsSizeControlSender(senderId)) host.closeSizeControl();
   });
 }
