@@ -74,7 +74,7 @@ export function approachWindowPosition(
 /** 根据 CSS 的底部居中布局，从原生窗口换算实际参与碰撞的精灵单格。 */
 export function deriveBottomCenteredActorLayout(
   windowBounds: DesktopRect,
-  renderedSprite: { width: number; height: number },
+  renderedSprite: { width: number; height: number; contentInsets?: DesktopActorInsets },
 ): DesktopActorLayout {
   if (!finiteRect(windowBounds)
     || !Number.isFinite(renderedSprite.width)
@@ -84,12 +84,32 @@ export function deriveBottomCenteredActorLayout(
     throw new Error('Shimeji window and rendered sprite bounds must be finite and greater than zero');
   }
 
-  const actorWidth = Math.max(1, Math.min(windowBounds.width, Math.round(renderedSprite.width)));
-  const actorHeight = Math.max(1, Math.min(windowBounds.height, Math.round(renderedSprite.height)));
-  const left = Math.floor((windowBounds.width - actorWidth) / 2);
-  const right = windowBounds.width - actorWidth - left;
-  const top = windowBounds.height - actorHeight;
-  const insets = { left, top, right, bottom: 0 };
+  const cellWidth = Math.max(1, Math.min(windowBounds.width, Math.round(renderedSprite.width)));
+  const cellHeight = Math.max(1, Math.min(windowBounds.height, Math.round(renderedSprite.height)));
+  const contentInsets = normalizedInsets(
+    renderedSprite.contentInsets
+      ? {
+        left: Math.round(renderedSprite.contentInsets.left),
+        top: Math.round(renderedSprite.contentInsets.top),
+        right: Math.round(renderedSprite.contentInsets.right),
+        bottom: Math.round(renderedSprite.contentInsets.bottom),
+      }
+      : { left: 0, top: 0, right: 0, bottom: 0 },
+    cellWidth,
+    cellHeight,
+  );
+  const cellLeft = Math.floor((windowBounds.width - cellWidth) / 2);
+  const cellTop = windowBounds.height - cellHeight;
+  const left = cellLeft + contentInsets.left;
+  const top = cellTop + contentInsets.top;
+  const actorWidth = cellWidth - contentInsets.left - contentInsets.right;
+  const actorHeight = cellHeight - contentInsets.top - contentInsets.bottom;
+  const insets = {
+    left,
+    top,
+    right: windowBounds.width - left - actorWidth,
+    bottom: windowBounds.height - top - actorHeight,
+  };
 
   return {
     actor: {

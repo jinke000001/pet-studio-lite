@@ -8,7 +8,12 @@ import {
   type ClassicPose,
   type ClassicShimejiProfile,
 } from '../shared/shimeji/classic-config';
-import { PETDEX_COLS, PETDEX_FRAME, PETDEX_VERSIONS } from '../shared/petpack';
+import {
+  PETDEX_COLS,
+  PETDEX_FRAME,
+  PETDEX_VERSIONS,
+  type SpriteContentInsets,
+} from '../shared/petpack';
 
 const MAX_SCAN_FILES = 1_024;
 const MAX_SCAN_DEPTH = 5;
@@ -91,6 +96,7 @@ export async function convertClassicShimejiDirectory(
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     },
   }).composite(layers).png().toBuffer();
+  const contentInsets = await findSheetContentInsets(sheet);
   const manifest = {
     id: `classic-${slug}`,
     displayName,
@@ -99,6 +105,7 @@ export async function convertClassicShimejiDirectory(
     spritesheetPath: 'spritesheet.png',
     license: 'unknown',
     sourceFormat: 'classic-shimeji',
+    contentInsets,
     classicProfile: compiled.profile,
     // 空计划表示所有可见行为都依赖尚未支持的条件语义。此时省略字段，
     // 让运行时安全回退到通用调度器，而不是生成一个自相矛盾的无效包。
@@ -116,6 +123,37 @@ export async function convertClassicShimejiDirectory(
     await fs.rm(outputDir, { recursive: true, force: true }).catch(() => {});
     throw error;
   }
+}
+
+async function findSheetContentInsets(sheet: Buffer): Promise<SpriteContentInsets> {
+  const decoded = await sharp(sheet).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = decoded.info;
+  let minX: number = PETDEX_FRAME.width;
+  let minY: number = PETDEX_FRAME.height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (decoded.data[(y * width + x) * channels + 3] === 0) continue;
+      const localX = x % PETDEX_FRAME.width;
+      const localY = y % PETDEX_FRAME.height;
+      minX = Math.min(minX, localX);
+      minY = Math.min(minY, localY);
+      maxX = Math.max(maxX, localX);
+      maxY = Math.max(maxY, localY);
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    throw new Error('经典 Shimeji 图集没有可见像素');
+  }
+  return {
+    left: minX,
+    top: minY,
+    right: PETDEX_FRAME.width - 1 - maxX,
+    bottom: PETDEX_FRAME.height - 1 - maxY,
+  };
 }
 
 async function requireDirectory(dir: string): Promise<string> {

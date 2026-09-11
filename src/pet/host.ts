@@ -200,11 +200,20 @@ export class PetWindowHost implements PetIpcTarget {
       this.actorInsets = { left: 0, top: 0, right: 0, bottom: 0 };
       return;
     }
+    const renderedScale = sprite.displayScale * this.zoom;
     this.actorInsets = deriveBottomCenteredActorLayout(
       { x: 0, y: 0, width: size, height: size },
       {
-        width: sprite.frame.width * sprite.displayScale * this.zoom,
-        height: sprite.frame.height * sprite.displayScale * this.zoom,
+        width: sprite.frame.width * renderedScale,
+        height: sprite.frame.height * renderedScale,
+        contentInsets: sprite.contentInsets
+          ? {
+            left: sprite.contentInsets.left * renderedScale,
+            top: sprite.contentInsets.top * renderedScale,
+            right: sprite.contentInsets.right * renderedScale,
+            bottom: sprite.contentInsets.bottom * renderedScale,
+          }
+          : undefined,
       },
     ).insets;
   }

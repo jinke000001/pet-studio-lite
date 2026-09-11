@@ -84,6 +84,10 @@ try {
     generatedJson['sourceFormat'] === 'classic-shimeji'
     && typeof generatedJson['classicProfile'] === 'object'
     && Array.isArray(generatedJson['classicBehaviorPlan']));
+  check('转换包记录整套动画稳定 alpha 外框',
+    JSON.stringify(generatedJson['contentInsets']) === JSON.stringify({ left: 0, top: 8, right: 0, bottom: 8 })
+    && validated.ok
+    && JSON.stringify(validated.pack.contentInsets) === JSON.stringify(generatedJson['contentInsets']));
   check('转换结果默认保持 unknown 授权，不伪造可分发权利', generatedJson['license'] === 'unknown');
   check('转换全程不修改原经典包', before === await hashTree(source));
   check('动作引用可递归找到资源帧', converted.warnings.every((warning) => !warning.includes('ChaseMouse')));

@@ -31,7 +31,7 @@ Windows x64 导出候选必须保持 `internal-test-only` 并通过 ZIP 静态�
 | `Behavior` 标签 | 57 | 8 个无外层条件的顶层行为进入 profile |
 | 自动行为计划 | 经典条件树 | 0 个可安全直接执行；运行时使用 Pet Studio 通用调度器 |
 
-动作分类结果：18 个 walk、12 个 jump、7 个 climb、5 个 fall、2 个 stand、2 个 dragged、1 个 thrown、1 个 chase-mouse，另有 43 个组合或未知动作。转换器可由这些动作生成 Petdex v1 图集；攀爬视觉行会优先选择 `BorderType="Wall"`，避免误用原包先出现的天花板爬行动作。
+动作分类结果：18 个 walk、12 个 jump、7 个 climb、5 个 fall、2 个 stand、2 个 dragged、1 个 thrown、1 个 chase-mouse，另有 43 个组合或未知动作。转换器可由这些动作生成 Petdex v1 图集；攀爬视觉行会优先选择 `BorderType="Wall"`，避免误用原包先出现的天花板爬行动作。转换时还会计算整套动画 alpha 像素的稳定并集外框并写入包元数据，运行时据此缩小碰撞范围；不采用逐帧外框，以免动作切换时角色位置抖动。
 
 ## 可以直接保留的体验
 

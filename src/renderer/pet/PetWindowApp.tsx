@@ -39,6 +39,22 @@ function pickFrom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
 }
 
+function renderedSpriteBounds(sprite: PetSpriteConfig, zoom: number) {
+  const scale = sprite.displayScale * zoom;
+  return {
+    width: sprite.frame.width * scale,
+    height: sprite.frame.height * scale,
+    contentInsets: sprite.contentInsets
+      ? {
+        left: sprite.contentInsets.left * scale,
+        top: sprite.contentInsets.top * scale,
+        right: sprite.contentInsets.right * scale,
+        bottom: sprite.contentInsets.bottom * scale,
+      }
+      : undefined,
+  };
+}
+
 /**
  * 桌宠窗口（工作室预览 + 导出运行时共用）。全部本地行为：拖动、单击
  * 出动作 + 本地台词气泡、自动行为调度（等待/思考/游走，见
@@ -153,10 +169,7 @@ export function PetWindowApp() {
       if (!sprite) return;
       const layout = deriveBottomCenteredActorLayout(
         { x: bounds.win.x, y: bounds.win.y, width: bounds.win.w, height: bounds.win.h },
-        {
-          width: sprite.frame.width * sprite.displayScale * zoomRef.current,
-          height: sprite.frame.height * sprite.displayScale * zoomRef.current,
-        },
+        renderedSpriteBounds(sprite, zoomRef.current),
       );
       const actorBounds = clampBoundsToWorkArea(
         layout.actor,
@@ -185,10 +198,7 @@ export function PetWindowApp() {
       if (!sprite) return;
       const layout = deriveBottomCenteredActorLayout(
         { x: bounds.win.x, y: bounds.win.y, width: bounds.win.w, height: bounds.win.h },
-        {
-          width: sprite.frame.width * sprite.displayScale * zoomRef.current,
-          height: sprite.frame.height * sprite.displayScale * zoomRef.current,
-        },
+        renderedSpriteBounds(sprite, zoomRef.current),
       );
       const actorBounds = clampBoundsToWorkArea(
         layout.actor,

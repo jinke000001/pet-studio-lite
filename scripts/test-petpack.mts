@@ -90,6 +90,43 @@ async function main(): Promise<void> {
         check('v2 含附加状态 extra1/extra2', 'extra1' in cfg.states && 'extra2' in cfg.states);
       }
     }
+    {
+      const contentInsets = { left: 12, top: 47, right: 12, bottom: 13 };
+      const dir = await writePack(tmp, 'visible-content-insets', {
+        id: 'alpha-aware',
+        spriteVersionNumber: 1,
+        spritesheetPath: 'spritesheet.png',
+        contentInsets,
+      }, V1_SHEET);
+      const res = await validatePetPack(dir);
+      check('合法 contentInsets 在包边界通过校验',
+        res.ok && JSON.stringify(res.pack.contentInsets) === JSON.stringify(contentInsets),
+        res.ok ? '' : res.errors.join('；'));
+      if (res.ok) {
+        check('可见像素外框原样进入运行时 sprite 配置',
+          JSON.stringify(petPackToSpriteConfig(res.pack).contentInsets) === JSON.stringify(contentInsets));
+      }
+    }
+
+    console.log('\n[可见像素外框]');
+    {
+      const dir = await writePack(tmp, 'bad-content-insets-negative', {
+        id: 'bad-insets',
+        spritesheetPath: 'spritesheet.png',
+        contentInsets: { left: -1, top: 0, right: 0, bottom: 0 },
+      }, V1_SHEET);
+      const res = await validatePetPack(dir);
+      check('contentInsets 负数被拒绝', !res.ok && hasErr(res.errors, 'contentInsets'));
+    }
+    {
+      const dir = await writePack(tmp, 'bad-content-insets-empty-width', {
+        id: 'bad-insets',
+        spritesheetPath: 'spritesheet.png',
+        contentInsets: { left: 96, top: 0, right: 96, bottom: 0 },
+      }, V1_SHEET);
+      const res = await validatePetPack(dir);
+      check('contentInsets 不得吞掉整格可见宽度', !res.ok && hasErr(res.errors, 'contentInsets'));
+    }
 
     // ── WebP 真实解码（sharp 探针，与制作台 main 用的是同一个） ──────────────
     console.log('\n[WebP 支持]');

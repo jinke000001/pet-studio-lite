@@ -199,6 +199,27 @@ check('角色位置可无损换算回窗口左上角',
   windowPositionForActor(actorLayout.actor, actorLayout.insets).x === 100
   && windowPositionForActor(actorLayout.actor, actorLayout.insets).y === 200);
 
+const alphaAwareLayout = deriveBottomCenteredActorLayout(
+  { x: 100, y: 200, width: 400, height: 400 },
+  {
+    width: 153.6,
+    height: 166.4,
+    contentInsets: { left: 10, top: 38, right: 10, bottom: 10 },
+  },
+);
+check('碰撞范围进一步收紧到整套动画的稳定可见像素外框',
+  alphaAwareLayout.actor.x === 233
+  && alphaAwareLayout.actor.y === 472
+  && alphaAwareLayout.actor.width === 134
+  && alphaAwareLayout.actor.height === 118
+  && alphaAwareLayout.insets.left === 133
+  && alphaAwareLayout.insets.top === 272
+  && alphaAwareLayout.insets.right === 133
+  && alphaAwareLayout.insets.bottom === 10);
+check('可见像素外框仍可无损换算回窗口左上角',
+  windowPositionForActor(alphaAwareLayout.actor, alphaAwareLayout.insets).x === 100
+  && windowPositionForActor(alphaAwareLayout.actor, alphaAwareLayout.insets).y === 200);
+
 const topTouchingWindow = clampWindowPositionByActor(
   { x: 100, y: -500, width: 400, height: 400 },
   actorLayout.insets,

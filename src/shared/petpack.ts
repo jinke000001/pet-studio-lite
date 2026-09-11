@@ -32,6 +32,17 @@ export const PETDEX_VERSIONS: Record<PetdexVersion, { rows: number; sheetWidth: 
 
 export type LicenseStatus = 'authorized' | 'internal-test' | 'unknown';
 
+/**
+ * 整套图集所有动画帧的稳定 alpha 外框，以源单格像素表示。
+ * 使用全图并集而不是逐帧外框，避免动作切换时碰撞盒抖动。
+ */
+export interface SpriteContentInsets {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 export interface PetPackInfo {
   /** 包的绝对路径（已 realpath）。 */
   rootDir: string;
@@ -57,6 +68,8 @@ export interface PetPackInfo {
   sheet: { width: number; height: number };
   /** pet.json 与图集的 SHA-256（导出 manifest 用）。 */
   hashes: { petJson: string; spritesheet: string };
+  /** 可选的稳定可见像素外框；旧包缺省时仍按完整单格碰撞。 */
+  contentInsets: SpriteContentInsets | null;
   /** 经典 Shimeji 转换包的安全自动行为子集；普通 Petdex 包为 null。 */
   classicBehaviorPlan: ClassicRuntimeBehavior[] | null;
 }
@@ -192,6 +205,23 @@ function parseLicense(raw: unknown): LicenseStatus {
   return 'unknown';
 }
 
+function parseContentInsets(raw: unknown): SpriteContentInsets | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('contentInsets 必须是包含 left/top/right/bottom 的对象');
+  }
+  const obj = raw as Record<string, unknown>;
+  const values = ['left', 'top', 'right', 'bottom'].map((key) => obj[key]);
+  if (!values.every((value) => typeof value === 'number' && Number.isInteger(value) && value >= 0)) {
+    throw new Error('contentInsets 的 left/top/right/bottom 必须是非负整数');
+  }
+  const [left, top, right, bottom] = values as number[];
+  if (left! + right! >= PETDEX_FRAME.width || top! + bottom! >= PETDEX_FRAME.height) {
+    throw new Error('contentInsets 必须在单格内保留至少 1×1 的可见区域');
+  }
+  return { left: left!, top: top!, right: right!, bottom: bottom! };
+}
+
 // --- 主校验流程 ---------------------------------------------------------------
 
 export interface ValidateOptions {
@@ -239,6 +269,12 @@ export async function validatePetPack(dir: string, opts: ValidateOptions = {}): 
   let classicBehaviorPlan: ClassicRuntimeBehavior[] | null = null;
   try {
     classicBehaviorPlan = parseClassicRuntimePlan(obj['classicBehaviorPlan']);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+  let contentInsets: SpriteContentInsets | null = null;
+  try {
+    contentInsets = parseContentInsets(obj['contentInsets']);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
@@ -349,6 +385,7 @@ export async function validatePetPack(dir: string, opts: ValidateOptions = {}): 
       frame: { ...PETDEX_FRAME },
       sheet: sheetSize!,
       hashes: { petJson: petJsonHash, spritesheet: sheetHash },
+      contentInsets,
       classicBehaviorPlan,
     },
   };
@@ -374,6 +411,7 @@ export interface PetSpriteConfig {
   description?: string;
   frame: { width: number; height: number; cols: number };
   displayScale: number;
+  contentInsets?: SpriteContentInsets;
   states: Record<string, { frames: number[]; framesLeft?: number[]; fps: number }>;
 }
 
@@ -415,6 +453,7 @@ export function petPackToSpriteConfig(pack: PetPackInfo): PetSpriteConfig {
     description: pack.description,
     frame: { width: pack.frame.width, height: pack.frame.height, cols: pack.cols },
     displayScale: 0.4,
+    ...(pack.contentInsets ? { contentInsets: { ...pack.contentInsets } } : {}),
     states,
   };
 }
