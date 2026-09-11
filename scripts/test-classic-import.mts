@@ -52,6 +52,8 @@ try {
     <Action Name="Dragged" Type="Embedded"><Animation><Pose Image="/shime5.png" Duration="100" /></Animation></Action>
     <Action Name="Thrown" Type="Embedded"><ActionReference Name="Fall" /></Action>
     <Action Name="ChaseMouse" Type="Move"><ActionReference Name="Walk" /></Action>
+    <Action Name="ClimbCeiling" Type="Move" BorderType="Ceiling"><Animation><Pose Image="/shime4.png" Duration="8" /></Animation></Action>
+    <Action Name="ClimbWall" Type="Move" BorderType="Wall"><Animation><Pose Image="/shime5.png" Duration="8" /></Animation></Action>
   </ActionList></Mascot>`;
   const behaviors = `<Mascot><BehaviorList>
     <Behavior Name="Stand" Frequency="50"/><Behavior Name="Walk" Frequency="30"/>
@@ -68,6 +70,15 @@ try {
   check('传统 img + conf 目录转换为合法 Petdex v1 包', validated.ok && validated.pack.version === 'v1', validated.ok ? '' : validated.errors.join('；'));
   check('生成标准 1536×1872 透明 PNG 图集',
     validated.ok && validated.pack.sheet.width === 1536 && validated.pack.sheet.height === 1872 && validated.pack.sheetFormat === 'png');
+  const climbCell = await sharp(path.join(convertedDir, 'spritesheet.png'))
+    .extract({ left: 0, top: 8 * 208, width: 192, height: 208 })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const climbCenter = (104 * 192 + 96) * climbCell.info.channels;
+  check('经典图集攀爬行优先使用 Wall 动作而不是 Ceiling 动作',
+    climbCell.data[climbCenter] === 150
+    && climbCell.data[climbCenter + 1] === 100
+    && climbCell.data[climbCenter + 2] === 50);
   const generatedJson = JSON.parse(await fs.readFile(path.join(convertedDir, 'pet.json'), 'utf8')) as Record<string, unknown>;
   check('生成包保留安全编译后的经典行为资料',
     generatedJson['sourceFormat'] === 'classic-shimeji'
@@ -76,6 +87,23 @@ try {
   check('转换结果默认保持 unknown 授权，不伪造可分发权利', generatedJson['license'] === 'unknown');
   check('转换全程不修改原经典包', before === await hashTree(source));
   check('动作引用可递归找到资源帧', converted.warnings.every((warning) => !warning.includes('ChaseMouse')));
+
+  const zeroPlanSource = path.join(temp, 'Zero Plan');
+  await fs.cp(source, zeroPlanSource, { recursive: true });
+  const zeroPlanBehaviors = `<Mascot><BehaviorList>
+    <Behavior Name="Stand" Frequency="0"/><Behavior Name="Fall" Frequency="0"/>
+    <Behavior Name="Dragged" Frequency="0"/><Behavior Name="Thrown" Frequency="0"/>
+    <Behavior Name="ChaseMouse" Frequency="0"/>
+  </BehaviorList></Mascot>`;
+  await fs.writeFile(path.join(zeroPlanSource, 'conf', 'behaviors.xml'), zeroPlanBehaviors, 'utf8');
+  const zeroPlanOutput = path.join(temp, 'zero-plan-output');
+  await convertClassicShimejiDirectory(zeroPlanSource, zeroPlanOutput);
+  const zeroPlanJson = JSON.parse(await fs.readFile(path.join(zeroPlanOutput, 'pet.json'), 'utf8')) as Record<string, unknown>;
+  const zeroPlanValidated = await validatePetPack(zeroPlanOutput, { probe: sharpImageProbe });
+  check('没有可安全执行的经典自动行为时回退通用调度器且仍可导入',
+    !Object.prototype.hasOwnProperty.call(zeroPlanJson, 'classicBehaviorPlan')
+    && zeroPlanValidated.ok,
+    zeroPlanValidated.ok ? '' : zeroPlanValidated.errors.join('；'));
 
   const zipEntries: Array<{ name: string; data: Buffer }> = [];
   for (const name of ['actions.xml', 'behaviors.xml']) {

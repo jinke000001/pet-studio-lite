@@ -82,6 +82,7 @@ export async function convertClassicShimejiDirectory(
 
   const slug = slugify(path.basename(root));
   const displayName = path.basename(root).trim() || 'Classic Shimeji';
+  const classicBehaviorPlan = compileClassicRuntimePlan(compiled.profile);
   const sheet = await sharp({
     create: {
       width: PETDEX_VERSIONS.v1.sheetWidth,
@@ -99,7 +100,9 @@ export async function convertClassicShimejiDirectory(
     license: 'unknown',
     sourceFormat: 'classic-shimeji',
     classicProfile: compiled.profile,
-    classicBehaviorPlan: compileClassicRuntimePlan(compiled.profile),
+    // 空计划表示所有可见行为都依赖尚未支持的条件语义。此时省略字段，
+    // 让运行时安全回退到通用调度器，而不是生成一个自相矛盾的无效包。
+    ...(classicBehaviorPlan.length > 0 ? { classicBehaviorPlan } : {}),
   };
 
   try {
@@ -202,10 +205,13 @@ function buildStateRows(
     poseCache.set(action.name, result);
     return result;
   };
-  const posesFor = (kinds: ClassicAction['kind'][]): ClassicPose[] => {
+  const posesFor = (
+    kinds: ClassicAction['kind'][],
+    matches: (action: ClassicAction) => boolean = () => true,
+  ): ClassicPose[] => {
     for (const kind of kinds) {
       for (const action of profile.actions) {
-        if (action.kind !== kind) continue;
+        if (action.kind !== kind || !matches(action)) continue;
         const poses = collect(action);
         if (poses.length > 0) return poses;
       }
@@ -217,8 +223,14 @@ function buildStateRows(
     : profile.actions.flatMap((action) => collect(action)).slice(0, 1);
   if (fallback.length === 0) throw new Error('经典 Shimeji 配置没有任何可用 Pose 图片');
 
-  const row = (label: string, kinds: ClassicAction['kind'][], orientation: 'neutral' | 'left' | 'right' = 'neutral'): FrameInput[] => {
-    const selected = posesFor(kinds);
+  const row = (
+    label: string,
+    kinds: ClassicAction['kind'][],
+    orientation: 'neutral' | 'left' | 'right' = 'neutral',
+    preferred?: (action: ClassicAction) => boolean,
+  ): FrameInput[] => {
+    const preferredPoses = preferred ? posesFor(kinds, preferred) : [];
+    const selected = preferredPoses.length > 0 ? preferredPoses : posesFor(kinds);
     const poses = selected.length > 0 ? selected : fallback;
     if (selected.length === 0) warnings.push(`${label} 没有专用帧，已使用站立帧代替`);
     return poses.map((pose) => {
@@ -239,7 +251,9 @@ function buildStateRows(
     row('failed', ['fall', 'thrown']),
     row('waiting', ['stand']),
     row('running', ['chase-mouse', 'walk'], 'right'),
-    row('review', ['climb', 'stand']),
+    // 运行时 climbing 表示贴着应用窗口侧边向上移动；经典包往往先定义
+    // Ceiling climb，因此这里明确优先 Wall 帧，避免显示成天花板爬行动作。
+    row('review', ['climb'], 'neutral', (action) => action.border === 'wall'),
   ];
 }
 
