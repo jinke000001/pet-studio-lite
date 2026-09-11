@@ -23,6 +23,9 @@
 - 按 `Mascot.xsd` 读取 `Action`、`ActionReference`、`Behavior`、`BehaviorReference`、`Frequency` 和字面量 `Duration`；
 - 保留 `ChaseMouse`、`Fall`、`Dragged`、`Thrown` 必备项校验；
 - 当前只接受英文 Shimeji-ee 标签，日文旧格式后续由显式映射转换，不做猜测式解析；
+- `Pose` 只接受单层 PNG 文件名；`ImageRight` 用于非对称右向帧，没有时由转换器镜像生成；
+- 目录或 ZIP 导入会把经典 PNG 帧确定性合成为 Petdex v1 图集，原目录只读，转换副本默认标记 `license: unknown`；
+- ZIP 只提取 `actions.xml`、`behaviors.xml`/`behavior.xml`、PNG/WebP 与 `pet.json` 白名单内容；
 - `${...}` / `#{...}` 动态表达式不会执行：所在条目跳过并产生警告；
 - XML 单文件限制 1 MB、5000 元素、64 层嵌套，并禁止 `DOCTYPE` 与实体声明。
 

@@ -1294,6 +1294,8 @@ async function uxWiringTests(): Promise<void> {
     hostSrc.includes('SharedWindowSnapshotSource') && hostSrc.includes('stopDesktopTerrainMonitor'));
 
   const studioMainSrc = await fs.readFile(path.join(REPO, 'src', 'main', 'index.ts'), 'utf8');
+  check('制作台在缺少 pet.json 时进入经典 Shimeji 安全转换链路',
+    studioMainSrc.includes('convertClassicShimejiDirectory') && studioMainSrc.includes('!hasPetJson'));
   check('导出成功登记产物路径', studioMainSrc.includes('exportRegistry.record('));
   check('打开所在文件夹走登记册校验', studioMainSrc.includes('resolveRevealTarget('));
 

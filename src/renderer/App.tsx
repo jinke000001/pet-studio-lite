@@ -400,12 +400,12 @@ function ImportStep(props: {
       <div className="eyebrow page-eyebrow">STEP · 01 — IMPORT · PETDEX PACK</div>
       <h1>导入宠物包</h1>
       <p className="lead">
-        选择一个 Petdex 宠物包目录或 ZIP 压缩包。导入会把包复制到制作台自己的工作区，
+        选择 Petdex 宠物包，或带 actions.xml、behaviors.xml 和 PNG 帧的经典 Shimeji 角色目录 / ZIP。导入会转换并复制到制作台自己的工作区，
         不会修改你的原始文件。
       </p>
       <div className="import-actions">
         <button className="btn" disabled={unavailable} onClick={() => props.onImport('dir')}>
-          {props.busy === 'importing' ? '导入中…' : '选择宠物包目录'}
+          {props.busy === 'importing' ? '导入中…' : '选择宠物 / Shimeji 目录'}
         </button>
         <button className="btn" disabled={unavailable} onClick={() => props.onImport('zip')}>
           选择 ZIP 压缩包

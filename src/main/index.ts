@@ -14,6 +14,7 @@ import type { ImportResult, PetdexPrepareResult, PreviewPayload, StudioState } f
 import { PetWindowHost } from '../pet/host';
 import { exportWindowsZip } from './export-win';
 import { sharpImageProbe } from './image-probe';
+import { convertClassicShimejiDirectory } from './classic-shimeji-import';
 import { findNpxExecutable, parsePetdexInstallCommand, PetdexCandidateRegistry, resolvePetdexPetDirectory, runPetdexInstall } from './petdex-install';
 
 /**
@@ -58,6 +59,7 @@ async function importFromPath(sourcePath: string): Promise<ImportResult> {
   // 校验失败或复制失败都不会留下半成品项目。
   let packDir = sourcePath;
   let tempDir: string | null = null;
+  let classicTempRoot: string | null = null;
   const isZip = sourcePath.toLowerCase().endsWith('.zip');
   try {
     let zipSha256: string | undefined;
@@ -68,7 +70,15 @@ async function importFromPath(sourcePath: string): Promise<ImportResult> {
       await extractPetPackFromZip(sourcePath, tempDir);
       packDir = tempDir;
     }
-    const result = await validatePetPack(packDir, { probe: decodeProbe });
+    let result = await validatePetPack(packDir, { probe: decodeProbe });
+    const hasPetJson = await fs.stat(path.join(packDir, 'pet.json')).then(() => true, () => false);
+    if (!result.ok && !hasPetJson) {
+      classicTempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'petstudio-classic-'));
+      const convertedDir = path.join(classicTempRoot, 'converted');
+      await convertClassicShimejiDirectory(packDir, convertedDir);
+      result = await validatePetPack(convertedDir, { probe: decodeProbe });
+      packDir = convertedDir;
+    }
     if (!result.ok) return { ok: false, errors: result.errors };
     const meta = await store.importValidatedPack(result.pack, {
       type: isZip ? 'zip' : 'dir',
@@ -80,6 +90,7 @@ async function importFromPath(sourcePath: string): Promise<ImportResult> {
     return { ok: false, errors: [err instanceof Error ? err.message : String(err)] };
   } finally {
     if (tempDir) await fs.rm(tempDir, { recursive: true, force: true });
+    if (classicTempRoot) await fs.rm(classicTempRoot, { recursive: true, force: true });
   }
 }
 
@@ -125,9 +136,9 @@ function registerIpc(): void {
     const win = studioWindow;
     if (!win) return { ok: false, errors: ['窗口不可用'] };
     const picked = kind === 'dir'
-      ? await dialog.showOpenDialog(win, { title: '选择宠物包目录', properties: ['openDirectory'] })
+      ? await dialog.showOpenDialog(win, { title: '选择 Petdex 或经典 Shimeji 角色目录', properties: ['openDirectory'] })
       : await dialog.showOpenDialog(win, {
-          title: '选择宠物包 ZIP',
+          title: '选择 Petdex 或经典 Shimeji ZIP',
           properties: ['openFile'],
           filters: [{ name: 'ZIP 压缩包', extensions: ['zip'] }],
         });
