@@ -1259,6 +1259,8 @@ async function uxWiringTests(): Promise<void> {
   check('渲染器复位用共享几何 + 受控移动', petAppSrc.includes('computeWorkAreaHomePosition') && petAppSrc.includes('onGoHome'));
   check('渲染器用共享 Shimeji 会话驱动窗口位置',
     petAppSrc.includes('DesktopRuntimeSession') && petAppSrc.includes('onDesktopTerrain'));
+  check('渲染器把拖拽释放速度交给共享 Shimeji 会话',
+    petAppSrc.includes('PointerVelocityTracker') && petAppSrc.includes('.release(velocity)'));
   check('Windows 宿主启动并在关闭时停止窗口快照监控',
     hostSrc.includes('WindowSnapshotMonitor') && hostSrc.includes('stopDesktopTerrainMonitor'));
 

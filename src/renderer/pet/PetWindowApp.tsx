@@ -5,6 +5,7 @@ import { PetBehaviorScheduler, stopWalkingState } from '../../shared/pet-behavio
 import { computeWorkAreaHomePosition } from '../../shared/geometry';
 import { DesktopRuntimeSession } from '../../shared/shimeji/desktop-runtime-session';
 import type { DesktopTerrain } from '../../shared/shimeji/desktop-terrain';
+import { PointerVelocityTracker, type PointerVelocity } from '../../shared/shimeji/pointer-velocity';
 import { Sprite, type PetState } from './Sprite';
 import lines from './lines.json';
 
@@ -136,6 +137,24 @@ export function PetWindowApp() {
         desktopResetPendingRef.current = false;
         void syncDesktopSessionFromWindow(true);
       }
+    }
+  }
+
+  async function releaseDesktopDrag(velocity: PointerVelocity) {
+    try {
+      if (!desktopTerrainRef.current) return;
+      const bounds = await window.pet.getWindowBounds();
+      if (!bounds || !desktopTerrainRef.current) return;
+      const actorBounds = { x: bounds.win.x, y: bounds.win.y, width: bounds.win.w, height: bounds.win.h };
+      if (desktopSessionRef.current) desktopSessionRef.current.reset(actorBounds);
+      else desktopSessionRef.current = new DesktopRuntimeSession(actorBounds, facing);
+      desktopSessionRef.current.release(velocity);
+      desktopLastPositionRef.current = { x: bounds.win.x, y: bounds.win.y };
+      shimejiVisualRef.current = null;
+      transition('jumping');
+      armDesktopLoop();
+    } finally {
+      desktopSuspendedRef.current = false;
     }
   }
 
@@ -345,9 +364,12 @@ export function PetWindowApp() {
     const startY = e.screenY;
     let dragging = false;
     let lastX = startX;
+    const velocityTracker = new PointerVelocityTracker();
+    velocityTracker.record(startX, startY, e.timeStamp);
     window.pet.dragBegin(startX, startY);
 
     function onMove(ev: MouseEvent) {
+      velocityTracker.record(ev.screenX, ev.screenY, ev.timeStamp);
       const dx = ev.screenX - startX;
       const dy = ev.screenY - startY;
       if (!dragging && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
@@ -363,16 +385,17 @@ export function PetWindowApp() {
         window.pet.dragMove(ev.screenX, ev.screenY);
       }
     }
-    function onUp() {
+    function onUp(ev: MouseEvent) {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      velocityTracker.record(ev.screenX, ev.screenY, ev.timeStamp);
       window.pet.dragEnd();
-      desktopSuspendedRef.current = false;
-      void syncDesktopSessionFromWindow(true);
       if (dragging) {
-        transition('idle');
         recordActivity();
+        void releaseDesktopDrag(velocityTracker.velocity());
       } else {
+        desktopSuspendedRef.current = false;
+        void syncDesktopSessionFromWindow(true);
         onPetClick();
       }
     }

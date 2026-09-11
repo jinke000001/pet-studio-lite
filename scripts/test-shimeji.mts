@@ -18,6 +18,7 @@ import {
   compileClassicShimeji,
   selectClassicBehavior,
 } from '../src/shared/shimeji/classic-config';
+import { PointerVelocityTracker } from '../src/shared/shimeji/pointer-velocity';
 
 let passed = 0;
 let failed = 0;
@@ -268,6 +269,28 @@ const missingRequired = compileClassicShimeji(
   '<Mascot><BehaviorList><Behavior Name="Stand" Frequency="1" /></BehaviorList></Mascot>',
 );
 check('缺少 Fall/Dragged/Thrown 必备动作时明确拒绝', !missingRequired.ok && missingRequired.errors.some((error) => error.includes('Fall')));
+
+console.log('\n[拖拽与惯性投掷]');
+
+const velocityTracker = new PointerVelocityTracker();
+velocityTracker.record(100, 300, 0);
+velocityTracker.record(130, 270, 50);
+velocityTracker.record(180, 240, 100);
+const releaseVelocity = velocityTracker.velocity();
+check('按最近指针样本计算二维释放速度', releaseVelocity.vx === 800 && releaseVelocity.vy === -600);
+velocityTracker.record(10_000, -10_000, 101);
+const clampedVelocity = velocityTracker.velocity();
+check('异常高速投掷被限制到安全上限', Math.abs(clampedVelocity.vx) <= 1_600 && Math.abs(clampedVelocity.vy) <= 1_600);
+
+const thrownSession = new DesktopRuntimeSession({ x: 400, y: 700, width: 80, height: 120 });
+thrownSession.release({ vx: 600, vy: -900 });
+const thrownFrame = thrownSession.advance(buildDesktopTerrain(workArea, []), 100);
+check('释放后同时保留水平惯性和向上抛速', thrownFrame.x > 400 && thrownFrame.y < 700 && thrownSession.visualState === 'jumping');
+
+const edgeThrownSession = new DesktopRuntimeSession({ x: 1830, y: 500, width: 80, height: 120 });
+edgeThrownSession.release({ vx: 900, vy: 0 });
+const bouncedFrame = edgeThrownSession.advance(buildDesktopTerrain(workArea, []), 100);
+check('投掷撞到工作区边缘会衰减反弹且不出屏', bouncedFrame.x <= 1840 && bouncedFrame.vx < 0);
 
 console.log(`\n结果：${passed} 通过，${failed} 失败`);
 if (failed > 0) process.exitCode = 1;

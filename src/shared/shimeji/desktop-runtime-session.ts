@@ -1,5 +1,6 @@
 import { advanceDesktopActor, DEFAULT_DESKTOP_MOTION, type DesktopActor } from './desktop-motion';
 import type { DesktopRect, DesktopTerrain } from './desktop-terrain';
+import { MAX_THROW_SPEED, type PointerVelocity } from './pointer-velocity';
 
 export type DesktopRuntimeVisualState = 'idle' | 'walking' | 'jumping';
 
@@ -38,6 +39,26 @@ export class DesktopRuntimeSession {
     this.actor = actorFromBounds(bounds, this.actor.facing);
   }
 
+  release(velocity: PointerVelocity): void {
+    const vx = Number.isFinite(velocity.vx)
+      ? Math.max(-MAX_THROW_SPEED, Math.min(MAX_THROW_SPEED, velocity.vx))
+      : 0;
+    const vy = Number.isFinite(velocity.vy)
+      ? Math.max(-MAX_THROW_SPEED, Math.min(MAX_THROW_SPEED, velocity.vy))
+      : 0;
+    this.wandering = false;
+    this.actor = {
+      ...this.actor,
+      state: 'falling',
+      facing: vx < 0 ? 'left' : vx > 0 ? 'right' : this.actor.facing,
+      vx,
+      vy,
+      supportId: null,
+      supportOffsetX: null,
+      climb: null,
+    };
+  }
+
   advance(terrain: DesktopTerrain, deltaMs: number): Readonly<DesktopActor> {
     const physicallyMoving = this.wandering || this.actor.state !== 'walking';
     let next = advanceDesktopActor(this.actor, terrain, physicallyMoving ? deltaMs : 0);
@@ -60,7 +81,8 @@ function actorFromBounds(bounds: DesktopRect, facing: 'left' | 'right'): Desktop
     ...bounds,
     state: 'falling',
     facing,
-    vx: facing === 'right' ? DEFAULT_DESKTOP_MOTION.walkSpeed : -DEFAULT_DESKTOP_MOTION.walkSpeed,
+    // 初次出现或尺寸复位属于垂直落地，不应像主动投掷一样横向漂移。
+    vx: 0,
     vy: 0,
     supportId: null,
     supportOffsetX: null,
