@@ -126,6 +126,19 @@ Add-Check 'ZIP 已完整解压且 manifest 存在' (Test-Path -LiteralPath $mani
 $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 Add-Check '产物为 Windows x64 内测包' ($manifest.platform -eq 'win32' -and $manifest.arch -eq 'x64' -and $manifest.distribution -eq 'internal-test-only') ("$($manifest.platform)/$($manifest.arch)/$($manifest.distribution)")
 
+$integrityPath = Join-Path $PSScriptRoot 'runtime-integrity.json'
+Add-Check '运行时完整性记录存在' (Test-Path -LiteralPath $integrityPath -PathType Leaf) $integrityPath
+if (-not (Test-Path -LiteralPath $integrityPath -PathType Leaf)) { throw '缺少 runtime-integrity.json，请重新完整解压测试 ZIP。' }
+$artifactIntegrity = Get-Content -LiteralPath $integrityPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$runtimeExeSha256 = (Get-FileHash -LiteralPath $AppPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$manifestSha256 = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$runtimeIdentityOk = $artifactIntegrity.schemaVersion -eq 1 -and
+  $artifactIntegrity.executable.path -eq [IO.Path]::GetFileName($AppPath) -and
+  $artifactIntegrity.executable.sha256 -eq $runtimeExeSha256 -and
+  $artifactIntegrity.manifestSha256 -eq $manifestSha256
+Add-Check '实际运行的 EXE 与 manifest 身份匹配候选记录' $runtimeIdentityOk ("exeSha256=$runtimeExeSha256 manifestSha256=$manifestSha256")
+if (-not $runtimeIdentityOk) { throw '运行时文件完整性校验失败，请删除当前解压目录并从原 ZIP 重新完整解压。' }
+
 $launch = Start-Process -FilePath $AppPath -PassThru
 $one = @(Wait-PetWindows 1)
 Add-Check '首次启动出现一只可见宠物窗口' ($one.Count -ge 1) ("visibleWindows=" + $one.Count)
@@ -285,6 +298,9 @@ $result = [ordered]@{
   startedAt = $startedAt.ToString('o')
   finishedAt = (Get-Date).ToString('o')
   appPath = [IO.Path]::GetFullPath($AppPath)
+  runtimeExeSha256 = $runtimeExeSha256
+  manifestSha256 = $manifestSha256
+  artifactIntegrity = $artifactIntegrity
   manifest = $manifest
   dpi = $dpi
   virtualScreen = $virtual

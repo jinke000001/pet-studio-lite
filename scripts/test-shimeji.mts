@@ -500,6 +500,10 @@ check('长稳模式采集工作集、句柄和直属 PowerShell 探测进程',
 check('长稳模式循环召唤/关闭宠物并在结尾检查残留',
   acceptanceScript.includes('lifecycleCycles')
   && acceptanceScript.includes('关闭最后一只后运行时完全退出'));
+check('Windows 证据启动前复核运行时 EXE 与 manifest 身份',
+  acceptanceScript.includes('runtime-integrity.json')
+  && acceptanceScript.includes('Get-FileHash')
+  && acceptanceScript.includes('runtimeExeSha256'));
 
 console.log(`\n结果：${passed} 通过，${failed} 失败`);
 if (failed > 0) process.exitCode = 1;

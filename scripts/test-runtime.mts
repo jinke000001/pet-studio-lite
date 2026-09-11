@@ -44,7 +44,7 @@ import { removeConfirmMessage } from '../src/shared/messages.ts';
 import { validatePetPack } from '../src/shared/petpack.ts';
 import { sharpImageProbe } from '../src/main/image-probe.ts';
 import { buildManifest, resolveDistribution, distributionNote } from '../src/shared/manifest.ts';
-import { reserveOutputPath, buildRuntimeConfig } from '../src/main/export-win.ts';
+import { buildArtifactIntegrity, reserveOutputPath, buildRuntimeConfig } from '../src/main/export-win.ts';
 import { registerPetIpc, PET_IPC_HANDLE_CHANNELS, PET_IPC_ON_CHANNELS, type PetIpcTarget } from '../src/pet/ipc-router.ts';
 import { ClassicPetBehaviorScheduler, PetBehaviorScheduler, DEFAULT_BEHAVIOR_TIMINGS, stopWalkingState } from '../src/shared/pet-behavior.ts';
 import { parsePersistedPetState, applyPersistedPetState, PetStateStore } from '../src/shared/pet-state.ts';
@@ -542,6 +542,14 @@ function manifestTests(): void {
     buildManifest({ productVersion: '0.1.0', pet: m.pet, studioProjectId: m.studioProjectId, source, hashes: m.hashes, sourceLicense: 'unknown', usageMode: 'internal-test' }).sourceLicense === 'unknown');
   check('authorized + general 标记为 candidate',
     buildManifest({ productVersion: '0.1.0', pet: m.pet, studioProjectId: m.studioProjectId, source, hashes: m.hashes, sourceLicense: 'authorized', usageMode: 'general' }).distribution === 'candidate');
+  const executableBytes = Buffer.from('deterministic-runtime-executable');
+  const manifestBytes = Buffer.from(JSON.stringify(m, null, 2), 'utf8');
+  const integrity = buildArtifactIntegrity('PetLitePet.exe', executableBytes, manifestBytes);
+  check('导出完整性记录绑定运行时 EXE 与 manifest 的 SHA-256',
+    integrity.schemaVersion === 1
+    && integrity.executable.path === 'PetLitePet.exe'
+    && integrity.executable.sha256 === crypto.createHash('sha256').update(executableBytes).digest('hex')
+    && integrity.manifestSha256 === crypto.createHash('sha256').update(manifestBytes).digest('hex'));
 }
 
 async function reserveTests(tmp: string): Promise<void> {
@@ -1385,6 +1393,8 @@ async function uxWiringTests(): Promise<void> {
 
   const exportSrc = await fs.readFile(path.join(REPO, 'src', 'main', 'export-win.ts'), 'utf8');
   check('启动说明包含新菜单项', exportSrc.includes('回到屏幕右下角') && exportSrc.includes('自动游走'));
+  check('Windows 导出包写入运行时完整性记录',
+    exportSrc.includes("name: 'runtime-integrity.json'") && exportSrc.includes('buildArtifactIntegrity'));
 }
 
 async function main(): Promise<void> {

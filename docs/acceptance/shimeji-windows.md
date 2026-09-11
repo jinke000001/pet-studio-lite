@@ -22,7 +22,7 @@
    powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1
    ```
 
-3. 脚本约 35 秒，自动覆盖首次启动、单实例召唤第二只、可见窗口边界、经典自动行为、关闭单只与完全退出，并在同目录生成 `acceptance-evidence-时间`，其中含 `result.json` 和三张截图。
+3. 脚本会先读取 `runtime-integrity.json`，复算实际启动的 `PetLitePet.exe` 与 `manifest.json` 的 SHA-256；任一文件不匹配就停止，避免把其他版本的运行结果误记到本候选。随后约 35 秒自动覆盖首次启动、单实例召唤第二只、可见窗口边界、经典自动行为、关闭单只与完全退出，并在同目录生成 `acceptance-evidence-时间`，其中含 `result.json` 和三张截图。`result.json` 会记录这两个实际哈希及完整性记录。
 4. 分阶段在 Windows 100%、125%、150% 缩放下各执行一次；每份证据目录都保留，不覆盖前次结果。
 
 基础交互通过后，可以让脚本无人值守运行 1 小时长稳模式：

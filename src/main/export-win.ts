@@ -7,7 +7,7 @@ import type { ProjectMeta } from '../shared/types';
 import type { PetRuntimeConfig } from '../shared/config';
 import { buildManifest, distributionNote, type ExportManifest } from '../shared/manifest';
 import { appendToZip } from '../shared/zipw';
-import { inspectZip, ZIP_LIMITS_RELAXED } from '../shared/zip';
+import { inspectZip, readZipEntry, ZIP_LIMITS_RELAXED } from '../shared/zip';
 
 /**
  * Windows x64 便携 ZIP 导出编排。
@@ -34,7 +34,26 @@ export interface ExportOutcome {
   manifest: ExportManifest;
 }
 
+export interface ArtifactIntegrity {
+  schemaVersion: 1;
+  executable: { path: string; sha256: string };
+  manifestSha256: string;
+}
+
 export const PET_EXE_NAME = 'PetLitePet.exe';
+
+export function buildArtifactIntegrity(
+  executablePath: string,
+  executableBytes: Buffer,
+  manifestBytes: Buffer,
+): ArtifactIntegrity {
+  const sha256 = (bytes: Buffer) => crypto.createHash('sha256').update(bytes).digest('hex');
+  return {
+    schemaVersion: 1,
+    executable: { path: executablePath, sha256: sha256(executableBytes) },
+    manifestSha256: sha256(manifestBytes),
+  };
+}
 
 /** 导出写入 resources/petpack/config.json 的运行时配置（与制作台配置同义）。 */
 export function buildRuntimeConfig(config: PetRuntimeConfig): PetRuntimeConfig {
@@ -208,15 +227,26 @@ export async function exportWindowsZip(
       deps.repoRoot,
     );
 
-    // 6. 把 manifest / 启动说明并入 ZIP 顶层
+    // 6. 把 manifest / 启动说明 / 可复算的运行时身份并入 ZIP 顶层
     deps.onProgress('assemble', '写入启动说明与 manifest…');
     const distDir = path.join(staging, 'dist');
     const zips = (await fs.readdir(distDir)).filter((f) => f.endsWith('.zip'));
     if (zips.length !== 1) throw new Error(`打包产物异常：dist 里应有且仅有一个 ZIP（实际 ${zips.length} 个）`);
     const builtZip = path.join(distDir, zips[0]!);
-    const merged = await appendToZip(await fs.readFile(builtZip), [
+    const builtBytes = await fs.readFile(builtZip);
+    const builtEntries = inspectZip(builtBytes, ZIP_LIMITS_RELAXED).entries;
+    const executableEntries = builtEntries.filter((entry) => entry.name === PET_EXE_NAME);
+    if (executableEntries.length !== 1) {
+      throw new Error(`产物核验失败：ZIP 顶层应有且仅有一个 ${PET_EXE_NAME}（实际 ${executableEntries.length} 个）`);
+    }
+    const manifestBytes = Buffer.from(JSON.stringify(manifest, null, 2), 'utf8');
+    const executableBytes = await readZipEntry(builtBytes, executableEntries[0]!);
+    const artifactIntegrity = buildArtifactIntegrity(PET_EXE_NAME, executableBytes, manifestBytes);
+    const integrityBytes = Buffer.from(JSON.stringify(artifactIntegrity, null, 2), 'utf8');
+    const merged = await appendToZip(builtBytes, [
       { name: '启动说明.txt', data: Buffer.from(readmeText(meta, manifest), 'utf8'), compress: false },
-      { name: 'manifest.json', data: Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'), compress: false },
+      { name: 'manifest.json', data: manifestBytes, compress: false },
+      { name: 'runtime-integrity.json', data: integrityBytes, compress: false },
     ]);
     await fs.writeFile(builtZip, merged);
 
@@ -229,6 +259,9 @@ export async function exportWindowsZip(
     }
     if (!names.includes('manifest.json')) {
       throw new Error('产物核验失败：ZIP 顶层缺少 manifest.json');
+    }
+    if (!names.includes('runtime-integrity.json')) {
+      throw new Error('产物核验失败：ZIP 顶层缺少 runtime-integrity.json');
     }
     const manifestEntry = entries.find((e) => e.name === 'manifest.json')!;
     void manifestEntry;

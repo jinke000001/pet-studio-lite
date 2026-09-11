@@ -37,6 +37,7 @@ check('ZIP 结构合法可解析', entries.length > 0);
 check('包含 PetLitePet.exe', names.some((n) => n.endsWith('PetLitePet.exe')));
 check('顶层有 启动说明.txt', names.includes('启动说明.txt'));
 check('顶层有 manifest.json', names.includes('manifest.json'));
+check('顶层有 runtime-integrity.json', names.includes('runtime-integrity.json'));
 check('resources 里有 manifest.json', names.some((n) => n.endsWith('resources/manifest.json') || n.includes('/resources/manifest.json')));
 check('resources 里有宠物包 pet.json', names.some((n) => n.includes('petpack/pet.json')));
 check('resources 里有图集', names.some((n) => /petpack\/spritesheet\.(png|webp)$/.test(n)));
@@ -107,6 +108,31 @@ check('resources 里有运行时配置 config.json', names.some((n) => n.include
     check('ZIP 顶层与 resources 的 manifest.json 一致', top.equals(res));
   } else {
     check('ZIP 顶层与 resources 的 manifest.json 一致', false, '找不到 resources/manifest.json');
+  }
+}
+
+// 运行时身份：把实际 EXE 与顶层 manifest 绑定到可复算 SHA-256。
+{
+  const integrityEntry = entries.find((e) => e.name === 'runtime-integrity.json');
+  if (integrityEntry) {
+    const integrity = JSON.parse((await readZipEntry(buf, integrityEntry)).toString('utf8'));
+    check('runtime integrity schema 合法',
+      integrity.schemaVersion === 1
+      && integrity.executable?.path === 'PetLitePet.exe'
+      && /^[a-f0-9]{64}$/.test(integrity.executable?.sha256 ?? '')
+      && /^[a-f0-9]{64}$/.test(integrity.manifestSha256 ?? ''));
+    const exeEntry = entries.find((e) => e.name === integrity.executable?.path);
+    const manifestEntry = entries.find((e) => e.name === 'manifest.json');
+    if (exeEntry && manifestEntry) {
+      const exeHash = crypto.createHash('sha256').update(await readZipEntry(buf, exeEntry)).digest('hex');
+      const manifestHash = crypto.createHash('sha256').update(await readZipEntry(buf, manifestEntry)).digest('hex');
+      check('runtime integrity 与实际 EXE 一致', exeHash === integrity.executable.sha256);
+      check('runtime integrity 与实际 manifest 一致', manifestHash === integrity.manifestSha256);
+    } else {
+      check('runtime integrity 可找到对应文件', false);
+    }
+  } else {
+    check('runtime integrity 可复算', false, '缺少 runtime-integrity.json');
   }
 }
 
