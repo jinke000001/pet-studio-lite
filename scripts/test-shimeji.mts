@@ -504,6 +504,9 @@ check('Windows 证据启动前复核运行时 EXE 与 manifest 身份',
   acceptanceScript.includes('runtime-integrity.json')
   && acceptanceScript.includes('Get-FileHash')
   && acceptanceScript.includes('runtimeExeSha256'));
+const exportChecker = await fs.readFile(path.join(repoRoot, 'scripts', 'check-export.mjs'), 'utf8');
+check('导出静态核验按放宽后的受控 ZIP 限制读取大型 Electron EXE',
+  exportChecker.includes('readZipEntry(buf, exeEntry, ZIP_LIMITS_RELAXED)'));
 
 console.log(`\n结果：${passed} 通过，${failed} 失败`);
 if (failed > 0) process.exitCode = 1;

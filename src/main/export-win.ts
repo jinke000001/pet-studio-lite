@@ -240,7 +240,7 @@ export async function exportWindowsZip(
       throw new Error(`产物核验失败：ZIP 顶层应有且仅有一个 ${PET_EXE_NAME}（实际 ${executableEntries.length} 个）`);
     }
     const manifestBytes = Buffer.from(JSON.stringify(manifest, null, 2), 'utf8');
-    const executableBytes = await readZipEntry(builtBytes, executableEntries[0]!);
+    const executableBytes = await readZipEntry(builtBytes, executableEntries[0]!, ZIP_LIMITS_RELAXED);
     const artifactIntegrity = buildArtifactIntegrity(PET_EXE_NAME, executableBytes, manifestBytes);
     const integrityBytes = Buffer.from(JSON.stringify(artifactIntegrity, null, 2), 'utf8');
     const merged = await appendToZip(builtBytes, [

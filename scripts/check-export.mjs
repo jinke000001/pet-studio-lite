@@ -124,7 +124,7 @@ check('resources 里有运行时配置 config.json', names.some((n) => n.include
     const exeEntry = entries.find((e) => e.name === integrity.executable?.path);
     const manifestEntry = entries.find((e) => e.name === 'manifest.json');
     if (exeEntry && manifestEntry) {
-      const exeHash = crypto.createHash('sha256').update(await readZipEntry(buf, exeEntry)).digest('hex');
+      const exeHash = crypto.createHash('sha256').update(await readZipEntry(buf, exeEntry, ZIP_LIMITS_RELAXED)).digest('hex');
       const manifestHash = crypto.createHash('sha256').update(await readZipEntry(buf, manifestEntry)).digest('hex');
       check('runtime integrity 与实际 EXE 一致', exeHash === integrity.executable.sha256);
       check('runtime integrity 与实际 manifest 一致', manifestHash === integrity.manifestSha256);

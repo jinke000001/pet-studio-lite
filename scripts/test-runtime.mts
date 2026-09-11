@@ -1395,6 +1395,8 @@ async function uxWiringTests(): Promise<void> {
   check('启动说明包含新菜单项', exportSrc.includes('回到屏幕右下角') && exportSrc.includes('自动游走'));
   check('Windows 导出包写入运行时完整性记录',
     exportSrc.includes("name: 'runtime-integrity.json'") && exportSrc.includes('buildArtifactIntegrity'));
+  check('Windows 导出哈希读取大型 Electron EXE 时使用放宽后的受控 ZIP 限制',
+    exportSrc.includes('readZipEntry(builtBytes, executableEntries[0]!, ZIP_LIMITS_RELAXED)'));
 }
 
 async function main(): Promise<void> {
