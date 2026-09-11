@@ -14,6 +14,10 @@ import {
 } from '../src/shared/shimeji/window-snapshot';
 import { WindowSnapshotMonitor } from '../src/pet/window-snapshot-monitor';
 import { DesktopRuntimeSession } from '../src/shared/shimeji/desktop-runtime-session';
+import {
+  compileClassicShimeji,
+  selectClassicBehavior,
+} from '../src/shared/shimeji/classic-config';
 
 let passed = 0;
 let failed = 0;
@@ -217,6 +221,53 @@ await resilientMonitor.refresh();
 await resilientMonitor.refresh();
 check('临时失败保留最后一次成功快照', resilientMonitor.snapshot[0]?.id === '88');
 check('临时失败通过受控错误通道上报', reportedErrors === 1);
+
+console.log('\n[经典 Shimeji 配置兼容]');
+
+const classicActions = `<?xml version="1.0"?>
+<Mascot xmlns="http://www.group-finity.com/Mascot"><ActionList>
+  <Action Name="Stand" Type="Pause" BorderType="Floor" Duration="600" />
+  <Action Name="Walk" Type="Move" BorderType="Floor" Duration="1200" />
+  <Action Name="Fall" Type="Embedded" Class="com.group_finity.mascot.action.Fall" />
+  <Action Name="Dragged" Type="Embedded" Class="com.group_finity.mascot.action.Dragged" />
+  <Action Name="Thrown" Type="Embedded" Class="com.group_finity.mascot.action.Thrown" />
+  <Action Name="ChaseMouse" Type="Move" BorderType="Floor" Duration="800" />
+  <Action Name="Dynamic" Type="Move" Duration="#{mascot.anchor.x}" />
+</ActionList></Mascot>`;
+const classicBehaviors = `<?xml version="1.0"?>
+<Mascot xmlns="http://www.group-finity.com/Mascot"><BehaviorList>
+  <Behavior Name="Stand" Frequency="50"><NextBehaviorList Add="false">
+    <BehaviorReference Name="Walk" Frequency="30" />
+    <BehaviorReference Name="Fall" Frequency="10" />
+  </NextBehaviorList></Behavior>
+  <Behavior Name="Walk" Frequency="30" />
+  <Behavior Name="Fall" Frequency="10" />
+  <Behavior Name="Dragged" Frequency="0" />
+  <Behavior Name="Thrown" Frequency="0" />
+  <Behavior Name="ChaseMouse" Frequency="0" />
+</BehaviorList></Mascot>`;
+const compiledClassic = compileClassicShimeji(classicActions, classicBehaviors);
+check('解析经典 Action/Behavior 与后继权重', compiledClassic.ok
+  && compiledClassic.profile.actions.length === 6
+  && compiledClassic.profile.behaviors.find((behavior) => behavior.name === 'Stand')?.next.length === 2);
+check('动态表达式不执行并从兼容子集中排除', compiledClassic.ok
+  && !compiledClassic.profile.actions.some((action) => action.name === 'Dynamic')
+  && compiledClassic.warnings.some((warning) => warning.includes('Dynamic')));
+check('固定随机数按 Frequency 确定性选择行为', compiledClassic.ok
+  && selectClassicBehavior(compiledClassic.profile, 0, 'Stand')?.name === 'Walk'
+  && selectClassicBehavior(compiledClassic.profile, 0.99, 'Stand')?.name === 'Fall');
+
+const withDoctype = compileClassicShimeji(
+  '<!DOCTYPE Mascot SYSTEM "https://example.invalid/evil.dtd"><Mascot/>',
+  classicBehaviors,
+);
+check('拒绝 DOCTYPE 与外部实体入口', !withDoctype.ok && withDoctype.errors.some((error) => error.includes('DOCTYPE')));
+
+const missingRequired = compileClassicShimeji(
+  '<Mascot><ActionList><Action Name="Stand" Type="Pause" /></ActionList></Mascot>',
+  '<Mascot><BehaviorList><Behavior Name="Stand" Frequency="1" /></BehaviorList></Mascot>',
+);
+check('缺少 Fall/Dragged/Thrown 必备动作时明确拒绝', !missingRequired.ok && missingRequired.errors.some((error) => error.includes('Fall')));
 
 console.log(`\n结果：${passed} 通过，${failed} 失败`);
 if (failed > 0) process.exitCode = 1;

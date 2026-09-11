@@ -9,6 +9,7 @@
 | Win32 窗口跟踪与攀爬对照 | `ccyrene/clawd@fea00f0` | 仓库未提供明确许可证 | 只研究行为和公开 API 选择，不复制代码 |
 | 跨平台兼容结果对照 | `pixelomer/Shijima-Qt@57723f1` | GPL-3.0 | 只做黑盒/格式对照，除非整个产品另行决定采用 GPL-3.0 |
 | Windows API 权威依据 | Microsoft Learn | 文档条款 | 根据公开 API 独立实现 |
+| XML 流式解析 | `lddubeau/saxes@6.0.0` | ISC | 仅解析本地 XML；禁止 DOCTYPE/实体，业务层另做白名单和资源上限 |
 
 ## 首批可复用内容
 
@@ -16,6 +17,14 @@
 - 从 Desktop Virtual Buddy 评估 `GameLoop`、`PetStateMachine`、平台碰撞与 sprite animator 的可移植部分；
 - Windows 桥独立实现 `EnumWindows`、DWM 可见边界、窗口事件和显示器/DPI 转换；
 - 不搬运上述项目的角色美术、AI、截图、文件删除、网络或聊天功能。
+
+## 经典配置兼容边界
+
+- 按 `Mascot.xsd` 读取 `Action`、`ActionReference`、`Behavior`、`BehaviorReference`、`Frequency` 和字面量 `Duration`；
+- 保留 `ChaseMouse`、`Fall`、`Dragged`、`Thrown` 必备项校验；
+- 当前只接受英文 Shimeji-ee 标签，日文旧格式后续由显式映射转换，不做猜测式解析；
+- `${...}` / `#{...}` 动态表达式不会执行：所在条目跳过并产生警告；
+- XML 单文件限制 1 MB、5000 元素、64 层嵌套，并禁止 `DOCTYPE` 与实体声明。
 
 ## 官方技术依据
 
