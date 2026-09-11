@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import sharp from 'sharp';
 import { convertClassicShimejiDirectory } from '../src/main/classic-shimeji-import';
 import { sharpImageProbe } from '../src/main/image-probe';
-import { validatePetPack } from '../src/shared/petpack';
+import { petPackToSpriteConfig, validatePetPack } from '../src/shared/petpack';
 import { extractPetPackFromZip } from '../src/shared/zip';
 import { createZip } from '../src/shared/zipw';
 
@@ -39,7 +39,7 @@ try {
   await fs.mkdir(images, { recursive: true });
   await fs.mkdir(conf, { recursive: true });
 
-  for (let index = 1; index <= 5; index += 1) {
+  for (let index = 1; index <= 8; index += 1) {
     const rgba = { r: 30 * index, g: 20 * index, b: 10 * index, alpha: 1 };
     await sharp({ create: { width: 128, height: 128, channels: 4, background: rgba } })
       .png()
@@ -52,6 +52,9 @@ try {
     <Action Name="Dragged" Type="Embedded"><Animation><Pose Image="/shime5.png" Duration="100" /></Animation></Action>
     <Action Name="Thrown" Type="Embedded"><ActionReference Name="Fall" /></Action>
     <Action Name="ChaseMouse" Type="Move"><ActionReference Name="Walk" /></Action>
+    <Action Name="Sit" Type="Stay" BorderType="Floor"><Animation><Pose Image="/shime6.png" Duration="250" /></Animation></Action>
+    <Action Name="LookAround" Type="Animate" BorderType="Floor"><Animation><Pose Image="/shime7.png" Duration="250" /></Animation></Action>
+    <Action Name="Run" Type="Move" BorderType="Floor"><Animation><Pose Image="/shime8.png" Duration="8" /></Animation></Action>
     <Action Name="ClimbCeiling" Type="Move" BorderType="Ceiling"><Animation><Pose Image="/shime4.png" Duration="8" /></Animation></Action>
     <Action Name="ClimbWall" Type="Move" BorderType="Wall"><Animation><Pose Image="/shime5.png" Duration="8" /></Animation></Action>
   </ActionList></Mascot>`;
@@ -59,6 +62,8 @@ try {
     <Behavior Name="Stand" Frequency="50"/><Behavior Name="Walk" Frequency="30"/>
     <Behavior Name="Fall" Frequency="10"/><Behavior Name="Dragged" Frequency="0"/>
     <Behavior Name="Thrown" Frequency="0"/><Behavior Name="ChaseMouse" Frequency="0"/>
+    <Behavior Name="Sit" Frequency="20"/><Behavior Name="LookAround" Frequency="10"/>
+    <Behavior Name="Run" Frequency="15"/>
   </BehaviorList></Mascot>`;
   await fs.writeFile(path.join(conf, 'actions.xml'), actions, 'utf8');
   await fs.writeFile(path.join(conf, 'behaviors.xml'), behaviors, 'utf8');
@@ -79,11 +84,31 @@ try {
     climbCell.data[climbCenter] === 150
     && climbCell.data[climbCenter + 1] === 100
     && climbCell.data[climbCenter + 2] === 50);
+  const centerColorForRow = async (row: number): Promise<number[]> => {
+    const cell = await sharp(path.join(convertedDir, 'spritesheet.png'))
+      .extract({ left: 0, top: row * 208, width: 192, height: 208 })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const center = (104 * 192 + 96) * cell.info.channels;
+    return Array.from(cell.data.subarray(center, center + 3));
+  };
+  check('经典图集观察行优先使用 look 动作',
+    JSON.stringify(await centerColorForRow(3)) === JSON.stringify([210, 140, 70]));
+  check('经典图集等待行优先使用 sit 动作',
+    JSON.stringify(await centerColorForRow(6)) === JSON.stringify([180, 120, 60]));
+  check('经典图集奔跑行优先使用 run 动作',
+    JSON.stringify(await centerColorForRow(7)) === JSON.stringify([240, 160, 80]));
   const generatedJson = JSON.parse(await fs.readFile(path.join(convertedDir, 'pet.json'), 'utf8')) as Record<string, unknown>;
   check('生成包保留安全编译后的经典行为资料',
     generatedJson['sourceFormat'] === 'classic-shimeji'
     && typeof generatedJson['classicProfile'] === 'object'
     && Array.isArray(generatedJson['classicBehaviorPlan']));
+  if (validated.ok) {
+    const sprite = petPackToSpriteConfig(validated.pack);
+    check('经典 review 映射到观察行而 climbing 保持独立攀爬行',
+      sprite.states.review?.frames[0] === 3 * sprite.frame.cols
+      && sprite.states.climbing?.frames[0] === 8 * sprite.frame.cols);
+  }
   check('转换包记录整套动画稳定 alpha 外框',
     JSON.stringify(generatedJson['contentInsets']) === JSON.stringify({ left: 0, top: 8, right: 0, bottom: 8 })
     && validated.ok
@@ -113,7 +138,7 @@ try {
   for (const name of ['actions.xml', 'behaviors.xml']) {
     zipEntries.push({ name: `ClassicPack/conf/${name}`, data: await fs.readFile(path.join(conf, name)) });
   }
-  for (let index = 1; index <= 5; index += 1) {
+  for (let index = 1; index <= 8; index += 1) {
     zipEntries.push({
       name: `ClassicPack/img/shime${index}.png`,
       data: await fs.readFile(path.join(images, `shime${index}.png`)),
@@ -157,6 +182,11 @@ try {
     <Action Name="ChaseMouse" Type="Move"><ActionReference Name="Walk" /></Action>
   </ActionList></Mascot>`;
   await fs.writeFile(path.join(fanoutSource, 'conf', 'actions.xml'), fanoutActions, 'utf8');
+  await fs.writeFile(path.join(fanoutSource, 'conf', 'behaviors.xml'), `<Mascot><BehaviorList>
+    <Behavior Name="Stand" Frequency="0"/><Behavior Name="Walk" Frequency="1"/>
+    <Behavior Name="Fall" Frequency="0"/><Behavior Name="Dragged" Frequency="0"/>
+    <Behavior Name="Thrown" Frequency="0"/><Behavior Name="ChaseMouse" Frequency="0"/>
+  </BehaviorList></Mascot>`, 'utf8');
   const fanoutOutput = path.join(temp, 'fanout-output');
   await convertClassicShimejiDirectory(fanoutSource, fanoutOutput);
   check('高扇出经典动作引用只收集一个图集行所需帧，不会指数展开',

@@ -101,5 +101,6 @@ Windows 原生数据进入共享核心前必须完成运行时校验。窗口句
 - XML 使用固定上限与白名单语义解析，拒绝 DTD、实体、路径逃逸和动态表达式；
 - 动作引用递归解析为状态帧，图片统一缩放并透明合成到 8×9 标准图集；
 - 转换包可携带经过校验的 `contentInsets`，其值来自整套动画 alpha 并集并以源单格像素表示；旧包缺省时继续按完整单格碰撞；
+- 经典包识别 `stand / sit / look / walk / run / crawl / jump / fall / dragged / thrown / climb` 等安全视觉语义，并将 review 与 climbing 分配到不同图集行；普通 Petdex 包的既有行语义保持不变；
 - 不猜测包含多个角色或重复同名图片的目录，要求用户直接选择单个角色；
 - 生成包保留安全编译后的 `classicProfile`，授权状态保持 `unknown`，不得因转换自动取得分发权利。

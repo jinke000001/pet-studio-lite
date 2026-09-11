@@ -31,6 +31,7 @@ export const PETDEX_VERSIONS: Record<PetdexVersion, { rows: number; sheetWidth: 
 };
 
 export type LicenseStatus = 'authorized' | 'internal-test' | 'unknown';
+export type PetSourceFormat = 'classic-shimeji';
 
 /**
  * 整套图集所有动画帧的稳定 alpha 外框，以源单格像素表示。
@@ -68,6 +69,8 @@ export interface PetPackInfo {
   sheet: { width: number; height: number };
   /** pet.json 与图集的 SHA-256（导出 manifest 用）。 */
   hashes: { petJson: string; spritesheet: string };
+  /** 需要专用运行时状态映射的已知来源格式。 */
+  sourceFormat: PetSourceFormat | null;
   /** 可选的稳定可见像素外框；旧包缺省时仍按完整单格碰撞。 */
   contentInsets: SpriteContentInsets | null;
   /** 经典 Shimeji 转换包的安全自动行为子集；普通 Petdex 包为 null。 */
@@ -205,6 +208,10 @@ function parseLicense(raw: unknown): LicenseStatus {
   return 'unknown';
 }
 
+function parseSourceFormat(raw: unknown): PetSourceFormat | null {
+  return raw === 'classic-shimeji' ? raw : null;
+}
+
 function parseContentInsets(raw: unknown): SpriteContentInsets | null {
   if (raw === undefined || raw === null) return null;
   if (typeof raw !== 'object' || Array.isArray(raw)) {
@@ -278,6 +285,7 @@ export async function validatePetPack(dir: string, opts: ValidateOptions = {}): 
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
+  const sourceFormat = parseSourceFormat(obj['sourceFormat']);
 
   // 版本声明（可选，声明了就必须合法）：spriteVersionNumber 优先，
   // version 为兼容别名；两者冲突或值不受支持都直接拒绝。
@@ -385,6 +393,7 @@ export async function validatePetPack(dir: string, opts: ValidateOptions = {}): 
       frame: { ...PETDEX_FRAME },
       sheet: sheetSize!,
       hashes: { petJson: petJsonHash, spritesheet: sheetHash },
+      sourceFormat,
       contentInsets,
       classicBehaviorPlan,
     },
@@ -429,6 +438,7 @@ export function petPackToSpriteConfig(pack: PetPackInfo): PetSpriteConfig {
   const cols = pack.cols;
   const runRight = range(1 * cols, 8);
   const runLeft = range(2 * cols, 8);
+  const reviewRow = pack.sourceFormat === 'classic-shimeji' ? 3 : 8;
   const states: PetSpriteConfig['states'] = {
     idle:     { frames: range(0 * cols, 6), fps: 5.5 },
     walking:  { frames: runRight, framesLeft: runLeft, fps: 7 },
@@ -439,7 +449,7 @@ export function petPackToSpriteConfig(pack: PetPackInfo): PetSpriteConfig {
     waiting:  { frames: range(6 * cols, 6), fps: 4.0 },
     running:  { frames: range(7 * cols, 6), fps: 7.5 },
     climbing: { frames: range(8 * cols, 6), fps: 7.0 },
-    review:   { frames: range(8 * cols, 6), fps: 5.5 },
+    review:   { frames: range(reviewRow * cols, 6), fps: 5.5 },
   };
   if (pack.rows > 9) {
     states['extra1'] = { frames: range(9 * cols, 8), fps: 6 };

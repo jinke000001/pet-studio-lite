@@ -344,6 +344,12 @@ const classicActions = `<?xml version="1.0"?>
   <Action Name="Dragged" Type="Embedded" Class="com.group_finity.mascot.action.Dragged" />
   <Action Name="Thrown" Type="Embedded" Class="com.group_finity.mascot.action.Thrown" />
   <Action Name="ChaseMouse" Type="Move" BorderType="Floor" Duration="800" />
+  <Action Name="Sit" Type="Stay" BorderType="Floor" Duration="1200"><Animation><Pose Image="/shime3.png" Duration="600" /></Animation></Action>
+  <Action Name="LookAround" Type="Animate" BorderType="Floor" Duration="900"><Animation><Pose Image="/shime4.png" Duration="450" /></Animation></Action>
+  <Action Name="Run" Type="Move" BorderType="Floor" Duration="1000"><Animation><Pose Image="/shime5.png" Duration="125" /></Animation></Action>
+  <Action Name="Creep" Type="Move" BorderType="Floor" Duration="1400"><Animation><Pose Image="/shime6.png" Duration="175" /></Animation></Action>
+  <Action Name="CrawlAlongCeiling" Type="Move" BorderType="Ceiling" Duration="1400"><Animation><Pose Image="/shime6.png" Duration="175" /></Animation></Action>
+  <Action Name="Divide" Type="Sequence" Duration="1000"><Animation><Pose Image="/shime6.png" Duration="175" /></Animation></Action>
   <Action Name="Dynamic" Type="Move" Duration="#{mascot.anchor.x}" />
 </ActionList></Mascot>`;
 const classicBehaviors = `<?xml version="1.0"?>
@@ -357,11 +363,24 @@ const classicBehaviors = `<?xml version="1.0"?>
   <Behavior Name="Dragged" Frequency="0" />
   <Behavior Name="Thrown" Frequency="0" />
   <Behavior Name="ChaseMouse" Frequency="0" />
+  <Behavior Name="Sit" Frequency="20" />
+  <Behavior Name="LookAround" Frequency="10" />
+  <Behavior Name="Run" Frequency="15" />
+  <Behavior Name="Creep" Frequency="5" />
+  <Behavior Name="CrawlAlongCeiling" Frequency="5" />
+  <Behavior Name="Divide" Frequency="5" />
 </BehaviorList></Mascot>`;
 const compiledClassic = compileClassicShimeji(classicActions, classicBehaviors);
 check('解析经典 Action/Behavior 与后继权重', compiledClassic.ok
-  && compiledClassic.profile.actions.length === 6
+  && compiledClassic.profile.actions.length === 12
   && compiledClassic.profile.behaviors.find((behavior) => behavior.name === 'Stand')?.next.length === 2);
+check('高价值地面动作可区分坐下、观察、奔跑与爬行', compiledClassic.ok
+  && compiledClassic.profile.actions.find((action) => action.name === 'Sit')?.kind === 'sit'
+  && compiledClassic.profile.actions.find((action) => action.name === 'LookAround')?.kind === 'look'
+  && compiledClassic.profile.actions.find((action) => action.name === 'Run')?.kind === 'run'
+  && compiledClassic.profile.actions.find((action) => action.name === 'Creep')?.kind === 'crawl');
+check('墙面/天花板复合动作优先归入物理攀爬语义', compiledClassic.ok
+  && compiledClassic.profile.actions.find((action) => action.name === 'CrawlAlongCeiling')?.kind === 'climb');
 check('安全提取 Pose 图片、右向帧和固定时长', compiledClassic.ok
   && compiledClassic.profile.actions.find((action) => action.name === 'Stand')?.poses[0]?.image === 'shime1.png'
   && compiledClassic.profile.actions.find((action) => action.name === 'Stand')?.poses[0]?.imageRight === 'shime1-r.png'
@@ -378,9 +397,15 @@ check('固定随机数按 Frequency 确定性选择行为', compiledClassic.ok
 const runtimePlan = compiledClassic.ok ? compileClassicRuntimePlan(compiledClassic.profile) : [];
 check('经典频率编译为等待与游走计划',
   runtimePlan.some((behavior) => behavior.name === 'Stand' && behavior.kind === 'waiting' && behavior.weight === 50)
-  && runtimePlan.some((behavior) => behavior.name === 'Walk' && behavior.kind === 'wander' && behavior.weight === 30));
+  && runtimePlan.some((behavior) => behavior.name === 'Walk' && behavior.kind === 'wander' && behavior.weight === 30)
+  && runtimePlan.some((behavior) => behavior.name === 'Sit' && behavior.kind === 'waiting')
+  && runtimePlan.some((behavior) => behavior.name === 'LookAround' && behavior.kind === 'review')
+  && runtimePlan.some((behavior) => behavior.name === 'Run' && behavior.kind === 'wander')
+  && runtimePlan.some((behavior) => behavior.name === 'Creep' && behavior.kind === 'wander'));
 check('物理动作不会进入随机自动行为计划',
-  !runtimePlan.some((behavior) => ['Fall', 'Dragged', 'Thrown'].includes(behavior.name)));
+  !runtimePlan.some((behavior) => ['Fall', 'Dragged', 'Thrown', 'CrawlAlongCeiling'].includes(behavior.name)));
+check('未知动作不会被猜成观察行为自动触发',
+  !runtimePlan.some((behavior) => behavior.name === 'Divide'));
 if (compiledClassic.ok) {
   const oversizedPlan = compileClassicRuntimePlan({
     actions: compiledClassic.profile.actions,

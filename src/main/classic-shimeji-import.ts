@@ -282,13 +282,13 @@ function buildStateRows(
 
   return [
     row('idle', ['stand']),
-    row('walking-right', ['walk', 'chase-mouse'], 'right'),
-    row('walking-left', ['walk', 'chase-mouse'], 'left'),
-    row('talking', ['unknown', 'stand']),
+    row('walking-right', ['walk', 'crawl', 'run', 'chase-mouse'], 'right'),
+    row('walking-left', ['walk', 'crawl', 'run', 'chase-mouse'], 'left'),
+    row('talking', ['look', 'unknown', 'sit', 'stand']),
     row('jumping', ['jump', 'thrown', 'fall']),
     row('failed', ['fall', 'thrown']),
-    row('waiting', ['stand']),
-    row('running', ['chase-mouse', 'walk'], 'right'),
+    row('waiting', ['sit', 'stand']),
+    row('running', ['run', 'chase-mouse', 'walk', 'crawl'], 'right'),
     // 运行时 climbing 表示贴着应用窗口侧边向上移动；经典包往往先定义
     // Ceiling climb，因此这里明确优先 Wall 帧，避免显示成天花板爬行动作。
     row('review', ['climb'], 'neutral', (action) => action.border === 'wall'),

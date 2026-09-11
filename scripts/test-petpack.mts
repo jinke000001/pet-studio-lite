@@ -75,6 +75,7 @@ async function main(): Promise<void> {
         check('v1 状态映射含 idle/walking/talking', ['idle', 'walking', 'talking'].every((s) => s in cfg.states));
         check('v1 为物理攀爬提供独立动画状态',
           !!cfg.states.climbing && cfg.states.climbing.frames[0] === 8 * cfg.frame.cols);
+        check('普通 Petdex v1 保留第 8 行 review 语义', cfg.states.review?.frames[0] === 8 * cfg.frame.cols);
         const url = await readSpritesheetDataUrl(res.pack);
         check('图集可读成 data URL', url.startsWith('data:image/png;base64,'));
       }
@@ -107,6 +108,23 @@ async function main(): Promise<void> {
           JSON.stringify(petPackToSpriteConfig(res.pack).contentInsets) === JSON.stringify(contentInsets));
       }
     }
+    {
+      const dir = await writePack(tmp, 'classic-source-format', {
+        id: 'classic-source',
+        spriteVersionNumber: 1,
+        spritesheetPath: 'spritesheet.png',
+        sourceFormat: 'classic-shimeji',
+      }, V1_SHEET);
+      const res = await validatePetPack(dir);
+      check('经典 Shimeji 来源格式通过加载边界', res.ok && res.pack.sourceFormat === 'classic-shimeji',
+        res.ok ? '' : res.errors.join('；'));
+      if (res.ok) {
+        const cfg = petPackToSpriteConfig(res.pack);
+        check('经典包 review 使用观察行且不再误播攀爬行',
+          cfg.states.review?.frames[0] === 3 * cfg.frame.cols
+          && cfg.states.climbing?.frames[0] === 8 * cfg.frame.cols);
+      }
+    }
 
     console.log('\n[可见像素外框]');
     {
@@ -126,6 +144,19 @@ async function main(): Promise<void> {
       }, V1_SHEET);
       const res = await validatePetPack(dir);
       check('contentInsets 不得吞掉整格可见宽度', !res.ok && hasErr(res.errors, 'contentInsets'));
+    }
+    {
+      const dir = await writePack(tmp, 'bad-source-format', {
+        id: 'bad-source-format',
+        spritesheetPath: 'spritesheet.png',
+        sourceFormat: 'unknown-executable-format',
+      }, V1_SHEET);
+      const res = await validatePetPack(dir);
+      check('未知 sourceFormat 保持向前兼容且不得进入经典运行时分支',
+        res.ok
+        && res.pack.sourceFormat === null
+        && petPackToSpriteConfig(res.pack).states.review?.frames[0] === 8 * res.pack.cols,
+        res.ok ? '' : res.errors.join('；'));
     }
 
     // ── WebP 真实解码（sharp 探针，与制作台 main 用的是同一个） ──────────────

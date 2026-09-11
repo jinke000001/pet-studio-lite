@@ -17,7 +17,11 @@ const MAX_DEPTH = 64;
 const MAX_NAME_LENGTH = 128;
 const REQUIRED_NAMES = ['ChaseMouse', 'Fall', 'Dragged', 'Thrown'] as const;
 
-export type ClassicActionKind = 'stand' | 'walk' | 'fall' | 'dragged' | 'thrown' | 'chase-mouse' | 'jump' | 'climb' | 'unknown';
+export type ClassicActionKind =
+  | 'stand' | 'sit' | 'look'
+  | 'walk' | 'run' | 'crawl'
+  | 'fall' | 'dragged' | 'thrown' | 'chase-mouse' | 'jump' | 'climb'
+  | 'unknown';
 
 export interface ClassicPose {
   /** 经典包内图片文件名；只允许单层 PNG basename。 */
@@ -119,8 +123,17 @@ function inferActionKind(name: string, type: string, className: string | undefin
   if (hint.includes('thrown')) return 'thrown';
   if (hint.includes('chasemouse') || hint.includes('chase mouse')) return 'chase-mouse';
   if (hint.includes('fall')) return 'fall';
+  if (border === 'wall'
+    || border === 'ceiling'
+    || hint.includes('wall')
+    || hint.includes('ceiling')
+    || hint.includes('grab')) return 'climb';
   if (hint.includes('climb')) return 'climb';
   if (hint.includes('jump')) return 'jump';
+  if (hint.includes('look') || hint.includes('spinhead') || hint.includes('spin head')) return 'look';
+  if (hint.includes('run') || hint.includes('dash')) return 'run';
+  if (hint.includes('crawl') || hint.includes('creep')) return 'crawl';
+  if (hint.includes('sit') || hint.includes('sprawl') || hint.includes('lie')) return 'sit';
   if (hint.includes('walk') || (type.toLowerCase() === 'move' && border === 'floor')) return 'walk';
   if (hint.includes('stand') || type.toLowerCase() === 'pause' || type.toLowerCase() === 'fixed') return 'stand';
   return 'unknown';
@@ -338,9 +351,12 @@ export function compileClassicRuntimePlan(profile: ClassicShimejiProfile): Class
   };
   const kindMap: Partial<Record<ClassicActionKind, ClassicRuntimeBehaviorKind>> = {
     stand: 'waiting',
+    sit: 'waiting',
+    look: 'review',
     walk: 'wander',
+    run: 'wander',
+    crawl: 'wander',
     'chase-mouse': 'wander',
-    unknown: 'review',
   };
   const plan: ClassicRuntimeBehavior[] = [];
   for (const behavior of profile.behaviors) {
