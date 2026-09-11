@@ -1,7 +1,7 @@
 import type { PetSpriteConfig, LicenseStatus, PetdexVersion } from './petpack';
 import type { PetRuntimeConfig } from './config';
 import type { ProjectMeta, ProjectsIndex, UsageMode } from './projects';
-import type { ClassicRuntimeBehavior } from './shimeji/classic-config';
+import type { ClassicRuntimeBehavior } from './shimeji/runtime-plan';
 
 export type { ProjectMeta, ProjectsIndex, UsageMode, PetRuntimeConfig, PetSpriteConfig, LicenseStatus, PetdexVersion };
 

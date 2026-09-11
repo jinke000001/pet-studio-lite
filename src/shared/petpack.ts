@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { parseClassicRuntimePlan, type ClassicRuntimeBehavior } from './shimeji/classic-config';
+import { parseClassicRuntimePlan, type ClassicRuntimeBehavior } from './shimeji/runtime-plan';
 
 /**
  * Petdex 宠物包（目录形式）的只读校验与加载。

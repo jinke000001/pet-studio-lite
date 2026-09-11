@@ -162,7 +162,7 @@ export class ClassicPetBehaviorScheduler implements BehaviorScheduler {
   private lastAutoAt = Number.NEGATIVE_INFINITY;
 
   constructor(
-    private readonly plan: readonly import('./shimeji/classic-config').ClassicRuntimeBehavior[],
+    private readonly plan: readonly import('./shimeji/runtime-plan').ClassicRuntimeBehavior[],
     private readonly random: () => number = Math.random,
     now = 0,
   ) {

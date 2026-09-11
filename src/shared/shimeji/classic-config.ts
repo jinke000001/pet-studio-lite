@@ -1,4 +1,11 @@
 import { SaxesParser, type SaxesTagPlain } from 'saxes';
+import {
+  MAX_RUNTIME_BEHAVIORS,
+  type ClassicRuntimeBehavior,
+  type ClassicRuntimeBehaviorKind,
+} from './runtime-plan';
+
+export type { ClassicRuntimeBehavior, ClassicRuntimeBehaviorKind } from './runtime-plan';
 
 const MAX_XML_BYTES = 1024 * 1024;
 const MAX_ELEMENTS = 5_000;
@@ -8,7 +15,6 @@ const MAX_REFERENCES = 4_096;
 const MAX_POSES = 4_096;
 const MAX_DEPTH = 64;
 const MAX_NAME_LENGTH = 128;
-const MAX_RUNTIME_BEHAVIORS = 128;
 const REQUIRED_NAMES = ['ChaseMouse', 'Fall', 'Dragged', 'Thrown'] as const;
 
 export type ClassicActionKind = 'stand' | 'walk' | 'fall' | 'dragged' | 'thrown' | 'chase-mouse' | 'jump' | 'climb' | 'unknown';
@@ -46,42 +52,6 @@ export interface ClassicBehavior {
 export interface ClassicShimejiProfile {
   actions: ClassicAction[];
   behaviors: ClassicBehavior[];
-}
-
-export type ClassicRuntimeBehaviorKind = 'waiting' | 'wander' | 'review';
-
-export interface ClassicRuntimeBehavior {
-  name: string;
-  kind: ClassicRuntimeBehaviorKind;
-  weight: number;
-  durationMs: number;
-}
-
-export function parseClassicRuntimePlan(raw: unknown): ClassicRuntimeBehavior[] | null {
-  if (raw === undefined || raw === null) return null;
-  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_RUNTIME_BEHAVIORS) {
-    throw new Error(`classicBehaviorPlan 必须是 1–${MAX_RUNTIME_BEHAVIORS} 项数组`);
-  }
-  return raw.map((entry, index) => {
-    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
-      throw new Error(`classicBehaviorPlan 第 ${index + 1} 项格式错误`);
-    }
-    const value = entry as Record<string, unknown>;
-    const name = safeName(typeof value['name'] === 'string' ? value['name'] : undefined, '经典运行行为');
-    const kind = value['kind'];
-    if (kind !== 'waiting' && kind !== 'wander' && kind !== 'review') {
-      throw new Error(`经典运行行为 ${name} 类型不支持`);
-    }
-    const weight = value['weight'];
-    const durationMs = value['durationMs'];
-    if (typeof weight !== 'number' || !Number.isInteger(weight) || weight <= 0 || weight > 1_000_000) {
-      throw new Error(`经典运行行为 ${name} 权重无效`);
-    }
-    if (typeof durationMs !== 'number' || !Number.isInteger(durationMs) || durationMs < 1_000 || durationMs > 10_000) {
-      throw new Error(`经典运行行为 ${name} 时长无效`);
-    }
-    return { name, kind, weight, durationMs };
-  });
 }
 
 export type ClassicCompileResult =
