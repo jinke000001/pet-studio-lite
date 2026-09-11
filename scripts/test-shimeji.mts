@@ -363,7 +363,14 @@ check('释放后同时保留水平惯性和向上抛速', thrownFrame.x > 400 &&
 const edgeThrownSession = new DesktopRuntimeSession({ x: 1830, y: 500, width: 80, height: 120 });
 edgeThrownSession.release({ vx: 900, vy: 0 });
 const bouncedFrame = edgeThrownSession.advance(buildDesktopTerrain(workArea, []), 100);
-check('投掷撞到工作区边缘会衰减反弹且不出屏', bouncedFrame.x <= 1840 && bouncedFrame.vx < 0);
+check('投掷撞到工作区侧边后立即停止水平滑行且不出屏',
+  bouncedFrame.x === 1840 && bouncedFrame.vx === 0 && bouncedFrame.vy >= 0);
+
+const topThrownSession = new DesktopRuntimeSession({ x: 700, y: 10, width: 80, height: 120 });
+topThrownSession.release({ vx: 700, vy: -900 });
+const topImpactFrame = topThrownSession.advance(buildDesktopTerrain(workArea, []), 100);
+check('投掷撞到工作区顶边后不沿顶边水平滑行',
+  topImpactFrame.y === workArea.y && topImpactFrame.vx === 0 && topImpactFrame.vy >= 0);
 
 console.log('\n[Windows PowerShell 脚本编码]');
 

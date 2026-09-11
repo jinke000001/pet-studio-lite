@@ -36,8 +36,6 @@ export const DEFAULT_DESKTOP_MOTION: DesktopMotionOptions = {
   maxFallSpeed: 1_600,
 };
 
-const EDGE_BOUNCE_FACTOR = 0.55;
-
 function falling(actor: DesktopActor): DesktopActor {
   return { ...actor, state: 'falling', supportId: null, supportOffsetX: null, climb: null };
 }
@@ -184,18 +182,25 @@ function advanceFalling(
       climb: null,
     };
   }
-  const nextVy = Math.min(options.maxFallSpeed, actor.vy + options.gravity * dt);
-  const nextY = actor.y + nextVy * dt;
+  let nextVy = Math.min(options.maxFallSpeed, actor.vy + options.gravity * dt);
+  let nextY = actor.y + nextVy * dt;
   const minX = terrain.workArea.x;
   const maxX = Math.max(minX, terrain.workArea.x + terrain.workArea.width - actor.width);
   let nextX = actor.x + actor.vx * dt;
   let nextVx = actor.vx;
+  if (nextY < terrain.workArea.y) {
+    nextY = terrain.workArea.y;
+    nextVy = 0;
+    nextVx = 0;
+  }
   if (nextX < minX) {
     nextX = minX;
-    nextVx = Math.abs(actor.vx) * EDGE_BOUNCE_FACTOR;
+    nextVx = 0;
+    nextVy = Math.max(0, nextVy);
   } else if (nextX > maxX) {
     nextX = maxX;
-    nextVx = -Math.abs(actor.vx) * EDGE_BOUNCE_FACTOR;
+    nextVx = 0;
+    nextVy = Math.max(0, nextVy);
   }
   const footX = nextX + actor.width / 2;
   const landing = findLandingSurface({
