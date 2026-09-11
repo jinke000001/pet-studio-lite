@@ -4,8 +4,15 @@ import {
   findWallContact,
   reconcileSupport,
   type DesktopActorBounds,
+  type DesktopWindowSnapshot,
 } from '../src/shared/shimeji/desktop-terrain';
 import { advanceDesktopActor, type DesktopActor } from '../src/shared/shimeji/desktop-motion';
+import {
+  normalizeWindowSnapshots,
+  parseWindowProbePayload,
+  WINDOW_PROBE_PROTOCOL_VERSION,
+} from '../src/shared/shimeji/window-snapshot';
+import { WindowSnapshotMonitor } from '../src/pet/window-snapshot-monitor';
 
 let passed = 0;
 let failed = 0;
@@ -120,6 +127,71 @@ const movedWhileStanding = advanceDesktopActor(
 );
 check('窗口移动时宠物保持相同的平台横向锚点', movedWhileStanding.x === 480);
 check('窗口移动时宠物继续贴住新的顶边', movedWhileStanding.y + movedWhileStanding.height === 460);
+
+console.log('\n[Windows 窗口桥协议]');
+
+const probePayload = parseWindowProbePayload(JSON.stringify({
+  version: WINDOW_PROBE_PROTOCOL_VERSION,
+  coordinateSpace: 'physical',
+  windows: [
+    { id: '9007199254740993', pid: 42, left: 200, top: 100, right: 1000, bottom: 700, visible: true, minimized: false, cloaked: false },
+    { id: '8', pid: 99, left: 40, top: 20, right: 240, bottom: 220, visible: true, minimized: false, cloaked: false },
+    { id: '8', pid: 99, left: 0, top: 0, right: 1, bottom: 1, visible: true, minimized: false, cloaked: false },
+    { id: 'bad-handle', pid: 12, left: 0, top: 0, right: 100, bottom: 100, visible: true, minimized: false, cloaked: false },
+    { id: '10', pid: 12, left: 100, top: 100, right: 90, bottom: 200, visible: true, minimized: false, cloaked: false },
+  ],
+}));
+check('窗口句柄保持字符串，不经过不安全 number', probePayload.windows[0]?.id === '9007199254740993');
+check('坏矩形、坏句柄和重复句柄被丢弃', probePayload.windows.length === 2);
+
+const normalizedWindows = normalizeWindowSnapshots(probePayload, 99, (rect) => ({
+  x: rect.x / 2,
+  y: rect.y / 2,
+  width: rect.width / 2,
+  height: rect.height / 2,
+}));
+check('物理像素矩形通过适配器转换为 Electron DIP', normalizedWindows[0]?.width === 400 && normalizedWindows[0]?.height === 300);
+check('属于当前进程的 HWND 会标记为自身窗口', normalizedWindows[1]?.own === true);
+
+let invalidJsonRejected = false;
+try { parseWindowProbePayload('{broken'); } catch { invalidJsonRejected = true; }
+check('拒绝原生桥返回的非法 JSON', invalidJsonRejected);
+
+let unsupportedProtocolRejected = false;
+try {
+  parseWindowProbePayload(JSON.stringify({ version: 2, coordinateSpace: 'physical', windows: [] }));
+} catch { unsupportedProtocolRejected = true; }
+check('拒绝不兼容的协议版本', unsupportedProtocolRejected);
+
+console.log('\n[窗口快照生命周期]');
+
+let releaseCapture: ((windows: DesktopWindowSnapshot[]) => void) | null = null;
+let captureCount = 0;
+const deferredMonitor = new WindowSnapshotMonitor(() => {
+  captureCount += 1;
+  return new Promise<DesktopWindowSnapshot[]>((resolve) => { releaseCapture = resolve; });
+});
+const firstRefresh = deferredMonitor.refresh();
+const overlappingRefresh = deferredMonitor.refresh();
+check('慢探测期间不会启动重叠的系统查询', captureCount === 1);
+releaseCapture?.([{ id: '77', x: 10, y: 20, width: 300, height: 200, visible: true }]);
+await Promise.all([firstRefresh, overlappingRefresh]);
+check('成功探测会发布最新窗口快照', deferredMonitor.snapshot[0]?.id === '77');
+
+let reportedErrors = 0;
+let resilientCaptureCount = 0;
+const resilientMonitor = new WindowSnapshotMonitor(
+  async () => {
+    resilientCaptureCount += 1;
+    if (resilientCaptureCount > 1) throw new Error('temporary probe failure');
+    return [{ id: '88', x: 10, y: 20, width: 300, height: 200, visible: true }];
+  },
+  { onError: () => { reportedErrors += 1; } },
+);
+await resilientMonitor.refresh();
+await resilientMonitor.refresh();
+check('临时失败保留最后一次成功快照', resilientMonitor.snapshot[0]?.id === '88');
+check('临时失败通过受控错误通道上报', reportedErrors === 1);
 
 console.log(`\n结果：${passed} 通过，${failed} 失败`);
 if (failed > 0) process.exitCode = 1;
