@@ -2,7 +2,7 @@
 
 # Pet Studio Lite
 
-一个把 Petdex 宠物包变成 **Windows 便携桌宠** 的制作台。不需要账号或任何 AI 服务；可按用户操作联网下载 Petdex 宠物，其他制作流程都在本地完成。
+一个把 Petdex 或经典 Shimeji 角色包变成 **Windows 便携桌宠** 的制作台。不需要账号或任何 AI 服务；可按用户操作联网下载 Petdex 宠物，其他制作流程都在本地完成。
 
 **闭环**：导入宠物包 → 自动检查 → 动作预览 → 配置 → 导出 Windows x64 便携 ZIP → 解压双击 EXE 运行桌宠。
 
@@ -10,7 +10,7 @@
 
 ## 这是什么
 
-Pet Studio Lite 是一个 macOS 上的"制作台"应用。你给它一个宠物包（一个包含 `pet.json` 和一张图集的文件夹，或一个 ZIP），它帮你检查、预览、配置，最后导出一个 **Windows 便携 ZIP**。把这个 ZIP 发给任何 Windows 用户，对方解压后双击里面的 `PetLitePet.exe`，桌面上就会出现一只可以拖动、可以点击、可以缩放的桌宠。
+Pet Studio Lite 是一个 macOS 上的"制作台"应用。你可以给它 Petdex 包，也可以给它包含 `actions.xml`、`behaviors.xml` 和 PNG 帧的经典 Shimeji 单角色目录或 ZIP；它会安全转换、检查、预览、配置，最后导出一个 **Windows 便携 ZIP**。
 
 导出的桌宠 **完全独立**：不需要安装 Node.js、Python、Git，不联网，不依赖 Petdex / Codex / 任何命令行。
 
@@ -34,10 +34,20 @@ npm run dev
 **「选择宠物包目录」** 或 **「选择 ZIP 压缩包」** 导入已有文件。
 
 宠物包长这样：
+
 ```
 我的宠物/
   pet.json          ← 宠物信息（名字、图集文件名、版本）
   spritesheet.png   ← 图集（一张 PNG 或 WebP）
+```
+
+经典 Shimeji 也可直接导入：
+
+```
+我的 Shimeji/
+  conf/actions.xml
+  conf/behaviors.xml
+  img/shime1.png ...
 ```
 
 导入会把包**复制**到制作台自己的工作区，不会动你的原始文件。如果包有问题（缺文件、尺寸不对、JSON 写错、路径不安全），会用中文告诉你哪里错了、怎么修，不会留下坏掉的半成品。
@@ -49,12 +59,12 @@ npm run dev
 ### 4. 预览
 
 - 上半部分：制作台内直接播放图集的各个动作（待机/行走/说话…）。
-- 点 **「打开桌宠预览」**：弹出一个**真实的透明桌宠窗口**（和最终导出的 Windows 桌宠是同一套代码）。可以拖动它、单击它、右键调缩放。
+- 点 **「打开桌宠预览」**：弹出一个**真实的透明桌宠窗口**（和最终导出的 Windows 桌宠共用运行核心）。可以拖动、投掷、单击和调整尺寸；Windows 运行时还会读取普通应用窗口作为行走与攀爬地形。
 
 ### 5. 配置
 
 - **宠物显示名称**：1–24 个字符。
-- **默认缩放**：小 125% / 中 150% / 大 200%（推荐）三档；根据 Windows 100% 屏幕实测，新项目默认 200%（可在配置里改；旧项目保存的合法档位保持不变，50%/75%/100% 自动迁移为 125%）。
+- **默认缩放**：100%–300%，每次 5%；新项目默认 200%。旧项目的 50%/75% 会安全迁移为 100%。
 - **允许闲置时自动游走**：开/关。
 
 配置会保存，并随导出一起进入桌宠。不合法的输入（比如超长名字）不会被保存。
@@ -72,7 +82,7 @@ petlite-pet-pack-v1-win-x64-20260908-193000.zip
 #### 授权说明
 - `license: "authorized"`（已授权）→ 正常导出分发候选。
 - `license: "internal-test"`（内部测试）→ 导出但明确标记为内部测试包。
-- 没有声明授权 → **不允许导出**，会提示你怎么补授权。
+- 没有声明授权 → 可以导出，但强制标记为 `internal-test-only`，不得对外分发。
 
 ### 7. 发给 Windows 用户
 
@@ -84,9 +94,10 @@ petlite-pet-pack-v1-win-x64-20260908-193000.zip
 ZIP 里有 `启动说明.txt`（同样这份说明）和 `manifest.json`（版本、来源哈希、授权状态）。
 
 **桌宠操作**：
-- 左键拖动 = 移动
+- 左键拖动并松手 = 移动或投掷
 - 单击 = 宠物回应你一句
-- 右键 = 自动游走开关 / 缩放（小 125% / 中 150% / 大 200%（推荐））/ 回到屏幕右下角 / 关于 / 退出
+- 自动行为 = 在桌面底边和普通窗口上行走、攀爬与坠落
+- 右键 = 自动游走 / 召唤分身（最多 8 只）/ 100%–300% 尺寸 / 回到屏幕右下角 / 关闭单只 / 退出全部
 
 ## 隐私
 
@@ -102,10 +113,13 @@ npm test           # 全部自动测试（包校验 + ZIP 安全 + 运行时逻�
 npm run typecheck  # TypeScript 类型检查
 npm run build      # 构建制作台
 npm run build:pet  # 构建桌宠运行时
+npm run smoke:electron  # 真实 Electron 单宠物/经典包烟测
+npm run smoke:multi     # 真实 Electron 多宠物烟测
+npm run export:shimeji-test  # 生成 Windows 统一验收测试包
 npm run fixtures   # 重新生成测试用宠物包
 npm run check:export <zip>  # 静态核验一个导出的 ZIP
 ```
 
 仓库无 lint 工具（无 ESLint/Biome），这是事实陈述。
 
-更多技术细节见 `AGENT-REPORT.md`，逐项验收见 `ACCEPTANCE.md`。
+Shimeji Windows 实机流程见 `docs/acceptance/shimeji-windows.md`。
