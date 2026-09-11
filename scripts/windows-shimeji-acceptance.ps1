@@ -4,7 +4,8 @@ param(
   [ValidateRange(0, 180)][int]$SoakMinutes = 0,
   [ValidateRange(5, 300)][int]$SampleSeconds = 30,
   [ValidateRange(1, 30)][int]$LifecycleCycleMinutes = 5,
-  [ValidateSet('none', 'core', 'mixed')][string]$ManualProfile = 'none'
+  [ValidateSet('none', 'core', 'mixed')][string]$ManualProfile = 'none',
+  [ValidateSet(100, 125, 150)][int]$ExpectedDpiPercent = 100
 )
 
 $ErrorActionPreference = 'Stop'
@@ -177,7 +178,19 @@ $overlapsVirtualDesktop = ($first.x + $first.width) -gt $virtual.x -and
 # 这部分透明留白可以伸出虚拟桌面，因此不能再要求整个原生窗口都在屏内。
 Add-Check '首只宠物窗口与虚拟桌面有效相交' $overlapsVirtualDesktop ("window=$($first.x),$($first.y),$($first.width)x$($first.height)")
 $dpi = try { [PetStudioWin32]::GetDpiForWindow([IntPtr]$first.hwnd) } catch { 0 }
-Add-Check '记录当前 Windows DPI' ($dpi -gt 0) ("dpi=$dpi scale=" + [Math]::Round($dpi / 96 * 100) + '%')
+$dpiPercent = [int][Math]::Round($dpi / 96 * 100)
+Add-Check '记录当前 Windows DPI' ($dpi -gt 0) ("dpi=$dpi scale=$dpiPercent%")
+$targetDpiOk = $dpiPercent -eq $ExpectedDpiPercent
+Add-Check '当前 DPI 与目标档位一致' $targetDpiOk ("actual=$dpiPercent% target=$ExpectedDpiPercent%")
+if (-not $targetDpiOk) {
+  throw "当前宠物窗口为 $dpiPercent% 缩放，本轮目标是 $ExpectedDpiPercent%。请先调整 Windows 屏幕缩放，再重新运行。"
+}
+
+$runLabel = "win$windowsGeneration-dpi$dpiPercent-$ManualProfile"
+if ($SoakMinutes -gt 0) { $runLabel += "-soak${SoakMinutes}m" }
+$labeledEvidenceDir = Join-Path $PSScriptRoot ("acceptance-evidence-$runLabel-" + $startedAt.ToString('yyyyMMdd-HHmmss'))
+Move-Item -LiteralPath $evidenceDir -Destination $labeledEvidenceDir
+$evidenceDir = $labeledEvidenceDir
 Save-Screenshot '01-first-launch.png'
 
 [void](Start-Process -FilePath $AppPath -PassThru)
@@ -350,7 +363,7 @@ if ($leftProcesses.Count -gt 0) {
 }
 
 $result = [ordered]@{
-  schemaVersion = 2
+  schemaVersion = 3
   startedAt = $startedAt.ToString('o')
   finishedAt = (Get-Date).ToString('o')
   appPath = [IO.Path]::GetFullPath($AppPath)
@@ -361,6 +374,7 @@ $result = [ordered]@{
   manifest = $manifest
   os = $osEvidence
   dpi = $dpi
+  expectedDpiPercent = $ExpectedDpiPercent
   virtualScreen = $virtual
   manual = [ordered]@{
     profile = $ManualProfile

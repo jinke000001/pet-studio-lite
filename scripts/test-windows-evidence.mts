@@ -8,6 +8,7 @@ import { createZip } from '../src/shared/zipw';
 import { evaluateWindowsEvidenceMatrix, type WindowsEvidenceMatrixRun } from '../src/shared/windows-evidence-matrix';
 import {
   CORE_MANUAL_CHECK_IDS,
+  DPI_TARGET_AUTOMATIC_CHECK,
   MIXED_MANUAL_CHECK_IDS,
   REQUIRED_AUTOMATIC_CHECKS,
   REQUIRED_SOAK_CHECKS,
@@ -84,6 +85,24 @@ console.log('[Windows 验收证据契约]');
   const result = validateWindowsEvidence(validResult(), expected);
   check('合法自动证据通过', result.ok, result.errors.join('；'));
   check('未记录人工项时明确给出待办警告', result.warnings.some((item) => item.includes('人工')));
+}
+{
+  const input = validResult();
+  input.schemaVersion = 3;
+  input.expectedDpiPercent = 100;
+  const missing = validateWindowsEvidence(input, expected);
+  const checks = input.checks as Array<{ name: string; passed: boolean; detail: string }>;
+  checks.push({ name: DPI_TARGET_AUTOMATIC_CHECK, passed: true, detail: 'actual=100% target=100%' });
+  input.passed = checks.length;
+  const complete = validateWindowsEvidence(input, expected);
+  const mismatched = clone(input);
+  mismatched.expectedDpiPercent = 125;
+  const mismatch = validateWindowsEvidence(mismatched, expected);
+  check('schema v3 必须包含目标 DPI 预检且完整记录可通过',
+    !missing.ok && missing.errors.some((item) => item.includes(DPI_TARGET_AUTOMATIC_CHECK))
+      && complete.ok
+      && !mismatch.ok && mismatch.errors.some((item) => item.includes('目标 DPI')),
+    [...missing.errors, ...complete.errors, ...mismatch.errors].join('；'));
 }
 {
   const input = validResult();

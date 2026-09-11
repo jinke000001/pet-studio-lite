@@ -116,6 +116,7 @@ npm run build:pet  # 构建桌宠运行时
 npm run smoke:electron  # 真实 Electron 单宠物/经典包烟测
 npm run smoke:multi     # 真实 Electron 多宠物烟测
 npm run export:shimeji-test  # 生成 Windows 统一验收测试包
+npm run refresh:windows-acceptance -- <zip>  # 非覆盖更新候选中的验收脚本与说明
 npm run fixtures   # 重新生成测试用宠物包
 npm run check:export <zip>  # 静态核验一个导出的 ZIP
 npm run check:windows-evidence -- <zip> <evidence-dir> --windows 11 --dpi 100 --manual core  # 复核 Windows 回传证据

@@ -514,9 +514,15 @@ check('Windows 脚本可选结构化记录 core/mixed 人工视觉验收',
   && acceptanceScript.includes('Read-Host')
   && acceptanceScript.includes("id = 'mixed-dpi-anchor'")
   && acceptanceScript.includes('manual = [ordered]@{'));
-check('人工验收每项保存对应屏幕截图且证据使用 schema v2',
+check('人工验收每项保存对应屏幕截图且证据使用 schema v3',
   acceptanceScript.includes('manual-$($spec.id).png')
-  && acceptanceScript.includes('schemaVersion = 2'));
+  && acceptanceScript.includes('schemaVersion = 3'));
+check('Windows 脚本启动时核对目标 DPI 并使用可辨识的证据目录名',
+  acceptanceScript.includes('$ExpectedDpiPercent')
+  && acceptanceScript.includes('[ValidateSet(100, 125, 150)][int]$ExpectedDpiPercent = 100')
+  && acceptanceScript.includes("'当前 DPI 与目标档位一致'")
+  && acceptanceScript.includes('"win$windowsGeneration-dpi$dpiPercent-$ManualProfile"')
+  && acceptanceScript.includes('"acceptance-evidence-$runLabel-"'));
 const exportChecker = await fs.readFile(path.join(repoRoot, 'scripts', 'check-export.mjs'), 'utf8');
 check('导出静态核验按放宽后的受控 ZIP 限制读取大型 Electron EXE',
   exportChecker.includes('readZipEntry(buf, exeEntry, ZIP_LIMITS_RELAXED)'));

@@ -19,17 +19,18 @@
 2. 右键 `Windows统一验收.ps1`，选择“使用 PowerShell 运行”；若策略阻止，在该目录打开 PowerShell 后执行：
 
    ```powershell
-   powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -ManualProfile core
+   powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -ExpectedDpiPercent 100 -ManualProfile core
    ```
 
-3. 脚本会先读取 `runtime-integrity.json`，复算实际启动的 `PetLitePet.exe` 与 `manifest.json` 的 SHA-256；任一文件不匹配就停止，避免把其他版本的运行结果误记到本候选。随后约 35 秒自动覆盖首次启动、单实例召唤第二只、可见窗口边界、经典自动行为、关闭单只与完全退出。使用 `-ManualProfile core` 时，脚本会在关闭宠物前逐项等待你实际操作并输入 `Y` 或 `N`，每项同时保存截图；不要在提示期间手动关闭宠物。
-4. 结果保存在同目录的 `acceptance-evidence-时间`，其中含 `result.json`、自动截图和人工项截图。`result.json` 会记录实际哈希、完整性记录和结构化人工结论。
-5. 分阶段在 Windows 100%、125%、150% 缩放下各执行一次；每份证据目录都保留，不覆盖前次结果。
+3. `-ExpectedDpiPercent 100` 表示本轮目标是 100% 缩放；后续两轮分别改为 `125` 和 `150`。脚本启动宠物后会读取其实际 DPI，档位不符就立即停止并写入 `failure.txt`，避免在错误缩放下完成整轮测试。
+4. 脚本会先读取 `runtime-integrity.json`，复算实际启动的 `PetLitePet.exe` 与 `manifest.json` 的 SHA-256；任一文件不匹配就停止，避免把其他版本的运行结果误记到本候选。随后约 35 秒自动覆盖首次启动、单实例召唤第二只、可见窗口边界、经典自动行为、关闭单只与完全退出。使用 `-ManualProfile core` 时，脚本会在关闭宠物前逐项等待你实际操作并输入 `Y` 或 `N`，每项同时保存截图；不要在提示期间手动关闭宠物。
+5. 成功结果保存在同目录的 `acceptance-evidence-win11-dpi100-core-时间` 这类目录中，其中含 `result.json`、自动截图和人工项截图；目录名会按实际 Windows 代际、DPI、人工档位和长稳时长自动标记。`result.json` 会记录实际哈希、完整性记录和结构化人工结论。
+6. 分阶段在 Windows 100%、125%、150% 缩放下各执行一次；每份证据目录都保留，不覆盖前次结果。
 
 基础交互通过后，可以让脚本无人值守运行 1 小时长稳模式：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -SoakMinutes 60 -ManualProfile core
+powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -ExpectedDpiPercent 150 -SoakMinutes 60 -ManualProfile core
 ```
 
 长稳模式每 30 秒记录运行时进程数、可见宠物窗口数、响应状态、总工作集、总句柄数和直属 PowerShell 窗口探测进程数；每 5 分钟自动召唤并关闭一只宠物。结果写入 `result.json`，原始采样另存为 `soak-samples.json`，结束时仍会关闭全部宠物并检查残留进程。运行期间可以反复移动、最小化、恢复或关闭记事本来人工观察平台跟随；不要手动召唤或关闭宠物，以免干扰脚本的生命周期计数。
@@ -68,8 +69,10 @@ powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -SoakMinutes 
 混合 DPI 轮次使用以下命令，让双屏结论也写入结构化证据：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -ManualProfile mixed
+powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -ExpectedDpiPercent 100 -ManualProfile mixed
 ```
+
+上例要求宠物启动在 100% 的显示器；如果它默认出现在 125% 或 150% 的显示器，就把参数改成对应数值。人工步骤仍需把宠物完整拖过接缝，在另一块不同缩放的屏幕上改变尺寸。
 
 双屏异常建议录制包含两块屏幕的完整桌面，并说明两块屏幕各自的缩放比例和哪一块是主屏。
 

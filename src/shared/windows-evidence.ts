@@ -48,6 +48,8 @@ export const REQUIRED_AUTOMATIC_CHECKS = [
   '关闭最后一只后运行时完全退出',
 ] as const;
 
+export const DPI_TARGET_AUTOMATIC_CHECK = '当前 DPI 与目标档位一致';
+
 export const REQUIRED_SOAK_CHECKS = [
   '长稳期间进程、窗口与响应状态持续正常',
   '长稳期间反复召唤并关闭宠物',
@@ -121,7 +123,7 @@ export function validateWindowsEvidence(
     return { ok: false, errors: ['result.json 顶层必须是对象'], warnings, summary };
   }
 
-  if (input.schemaVersion !== 1 && input.schemaVersion !== 2) {
+  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3) {
     errors.push('result.json schemaVersion 不受支持');
   }
 
@@ -175,6 +177,14 @@ export function validateWindowsEvidence(
       errors.push(`Windows DPI 档位不符：期望 ${expectations.expectedDpiPercent}%，实际 ${summary.dpiPercent}%`);
     }
   }
+  if (input.schemaVersion === 3) {
+    const targetDpiPercent = finiteNumber(input.expectedDpiPercent);
+    if (targetDpiPercent !== 100 && targetDpiPercent !== 125 && targetDpiPercent !== 150) {
+      errors.push('目标 DPI 记录必须是 100%/125%/150%');
+    } else if (summary.dpiPercent !== targetDpiPercent) {
+      errors.push(`目标 DPI 与实际记录不一致：目标 ${targetDpiPercent}%，实际 ${summary.dpiPercent ?? '无效'}%`);
+    }
+  }
 
   const checks = Array.isArray(input.checks) ? input.checks : [];
   if (!Array.isArray(input.checks)) errors.push('result.json checks 必须是数组');
@@ -198,6 +208,9 @@ export function validateWindowsEvidence(
   summary.automaticFailed = observedFailed;
   for (const name of REQUIRED_AUTOMATIC_CHECKS) {
     if (!checkNames.has(name)) errors.push(`缺少自动检查：${name}`);
+  }
+  if (input.schemaVersion === 3 && !checkNames.has(DPI_TARGET_AUTOMATIC_CHECK)) {
+    errors.push(`缺少自动检查：${DPI_TARGET_AUTOMATIC_CHECK}`);
   }
   if (finiteNumber(input.passed) !== observedPassed || finiteNumber(input.failed) !== observedFailed) {
     errors.push(`自动检查汇总计数不一致：逐项 ${observedPassed}/${observedFailed}`);
