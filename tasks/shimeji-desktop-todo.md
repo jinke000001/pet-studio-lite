@@ -5,7 +5,7 @@
 - [x] 基础行走、攀爬、坠落状态机
 - [x] 冻结 Shimeji 前主线提交、标签和离线 Git bundle
 - [ ] Windows 只读窗口桥（协议、DWM 快照、DPI 转换和非重入生命周期已完成；待 Electron 接线与实机验证）
-- [ ] Electron 纵向样板接线
+- [x] Electron 纵向样板接线（主进程地形 → preload → renderer 运动会话）
 - [ ] 经典动作与行为配置兼容
 - [ ] 拖拽、惯性投掷和多宠物
 - [ ] 工作台配置、预览与 ZIP 导出

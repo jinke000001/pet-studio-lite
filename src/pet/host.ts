@@ -5,6 +5,9 @@ import { FlushableDebouncer } from '../shared/debounce';
 import type { PetWindowPayload } from '../shared/types';
 import { registerPetIpc, type PetIpcTarget } from './ipc-router';
 import { buildPetContextMenu } from './menu';
+import { buildDesktopTerrain, type DesktopTerrain, type DesktopWindowSnapshot } from '../shared/shimeji/desktop-terrain';
+import { WindowSnapshotMonitor } from './window-snapshot-monitor';
+import { captureDesktopWindows } from './windows-window-probe';
 
 /**
  * 桌宠窗口宿主：工作室预览与导出的独立运行时共用，保证"预览到的就是
@@ -66,6 +69,10 @@ export class PetWindowHost implements PetIpcTarget {
   private wanderEnabled = true;
   private dragOrigin: { mouseX: number; mouseY: number; winX: number; winY: number } | null = null;
   private displayMetricsListener: ((event: Electron.Event, display: Electron.Display, changedMetrics: string[]) => void) | null = null;
+  private desktopTerrain: DesktopTerrain | null = null;
+  private terrainMonitor: WindowSnapshotMonitor | null = null;
+  private terrainUnsubscribe: (() => void) | null = null;
+  private terrainProbeErrorReported = false;
 
   constructor(readonly opts: PetHostOptions) {}
 
@@ -77,6 +84,42 @@ export class PetWindowHost implements PetIpcTarget {
 
   getPayload(): Promise<PetWindowPayload> {
     return this.opts.getPayload();
+  }
+
+  getDesktopTerrain(): DesktopTerrain | null {
+    return this.desktopTerrain;
+  }
+
+  private publishDesktopTerrain(windows: readonly DesktopWindowSnapshot[]): void {
+    if (!this.win || this.win.isDestroyed()) return;
+    const workArea = screen.getDisplayMatching(this.win.getBounds()).workArea;
+    this.desktopTerrain = buildDesktopTerrain(workArea, windows);
+    this.terrainProbeErrorReported = false;
+    this.win.webContents.send('pet:shimeji:terrain', this.desktopTerrain);
+  }
+
+  private prepareDesktopTerrainMonitor(): void {
+    if (process.platform !== 'win32' || !this.win) return;
+    this.publishDesktopTerrain([]);
+    const monitor = new WindowSnapshotMonitor(captureDesktopWindows, {
+      intervalMs: 1_000,
+      onError: (error) => {
+        if (this.terrainProbeErrorReported) return;
+        this.terrainProbeErrorReported = true;
+        console.warn('[shimeji] window probe failed:', error instanceof Error ? error.message : String(error));
+      },
+    });
+    this.terrainMonitor = monitor;
+    this.terrainUnsubscribe = monitor.subscribe((windows) => this.publishDesktopTerrain(windows));
+  }
+
+  private stopDesktopTerrainMonitor(): void {
+    this.terrainUnsubscribe?.();
+    this.terrainUnsubscribe = null;
+    this.terrainMonitor?.stop();
+    this.terrainMonitor = null;
+    this.desktopTerrain = null;
+    this.terrainProbeErrorReported = false;
   }
 
   getSizeControlState(): { zoom: number; min: number; max: number; step: number; persistent: boolean } {
@@ -267,6 +310,7 @@ export class PetWindowHost implements PetIpcTarget {
     });
     this.win = win;
     activeHost = this;
+    this.prepareDesktopTerrainMonitor();
 
     win.setAlwaysOnTop(true, 'screen-saver');
     if (process.platform === 'darwin') {
@@ -283,6 +327,7 @@ export class PetWindowHost implements PetIpcTarget {
       const display = screen.getDisplayMatching(current);
       const next = computeAnchoredZoomBounds(current, windowSizeFor(this.zoom), display.workArea);
       this.win.setBounds(next);
+      if (this.terrainMonitor) this.publishDesktopTerrain(this.terrainMonitor.snapshot);
     };
     screen.on('display-metrics-changed', this.displayMetricsListener);
 
@@ -301,6 +346,7 @@ export class PetWindowHost implements PetIpcTarget {
 
     win.on('closed', () => {
       positionSaver.flush();
+      this.stopDesktopTerrainMonitor();
       this.closeSizeControl();
       if (this.displayMetricsListener) {
         screen.removeListener('display-metrics-changed', this.displayMetricsListener);
@@ -328,9 +374,11 @@ export class PetWindowHost implements PetIpcTarget {
     });
 
     await win.loadURL(this.opts.rendererUrl);
+    this.terrainMonitor?.start();
   }
 
   close(): void {
+    this.stopDesktopTerrainMonitor();
     if (this.displayMetricsListener) {
       screen.removeListener('display-metrics-changed', this.displayMetricsListener);
       this.displayMetricsListener = null;

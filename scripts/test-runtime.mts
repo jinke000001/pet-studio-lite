@@ -587,6 +587,7 @@ function petIpcRouterTests(): void {
     return {
       calls,
       getPayload: () => { calls.push(`payload:${tag}`); return Promise.resolve({ tag }); },
+      getDesktopTerrain: () => ({ tag }),
       // 与真实宿主一致：null（非法坐标被路由层丢弃）时不产生行为
       dragBegin: (p) => { if (p) calls.push(`dragBegin:${tag}`); },
       dragMove: (p) => { if (p) calls.push(`dragMove:${tag}`); },
@@ -626,6 +627,8 @@ function petIpcRouterTests(): void {
   active = hostB; // B 打开（同一进程再次预览，对应"切换项目后再打开"）
   const r = ipc.handlers.get('pet:payload')!() as Promise<{ tag: string }>;
   check('payload 委托给当前活动宿主', hostA.calls.length === 1 && hostB.calls.length === 1);
+  const desktopTerrain = ipc.handlers.get('pet:shimeji:terrain')!() as { tag: string };
+  check('桌面地形查询委托给当前活动宿主', desktopTerrain.tag === 'B');
   void r.then((v) => check('payload 返回当前宿主的数据', v.tag === 'B'));
 
   // 窗口未打开时 pet:payload 明确报错而不是静默
@@ -1246,12 +1249,18 @@ async function uxWiringTests(): Promise<void> {
   const preloadSrc = await fs.readFile(path.join(REPO, 'src', 'preload', 'petwin.ts'), 'utf8');
   check('窄桥暴露游走开关监听', preloadSrc.includes('onWanderChanged'));
   check('窄桥暴露回到右下角监听', preloadSrc.includes('onGoHome'));
+  check('窄桥只读暴露 Shimeji 初始地形与更新监听',
+    preloadSrc.includes('getDesktopTerrain') && preloadSrc.includes('onDesktopTerrain'));
 
   const petAppSrc = await fs.readFile(path.join(REPO, 'src', 'renderer', 'pet', 'PetWindowApp.tsx'), 'utf8');
   check('渲染器注册游走开关监听', petAppSrc.includes('onWanderChanged(applyWanderEnabled)'));
   check('关闭游走立即停止游走并只收 walking（不影响等待/思考）',
     /applyWanderEnabled[\s\S]{0,250}?cancelWander\(\)[\s\S]{0,120}?stopWalkingState/.test(petAppSrc));
   check('渲染器复位用共享几何 + 受控移动', petAppSrc.includes('computeWorkAreaHomePosition') && petAppSrc.includes('onGoHome'));
+  check('渲染器用共享 Shimeji 会话驱动窗口位置',
+    petAppSrc.includes('DesktopRuntimeSession') && petAppSrc.includes('onDesktopTerrain'));
+  check('Windows 宿主启动并在关闭时停止窗口快照监控',
+    hostSrc.includes('WindowSnapshotMonitor') && hostSrc.includes('stopDesktopTerrainMonitor'));
 
   const studioMainSrc = await fs.readFile(path.join(REPO, 'src', 'main', 'index.ts'), 'utf8');
   check('导出成功登记产物路径', studioMainSrc.includes('exportRegistry.record('));

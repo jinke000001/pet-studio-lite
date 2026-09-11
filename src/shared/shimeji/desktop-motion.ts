@@ -76,6 +76,21 @@ function advanceWalking(
   const direction = actor.facing === 'right' ? 1 : -1;
   const speed = Math.abs(actor.vx) || options.walkSpeed;
   const nextX = attached.x + direction * speed * dt;
+  if (support.id === 'work-area-floor') {
+    const minX = terrain.workArea.x;
+    const maxX = terrain.workArea.x + terrain.workArea.width - actor.width;
+    if (nextX < minX || nextX > maxX) {
+      const facing = nextX > maxX ? 'left' : 'right';
+      const x = Math.max(minX, Math.min(nextX, maxX));
+      return {
+        ...attached,
+        x,
+        facing,
+        vx: facing === 'right' ? speed : -speed,
+        supportOffsetX: x + actor.width / 2 - support.left,
+      };
+    }
+  }
   const wall = findWallContact(attached, nextX, terrain);
   if (wall) {
     return {

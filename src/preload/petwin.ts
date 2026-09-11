@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { PetWindowPayload } from '../shared/types';
+import type { DesktopTerrain } from '../shared/shimeji/desktop-terrain';
 
 /**
  * 桌宠窗口的窄桥 —— 工作室预览窗口与导出的独立桌宠运行时共用同一份
@@ -27,6 +28,16 @@ const api = {
   },
   moveWindowTo(x: number, y: number): void {
     ipcRenderer.send('pet:window:moveTo', { x, y });
+  },
+  getDesktopTerrain(): Promise<DesktopTerrain | null> {
+    return ipcRenderer.invoke('pet:shimeji:terrain') as Promise<DesktopTerrain | null>;
+  },
+  onDesktopTerrain(callback: (terrain: DesktopTerrain) => void): () => void {
+    const listener = (_: Electron.IpcRendererEvent, terrain: DesktopTerrain) => callback(terrain);
+    ipcRenderer.on('pet:shimeji:terrain', listener);
+    return () => {
+      ipcRenderer.removeListener('pet:shimeji:terrain', listener);
+    };
   },
   onZoomChanged(callback: (zoom: number) => void): () => void {
     const listener = (_: Electron.IpcRendererEvent, zoom: number) => callback(zoom);

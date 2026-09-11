@@ -13,6 +13,7 @@ import {
   WINDOW_PROBE_PROTOCOL_VERSION,
 } from '../src/shared/shimeji/window-snapshot';
 import { WindowSnapshotMonitor } from '../src/pet/window-snapshot-monitor';
+import { DesktopRuntimeSession } from '../src/shared/shimeji/desktop-runtime-session';
 
 let passed = 0;
 let failed = 0;
@@ -127,6 +128,30 @@ const movedWhileStanding = advanceDesktopActor(
 );
 check('窗口移动时宠物保持相同的平台横向锚点', movedWhileStanding.x === 480);
 check('窗口移动时宠物继续贴住新的顶边', movedWhileStanding.y + movedWhileStanding.height === 460);
+
+const floorEdgeWalker: DesktopActor = {
+  ...groundWalker,
+  x: 1840,
+  facing: 'right',
+  supportOffsetX: 1880,
+};
+const turnedAtDesktopEdge = advanceDesktopActor(floorEdgeWalker, buildDesktopTerrain(workArea, []), 500);
+check('走到工作区右边缘时在屏内转身', turnedAtDesktopEdge.x === 1840 && turnedAtDesktopEdge.facing === 'left');
+
+console.log('\n[Shimeji 运行会话]');
+
+const stationarySession = new DesktopRuntimeSession({ x: 360, y: 280, width: 80, height: 120 });
+stationarySession.advance(terrain, 16);
+const followedPlatform = stationarySession.advance(movedNotepad, 16);
+check('静止宠物也会跟随支撑窗口移动', followedPlatform.x === 460 && followedPlatform.y === 340);
+const fellAfterPlatformClosed = stationarySession.advance(buildDesktopTerrain(workArea, []), 100);
+check('静止宠物的平台关闭后仍进入坠落', fellAfterPlatformClosed.state === 'falling' && fellAfterPlatformClosed.y > 340);
+
+const walkingSession = new DesktopRuntimeSession({ x: 10, y: 920, width: 80, height: 120 });
+walkingSession.setWalking(true, 'right');
+walkingSession.advance(buildDesktopTerrain(workArea, []), 16);
+const walkedOnFloor = walkingSession.advance(buildDesktopTerrain(workArea, []), 500);
+check('会话开始游走后使用共享运动核心推进', walkedOnFloor.x > 10 && walkingSession.visualState === 'walking');
 
 console.log('\n[Windows 窗口桥协议]');
 
