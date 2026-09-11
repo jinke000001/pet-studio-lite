@@ -9,5 +9,6 @@ dist/
 *.tgz
 .claude/
 scripts/*.bundle.mjs
+scripts/*.bundle.cjs
 out-pet/
 deliverables/*.zip

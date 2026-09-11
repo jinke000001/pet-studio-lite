@@ -10,6 +10,7 @@
 //   pack-conflict        spriteVersionNumber=1 与 version="v2" 冲突
 //   pack-decl-v1-img-v2  声明 v1 但图集是 v2（尺寸不一致）
 //   pack-bad-size        图集尺寸错误（1024×1024）
+//   classic-shimeji-test  无版权经典 Shimeji 目录，用于转换与 Windows 统一验收
 //
 // WebP fixture 用 sharp（libvips）真实编码，保证和 Petdex 真实包走同一条
 // 解码路径（VP8L 无损）。
@@ -216,4 +217,49 @@ for (const p of PACKS) {
   }
   console.log(`生成 ${p.dir}（${p.width}×${p.height}${p.webp ? ' webp' : ''}）`);
 }
+
+const classicDir = path.join(OUT, 'classic-shimeji-test');
+const classicImgDir = path.join(classicDir, 'img');
+const classicConfDir = path.join(classicDir, 'conf');
+fs.mkdirSync(classicImgDir, { recursive: true });
+fs.mkdirSync(classicConfDir, { recursive: true });
+
+function classicFrameSvg(frame) {
+  const bob = [0, -4, -1, 3, 0][frame - 1];
+  const foot = [0, 4, 8, 4, 0][frame - 1];
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+    <g transform="translate(0 ${bob})">
+      <path d="M31 55 C31 27 97 27 97 55 L91 96 C88 111 76 118 64 118 C52 118 40 111 37 96 Z" fill="#ff9857" stroke="#4a2b32" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M39 49 C45 31 83 28 91 49" fill="none" stroke="#ffd39b" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="51" cy="68" r="5" fill="#25222a"/><circle cx="77" cy="68" r="5" fill="#25222a"/>
+      <path d="M56 82 Q64 88 72 82" fill="none" stroke="#4a2b32" stroke-width="4" stroke-linecap="round"/>
+      <path d="M44 112 q${foot} 9 17 0M84 112 q-${foot} 9 -17 0" fill="none" stroke="#4a2b32" stroke-width="6" stroke-linecap="round"/>
+      <path d="M28 74 q-12 ${frame % 2 ? -8 : 8} -16 1M100 74 q12 ${frame % 2 ? 8 : -8} 16 1" fill="none" stroke="#4a2b32" stroke-width="5" stroke-linecap="round"/>
+    </g>
+  </svg>`);
+}
+
+for (let frame = 1; frame <= 5; frame += 1) {
+  await sharp(classicFrameSvg(frame)).png().toFile(path.join(classicImgDir, `shime${frame}.png`));
+}
+fs.writeFileSync(path.join(classicConfDir, 'actions.xml'), `<?xml version="1.0" encoding="UTF-8"?>
+<Mascot><ActionList>
+  <Action Name="Stand" Type="Stay" BorderType="Floor"><Animation><Pose Image="/shime1.png" Duration="250" /></Animation></Action>
+  <Action Name="Walk" Type="Move" BorderType="Floor"><Animation><Pose Image="/shime2.png" Duration="250" /><Pose Image="/shime3.png" Duration="250" /></Animation></Action>
+  <Action Name="Fall" Type="Embedded"><Animation><Pose Image="/shime4.png" Duration="250" /></Animation></Action>
+  <Action Name="Dragged" Type="Embedded"><Animation><Pose Image="/shime5.png" Duration="250" /></Animation></Action>
+  <Action Name="Thrown" Type="Embedded"><ActionReference Name="Fall" /></Action>
+  <Action Name="ChaseMouse" Type="Move"><ActionReference Name="Walk" /></Action>
+</ActionList></Mascot>
+`, 'utf8');
+fs.writeFileSync(path.join(classicConfDir, 'behaviors.xml'), `<Mascot><BehaviorList>
+  <Behavior Name="Stand" Frequency="35" />
+  <Behavior Name="Walk" Frequency="65" />
+  <Behavior Name="Fall" Frequency="0" />
+  <Behavior Name="Dragged" Frequency="0" />
+  <Behavior Name="Thrown" Frequency="0" />
+  <Behavior Name="ChaseMouse" Frequency="0" />
+</BehaviorList></Mascot>
+`, 'utf8');
+console.log('生成 classic-shimeji-test（经典目录测试宠物）');
 console.log('fixtures 生成完成 →', OUT);
