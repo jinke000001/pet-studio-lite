@@ -400,6 +400,7 @@ export function petPackToSpriteConfig(pack: PetPackInfo): PetSpriteConfig {
     failed:   { frames: range(5 * cols, 8), fps: 6.0 },
     waiting:  { frames: range(6 * cols, 6), fps: 4.0 },
     running:  { frames: range(7 * cols, 6), fps: 7.5 },
+    climbing: { frames: range(8 * cols, 6), fps: 7.0 },
     review:   { frames: range(8 * cols, 6), fps: 5.5 },
   };
   if (pack.rows > 9) {

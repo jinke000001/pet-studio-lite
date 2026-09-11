@@ -176,6 +176,13 @@ walkingSession.advance(buildDesktopTerrain(workArea, []), 16);
 const walkedOnFloor = walkingSession.advance(buildDesktopTerrain(workArea, []), 500);
 check('会话开始游走后使用共享运动核心推进', walkedOnFloor.x > 10 && walkingSession.visualState === 'walking');
 
+const climbingSession = new DesktopRuntimeSession({ x: 110, y: 920, width: 80, height: 120 });
+climbingSession.setWalking(true, 'right');
+climbingSession.advance(climbingTerrain, 16);
+const climbingFrame = climbingSession.advance(climbingTerrain, 200);
+check('会话碰到窗口侧边后暴露独立的攀爬视觉状态',
+  climbingFrame.state === 'climbing' && climbingSession.visualState === 'climbing');
+
 console.log('\n[Shimeji 可见角色碰撞布局]');
 
 const actorLayout = deriveBottomCenteredActorLayout(

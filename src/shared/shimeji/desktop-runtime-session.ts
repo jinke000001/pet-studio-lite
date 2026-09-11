@@ -2,7 +2,7 @@ import { advanceDesktopActor, DEFAULT_DESKTOP_MOTION, type DesktopActor } from '
 import type { DesktopRect, DesktopTerrain } from './desktop-terrain';
 import { MAX_THROW_SPEED, type PointerVelocity } from './pointer-velocity';
 
-export type DesktopRuntimeVisualState = 'idle' | 'walking' | 'jumping';
+export type DesktopRuntimeVisualState = 'idle' | 'walking' | 'climbing' | 'jumping';
 
 /**
  * Renderer-facing wrapper around the deterministic motion core. It separates
@@ -23,7 +23,8 @@ export class DesktopRuntimeSession {
 
   get visualState(): DesktopRuntimeVisualState {
     if (this.actor.state === 'falling') return 'jumping';
-    return this.wandering || this.actor.state === 'climbing' ? 'walking' : 'idle';
+    if (this.actor.state === 'climbing') return 'climbing';
+    return this.wandering ? 'walking' : 'idle';
   }
 
   setWalking(enabled: boolean, facing: 'left' | 'right' = this.actor.facing): void {

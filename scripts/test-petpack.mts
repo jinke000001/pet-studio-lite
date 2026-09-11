@@ -73,6 +73,8 @@ async function main(): Promise<void> {
         check('v1 哈希已记录', res.pack.hashes.petJson.length === 64 && res.pack.hashes.spritesheet.length === 64);
         const cfg = petPackToSpriteConfig(res.pack);
         check('v1 状态映射含 idle/walking/talking', ['idle', 'walking', 'talking'].every((s) => s in cfg.states));
+        check('v1 为物理攀爬提供独立动画状态',
+          !!cfg.states.climbing && cfg.states.climbing.frames[0] === 8 * cfg.frame.cols);
         const url = await readSpritesheetDataUrl(res.pack);
         check('图集可读成 data URL', url.startsWith('data:image/png;base64,'));
       }
