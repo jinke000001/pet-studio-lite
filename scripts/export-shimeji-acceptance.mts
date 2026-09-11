@@ -10,6 +10,7 @@ import { validatePetPack } from '../src/shared/petpack';
 import { ProjectsStore } from '../src/shared/projects';
 import { appendToZip } from '../src/shared/zipw';
 import { inspectZip, ZIP_LIMITS_RELAXED } from '../src/shared/zip';
+import { ensureUtf8Bom } from '../src/shared/text-encoding';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -34,7 +35,9 @@ async function main(): Promise<void> {
       onProgress: (phase, message) => console.log(`[${phase}] ${message}`),
     });
 
-    const acceptanceScript = await fs.readFile(path.join(REPO, 'scripts', 'windows-shimeji-acceptance.ps1'));
+    const acceptanceScript = ensureUtf8Bom(
+      await fs.readFile(path.join(REPO, 'scripts', 'windows-shimeji-acceptance.ps1')),
+    );
     const acceptanceGuide = await fs.readFile(path.join(REPO, 'docs', 'acceptance', 'shimeji-windows.md'));
     const augmented = await appendToZip(await fs.readFile(outcome.zipPath), [
       { name: 'Windows统一验收.ps1', data: acceptanceScript, compress: false },

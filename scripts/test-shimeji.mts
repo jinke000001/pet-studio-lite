@@ -20,6 +20,7 @@ import {
   selectClassicBehavior,
 } from '../src/shared/shimeji/classic-config';
 import { PointerVelocityTracker } from '../src/shared/shimeji/pointer-velocity';
+import { ensureUtf8Bom } from '../src/shared/text-encoding';
 
 let passed = 0;
 let failed = 0;
@@ -363,6 +364,15 @@ const edgeThrownSession = new DesktopRuntimeSession({ x: 1830, y: 500, width: 80
 edgeThrownSession.release({ vx: 900, vy: 0 });
 const bouncedFrame = edgeThrownSession.advance(buildDesktopTerrain(workArea, []), 100);
 check('投掷撞到工作区边缘会衰减反弹且不出屏', bouncedFrame.x <= 1840 && bouncedFrame.vx < 0);
+
+console.log('\n[Windows PowerShell 脚本编码]');
+
+const utf8Script = Buffer.from("Write-Output '桌宠验收'\n", 'utf8');
+const bomScript = ensureUtf8Bom(utf8Script);
+check('为含中文的 Windows PowerShell 5.1 脚本添加 UTF-8 BOM',
+  bomScript.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf]))
+  && bomScript.subarray(3).equals(utf8Script));
+check('已有 UTF-8 BOM 时保持字节稳定', ensureUtf8Bom(bomScript).equals(bomScript));
 
 console.log(`\n结果：${passed} 通过，${failed} 失败`);
 if (failed > 0) process.exitCode = 1;
