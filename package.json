@@ -8,18 +8,20 @@
     "build": "electron-vite build",
     "build:pet": "electron-vite build --config electron.vite.pet.config.ts && node scripts/check-pet-runtime-bundle.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:petpack && npm run test:zip && npm run test:petdex && npm run test:runtime && npm run test:shimeji && npm run test:classic",
+    "test": "npm run test:petpack && npm run test:zip && npm run test:petdex && npm run test:runtime && npm run test:shimeji && npm run test:classic && npm run test:evidence",
     "test:petpack": "esbuild scripts/test-petpack.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petpack.bundle.mjs --packages=external && node scripts/test-petpack.bundle.mjs",
     "test:zip": "esbuild scripts/test-zip.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-zip.bundle.mjs --packages=external && node scripts/test-zip.bundle.mjs",
     "test:petdex": "esbuild scripts/test-petdex.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petdex.bundle.mjs --packages=external && node scripts/test-petdex.bundle.mjs",
     "test:runtime": "esbuild scripts/test-runtime.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-runtime.bundle.mjs --packages=external && node scripts/test-runtime.bundle.mjs",
     "test:shimeji": "esbuild scripts/test-shimeji.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-shimeji.bundle.mjs --packages=external && node scripts/test-shimeji.bundle.mjs",
     "test:classic": "esbuild scripts/test-classic-import.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-classic-import.bundle.mjs --packages=external && node scripts/test-classic-import.bundle.mjs",
+    "test:evidence": "esbuild scripts/test-windows-evidence.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-windows-evidence.bundle.mjs --packages=external && node scripts/test-windows-evidence.bundle.mjs",
     "smoke:electron": "npm run build:pet && esbuild scripts/smoke-round2.mts --bundle --platform=node --format=cjs --target=node20 --outfile=scripts/smoke-round2.bundle.cjs --external:electron --packages=external && electron scripts/smoke-round2.bundle.cjs",
     "smoke:multi": "npm run build:pet && esbuild scripts/smoke-multi-runtime.mts --bundle --platform=node --format=cjs --target=node20 --outfile=scripts/smoke-multi-runtime.bundle.cjs --external:electron --packages=external && electron scripts/smoke-multi-runtime.bundle.cjs",
     "export:shimeji-test": "npm run build:pet && esbuild scripts/export-shimeji-acceptance.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/export-shimeji-acceptance.bundle.mjs --packages=external && node scripts/export-shimeji-acceptance.bundle.mjs",
     "fixtures": "node scripts/make-fixtures.mjs",
-    "check:export": "node scripts/check-export.mjs"
+    "check:export": "node scripts/check-export.mjs",
+    "check:windows-evidence": "esbuild scripts/check-windows-evidence.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/check-windows-evidence.bundle.mjs --packages=external && node scripts/check-windows-evidence.bundle.mjs"
   },
   "engines": {
     "node": ">=18"

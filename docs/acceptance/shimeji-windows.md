@@ -19,16 +19,17 @@
 2. 右键 `Windows统一验收.ps1`，选择“使用 PowerShell 运行”；若策略阻止，在该目录打开 PowerShell 后执行：
 
    ```powershell
-   powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1
+   powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -ManualProfile core
    ```
 
-3. 脚本会先读取 `runtime-integrity.json`，复算实际启动的 `PetLitePet.exe` 与 `manifest.json` 的 SHA-256；任一文件不匹配就停止，避免把其他版本的运行结果误记到本候选。随后约 35 秒自动覆盖首次启动、单实例召唤第二只、可见窗口边界、经典自动行为、关闭单只与完全退出，并在同目录生成 `acceptance-evidence-时间`，其中含 `result.json` 和三张截图。`result.json` 会记录这两个实际哈希及完整性记录。
-4. 分阶段在 Windows 100%、125%、150% 缩放下各执行一次；每份证据目录都保留，不覆盖前次结果。
+3. 脚本会先读取 `runtime-integrity.json`，复算实际启动的 `PetLitePet.exe` 与 `manifest.json` 的 SHA-256；任一文件不匹配就停止，避免把其他版本的运行结果误记到本候选。随后约 35 秒自动覆盖首次启动、单实例召唤第二只、可见窗口边界、经典自动行为、关闭单只与完全退出。使用 `-ManualProfile core` 时，脚本会在关闭宠物前逐项等待你实际操作并输入 `Y` 或 `N`，每项同时保存截图；不要在提示期间手动关闭宠物。
+4. 结果保存在同目录的 `acceptance-evidence-时间`，其中含 `result.json`、自动截图和人工项截图。`result.json` 会记录实际哈希、完整性记录和结构化人工结论。
+5. 分阶段在 Windows 100%、125%、150% 缩放下各执行一次；每份证据目录都保留，不覆盖前次结果。
 
 基础交互通过后，可以让脚本无人值守运行 1 小时长稳模式：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -SoakMinutes 60
+powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -SoakMinutes 60 -ManualProfile core
 ```
 
 长稳模式每 30 秒记录运行时进程数、可见宠物窗口数、响应状态、总工作集、总句柄数和直属 PowerShell 窗口探测进程数；每 5 分钟自动召唤并关闭一只宠物。结果写入 `result.json`，原始采样另存为 `soak-samples.json`，结束时仍会关闭全部宠物并检查残留进程。运行期间可以反复移动、最小化、恢复或关闭记事本来人工观察平台跟随；不要手动召唤或关闭宠物，以免干扰脚本的生命周期计数。
@@ -64,6 +65,22 @@ powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -SoakMinutes 
 4. 在屏幕 2 右键宠物，打开尺寸面板，从当前尺寸改到另一个档位。预期：角色脚底中心（bottom-center）基本停在原处，角色完整留在屏幕 2 的可用区域，不跳回屏幕 1。
 5. 从屏幕 2 拖回屏幕 1 再做一次。若两屏上下错位，也要从真实相连的边缘通过，不能从排列图中不存在的区域跨越。
 
+混合 DPI 轮次使用以下命令，让双屏结论也写入结构化证据：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -ManualProfile mixed
+```
+
 双屏异常建议录制包含两块屏幕的完整桌面，并说明两块屏幕各自的缩放比例和哪一块是主屏。
 
 Windows 实机结果只有在对应 `result.json` 全通过、人工项完成且证据已保存后才能标记通过。macOS 预览、单元测试和 ZIP 静态检查不能替代该结论。
+
+## 回传证据复核
+
+把整个 `acceptance-evidence-时间` 目录带回开发电脑，不要只复制 `result.json`。在仓库目录运行：
+
+```bash
+npm run check:windows-evidence -- "<本轮候选.zip>" "<acceptance-evidence-时间目录>" --windows 11 --dpi 100 --manual core
+```
+
+Windows 10 轮次把 `--windows 11` 改为 `--windows 10`；125%/150% 轮次相应修改 `--dpi`；混合 DPI 双屏轮次使用 `--manual mixed`。一小时长稳结果额外加 `--soak 60`。复核器会重新读取候选 ZIP，比较实际 EXE、manifest、验收脚本、Windows 代际、DPI、逐项结果、截图、人工记录、采样数量和时间覆盖；缺文件、失败项、候选错配或“只写了 60 分钟但实际时间不足”都会拒绝。

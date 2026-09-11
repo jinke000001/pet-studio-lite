@@ -504,6 +504,19 @@ check('Windows 证据启动前复核运行时 EXE 与 manifest 身份',
   acceptanceScript.includes('runtime-integrity.json')
   && acceptanceScript.includes('Get-FileHash')
   && acceptanceScript.includes('runtimeExeSha256'));
+check('Windows 证据绑定实际验收脚本并记录 Windows 10/11 系统身份',
+  acceptanceScript.includes('$PSCommandPath')
+  && acceptanceScript.includes('acceptanceScriptSha256')
+  && acceptanceScript.includes('Get-CimInstance Win32_OperatingSystem')
+  && acceptanceScript.includes('windowsGeneration'));
+check('Windows 脚本可选结构化记录 core/mixed 人工视觉验收',
+  acceptanceScript.includes("[ValidateSet('none', 'core', 'mixed')]")
+  && acceptanceScript.includes('Read-Host')
+  && acceptanceScript.includes("id = 'mixed-dpi-anchor'")
+  && acceptanceScript.includes('manual = [ordered]@{'));
+check('人工验收每项保存对应屏幕截图且证据使用 schema v2',
+  acceptanceScript.includes('manual-$($spec.id).png')
+  && acceptanceScript.includes('schemaVersion = 2'));
 const exportChecker = await fs.readFile(path.join(repoRoot, 'scripts', 'check-export.mjs'), 'utf8');
 check('导出静态核验按放宽后的受控 ZIP 限制读取大型 Electron EXE',
   exportChecker.includes('readZipEntry(buf, exeEntry, ZIP_LIMITS_RELAXED)'));

@@ -118,6 +118,7 @@ npm run smoke:multi     # 真实 Electron 多宠物烟测
 npm run export:shimeji-test  # 生成 Windows 统一验收测试包
 npm run fixtures   # 重新生成测试用宠物包
 npm run check:export <zip>  # 静态核验一个导出的 ZIP
+npm run check:windows-evidence -- <zip> <evidence-dir> --windows 11 --dpi 100 --manual core  # 复核 Windows 回传证据
 ```
 
 仓库无 lint 工具（无 ESLint/Biome），这是事实陈述。

@@ -3,7 +3,8 @@ param(
   [ValidateRange(8, 3600)][int]$ObserveSeconds = 24,
   [ValidateRange(0, 180)][int]$SoakMinutes = 0,
   [ValidateRange(5, 300)][int]$SampleSeconds = 30,
-  [ValidateRange(1, 30)][int]$LifecycleCycleMinutes = 5
+  [ValidateRange(1, 30)][int]$LifecycleCycleMinutes = 5,
+  [ValidateSet('none', 'core', 'mixed')][string]$ManualProfile = 'none'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -138,6 +139,25 @@ $runtimeIdentityOk = $artifactIntegrity.schemaVersion -eq 1 -and
   $artifactIntegrity.manifestSha256 -eq $manifestSha256
 Add-Check '实际运行的 EXE 与 manifest 身份匹配候选记录' $runtimeIdentityOk ("exeSha256=$runtimeExeSha256 manifestSha256=$manifestSha256")
 if (-not $runtimeIdentityOk) { throw '运行时文件完整性校验失败，请删除当前解压目录并从原 ZIP 重新完整解压。' }
+
+$acceptanceScriptSha256 = (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash.ToLowerInvariant()
+Add-Check '验收脚本身份已记录' ($acceptanceScriptSha256 -match '^[a-f0-9]{64}$') ("sha256=" + $acceptanceScriptSha256)
+
+$windowsOs = Get-CimInstance Win32_OperatingSystem
+$windowsBuildNumber = [int]$windowsOs.BuildNumber
+$windowsGeneration = if ($windowsBuildNumber -ge 22000) { '11' } else { '10' }
+$osEvidence = [ordered]@{
+  caption = [string]$windowsOs.Caption
+  version = [string]$windowsOs.Version
+  buildNumber = $windowsBuildNumber
+  architecture = [string]$windowsOs.OSArchitecture
+  generation = $windowsGeneration
+}
+$supportedWindows = $windowsBuildNumber -ge 10240 -and
+  $osEvidence.caption -match 'Windows (10|11)' -and
+  $osEvidence.architecture -match '64'
+Add-Check '记录 Windows 版本与架构' $supportedWindows ("$($osEvidence.caption) version=$($osEvidence.version) build=$windowsBuildNumber arch=$($osEvidence.architecture)")
+if (-not $supportedWindows) { throw '本轮验收只接受 64 位 Windows 10 或 Windows 11。' }
 
 $launch = Start-Process -FilePath $AppPath -PassThru
 $one = @(Wait-PetWindows 1)
@@ -274,6 +294,42 @@ if ($SoakMinutes -gt 0) {
   Save-Screenshot '04-after-soak.png'
 }
 
+$manualChecks = [System.Collections.Generic.List[object]]::new()
+$manualCompletedAt = $null
+if ($ManualProfile -ne 'none') {
+  $manualSpecs = @(
+    [ordered]@{ id = 'transparent-background'; name = '背景透明且图集显示正常'; prompt = '背景完全透明，无黑框、白底、方形阴影或串帧' },
+    [ordered]@{ id = 'continuous-motion'; name = '移动、跟随与坠落连续'; prompt = '自动游走、窗口跟随和坠落均为连续动画，没有突然换位置' },
+    [ordered]@{ id = 'edge-impact'; name = '三侧撞击停止水平滑行'; prompt = '分别抛向顶边、左边、右边后停止水平滑行并自然下落' },
+    [ordered]@{ id = 'visible-boundary'; name = '可见角色精准接触屏幕边缘'; prompt = '拖到顶边和左右边时，可见角色贴边且没有约一个身位的空隙' },
+    [ordered]@{ id = 'notepad-interaction'; name = '记事本攀爬、支撑与坠落正常'; prompt = '记事本侧边使用独立攀爬动画；顶边落点准确；移动时跟随；最小化或关闭后坠落' },
+    [ordered]@{ id = 'menu-and-size'; name = '右键菜单与尺寸调整正常'; prompt = '自动游走、召唤、尺寸面板和复位入口正常；改变尺寸时脚底中心稳定' }
+  )
+  if ($ManualProfile -eq 'mixed') {
+    $manualSpecs += [ordered]@{
+      id = 'mixed-dpi-anchor'; name = '混合 DPI 双屏锚点稳定'
+      prompt = '把宠物完整拖过双屏接缝并改变尺寸后，脚底中心稳定、完整留在当前显示器且不跳回另一屏'
+    }
+  }
+
+  Write-Host "`n开始人工视觉验收（$ManualProfile）。请保留宠物运行，不要手动关闭宠物；每项实际操作后输入 Y 或 N。"
+  $yesAnswers = @('y', 'yes', '是', '通过')
+  $noAnswers = @('n', 'no', '否', '失败')
+  foreach ($spec in $manualSpecs) {
+    do {
+      $answer = (Read-Host ("{0}：{1} [Y/N]" -f $spec.name, $spec.prompt)).Trim().ToLowerInvariant()
+    } while (($yesAnswers -notcontains $answer) -and ($noAnswers -notcontains $answer))
+    $manualPassed = $yesAnswers -contains $answer
+    $manualScreenshot = "manual-$($spec.id).png"
+    Save-Screenshot $manualScreenshot
+    $manualChecks.Add([ordered]@{
+      id = $spec.id; name = $spec.name; passed = $manualPassed; screenshot = $manualScreenshot
+    })
+    Add-Check ("人工：" + $spec.name) $manualPassed ("answer=" + $answer + " screenshot=" + $manualScreenshot)
+  }
+  $manualCompletedAt = (Get-Date).ToString('o')
+}
+
 $beforeSingleClose = @(Get-PetWindows)
 if ($beforeSingleClose.Count -ge 2) {
   [void][PetStudioWin32]::PostMessage([IntPtr]$beforeSingleClose[0].hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
@@ -294,16 +350,23 @@ if ($leftProcesses.Count -gt 0) {
 }
 
 $result = [ordered]@{
-  schemaVersion = 1
+  schemaVersion = 2
   startedAt = $startedAt.ToString('o')
   finishedAt = (Get-Date).ToString('o')
   appPath = [IO.Path]::GetFullPath($AppPath)
   runtimeExeSha256 = $runtimeExeSha256
   manifestSha256 = $manifestSha256
+  acceptanceScriptSha256 = $acceptanceScriptSha256
   artifactIntegrity = $artifactIntegrity
   manifest = $manifest
+  os = $osEvidence
   dpi = $dpi
   virtualScreen = $virtual
+  manual = [ordered]@{
+    profile = $ManualProfile
+    completedAt = $manualCompletedAt
+    checks = @($manualChecks)
+  }
   soak = [ordered]@{
     requestedMinutes = $SoakMinutes
     sampleSeconds = $SampleSeconds
