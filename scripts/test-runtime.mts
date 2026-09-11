@@ -1291,7 +1291,7 @@ async function uxWiringTests(): Promise<void> {
   check('渲染器把拖拽释放速度交给共享 Shimeji 会话',
     petAppSrc.includes('PointerVelocityTracker') && petAppSrc.includes('.release(velocity)'));
   check('Windows 宿主启动并在关闭时停止窗口快照监控',
-    hostSrc.includes('WindowSnapshotMonitor') && hostSrc.includes('stopDesktopTerrainMonitor'));
+    hostSrc.includes('SharedWindowSnapshotSource') && hostSrc.includes('stopDesktopTerrainMonitor'));
 
   const studioMainSrc = await fs.readFile(path.join(REPO, 'src', 'main', 'index.ts'), 'utf8');
   check('导出成功登记产物路径', studioMainSrc.includes('exportRegistry.record('));

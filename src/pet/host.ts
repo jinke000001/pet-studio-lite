@@ -6,7 +6,7 @@ import type { PetWindowPayload } from '../shared/types';
 import { registerPetIpc, type PetIpcSenderKind, type PetIpcTarget } from './ipc-router';
 import { buildPetContextMenu } from './menu';
 import { buildDesktopTerrain, type DesktopTerrain, type DesktopWindowSnapshot } from '../shared/shimeji/desktop-terrain';
-import { WindowSnapshotMonitor } from './window-snapshot-monitor';
+import { SharedWindowSnapshotSource } from './window-snapshot-monitor';
 import { captureDesktopWindows } from './windows-window-probe';
 
 /**
@@ -52,6 +52,20 @@ export interface PetHostOptions {
 }
 
 const hostsByPetSenderId = new Map<number, PetWindowHost>();
+let sharedProbeErrorReported = false;
+const sharedDesktopWindows = new SharedWindowSnapshotSource(async () => {
+  try {
+    const windows = await captureDesktopWindows();
+    sharedProbeErrorReported = false;
+    return windows;
+  } catch (error) {
+    if (!sharedProbeErrorReported) {
+      sharedProbeErrorReported = true;
+      console.warn('[shimeji] window probe failed:', error instanceof Error ? error.message : String(error));
+    }
+    throw error;
+  }
+}, { intervalMs: 1_000 });
 
 function resolvePetIpcTarget(senderId: number, kind: PetIpcSenderKind): PetWindowHost | null {
   if (kind === 'pet') return hostsByPetSenderId.get(senderId) ?? null;
@@ -82,9 +96,7 @@ export class PetWindowHost implements PetIpcTarget {
   private dragOrigin: { mouseX: number; mouseY: number; winX: number; winY: number } | null = null;
   private displayMetricsListener: ((event: Electron.Event, display: Electron.Display, changedMetrics: string[]) => void) | null = null;
   private desktopTerrain: DesktopTerrain | null = null;
-  private terrainMonitor: WindowSnapshotMonitor | null = null;
   private terrainUnsubscribe: (() => void) | null = null;
-  private terrainProbeErrorReported = false;
 
   constructor(readonly opts: PetHostOptions) {}
 
@@ -106,32 +118,19 @@ export class PetWindowHost implements PetIpcTarget {
     if (!this.win || this.win.isDestroyed()) return;
     const workArea = screen.getDisplayMatching(this.win.getBounds()).workArea;
     this.desktopTerrain = buildDesktopTerrain(workArea, windows);
-    this.terrainProbeErrorReported = false;
     this.win.webContents.send('pet:shimeji:terrain', this.desktopTerrain);
   }
 
   private prepareDesktopTerrainMonitor(): void {
     if (process.platform !== 'win32' || !this.win) return;
-    this.publishDesktopTerrain([]);
-    const monitor = new WindowSnapshotMonitor(captureDesktopWindows, {
-      intervalMs: 1_000,
-      onError: (error) => {
-        if (this.terrainProbeErrorReported) return;
-        this.terrainProbeErrorReported = true;
-        console.warn('[shimeji] window probe failed:', error instanceof Error ? error.message : String(error));
-      },
-    });
-    this.terrainMonitor = monitor;
-    this.terrainUnsubscribe = monitor.subscribe((windows) => this.publishDesktopTerrain(windows));
+    this.publishDesktopTerrain(sharedDesktopWindows.snapshot);
+    this.terrainUnsubscribe = sharedDesktopWindows.subscribe((windows) => this.publishDesktopTerrain(windows));
   }
 
   private stopDesktopTerrainMonitor(): void {
     this.terrainUnsubscribe?.();
     this.terrainUnsubscribe = null;
-    this.terrainMonitor?.stop();
-    this.terrainMonitor = null;
     this.desktopTerrain = null;
-    this.terrainProbeErrorReported = false;
   }
 
   getSizeControlState(): { zoom: number; min: number; max: number; step: number; persistent: boolean } {
@@ -340,7 +339,7 @@ export class PetWindowHost implements PetIpcTarget {
       const display = screen.getDisplayMatching(current);
       const next = computeAnchoredZoomBounds(current, windowSizeFor(this.zoom), display.workArea);
       this.win.setBounds(next);
-      if (this.terrainMonitor) this.publishDesktopTerrain(this.terrainMonitor.snapshot);
+      if (this.terrainUnsubscribe) this.publishDesktopTerrain(sharedDesktopWindows.snapshot);
     };
     screen.on('display-metrics-changed', this.displayMetricsListener);
 
@@ -393,7 +392,6 @@ export class PetWindowHost implements PetIpcTarget {
     });
 
     await win.loadURL(this.opts.rendererUrl);
-    this.terrainMonitor?.start();
   }
 
   close(): void {

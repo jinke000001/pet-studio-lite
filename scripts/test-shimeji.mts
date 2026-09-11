@@ -12,7 +12,7 @@ import {
   parseWindowProbePayload,
   WINDOW_PROBE_PROTOCOL_VERSION,
 } from '../src/shared/shimeji/window-snapshot';
-import { WindowSnapshotMonitor } from '../src/pet/window-snapshot-monitor';
+import { SharedWindowSnapshotSource, WindowSnapshotMonitor } from '../src/pet/window-snapshot-monitor';
 import { DesktopRuntimeSession } from '../src/shared/shimeji/desktop-runtime-session';
 import {
   compileClassicShimeji,
@@ -222,6 +222,21 @@ await resilientMonitor.refresh();
 await resilientMonitor.refresh();
 check('临时失败保留最后一次成功快照', resilientMonitor.snapshot[0]?.id === '88');
 check('临时失败通过受控错误通道上报', reportedErrors === 1);
+
+let sharedCaptureCount = 0;
+const sharedSource = new SharedWindowSnapshotSource(async () => {
+  sharedCaptureCount += 1;
+  return [];
+});
+const unsubscribeA = sharedSource.subscribe(() => {});
+const unsubscribeB = sharedSource.subscribe(() => {});
+await Promise.resolve();
+check('多个宠物订阅只启动一个共享窗口探测源', sharedSource.active && sharedCaptureCount === 1);
+unsubscribeA();
+check('关闭一只宠物不会停止其他宠物使用的探测源', sharedSource.active);
+unsubscribeB();
+unsubscribeB();
+check('最后一只宠物关闭后停止探测源且退订幂等', !sharedSource.active);
 
 console.log('\n[经典 Shimeji 配置兼容]');
 

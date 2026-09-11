@@ -66,3 +66,39 @@ export class WindowSnapshotMonitor {
     this.timer = null;
   }
 }
+
+/**
+ * Reference-counted process-level facade. Multiple pet windows share one
+ * native capture cadence; the first subscriber starts it and the last one
+ * stops it. Each unsubscribe callback is idempotent.
+ */
+export class SharedWindowSnapshotSource {
+  private readonly monitor: WindowSnapshotMonitor;
+  private consumers = 0;
+
+  constructor(capture: WindowSnapshotCapture, options: WindowSnapshotMonitorOptions = {}) {
+    this.monitor = new WindowSnapshotMonitor(capture, options);
+  }
+
+  get snapshot(): readonly DesktopWindowSnapshot[] {
+    return this.monitor.snapshot;
+  }
+
+  get active(): boolean {
+    return this.consumers > 0;
+  }
+
+  subscribe(listener: WindowSnapshotListener): () => void {
+    const unsubscribeMonitor = this.monitor.subscribe(listener);
+    this.consumers += 1;
+    if (this.consumers === 1) this.monitor.start();
+    let subscribed = true;
+    return () => {
+      if (!subscribed) return;
+      subscribed = false;
+      unsubscribeMonitor();
+      this.consumers -= 1;
+      if (this.consumers === 0) this.monitor.stop();
+    };
+  }
+}
