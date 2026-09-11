@@ -20,6 +20,7 @@ export default defineConfig({
         input: {
           studio: 'src/preload/studio.ts',
           petwin: 'src/preload/petwin.ts',
+          sizeControl: 'src/preload/size-control.ts',
         },
       },
     },
@@ -32,6 +33,7 @@ export default defineConfig({
         input: {
           index: 'src/renderer/index.html',
           pet: 'src/renderer/pet.html',
+          sizeControl: 'src/renderer/size-control.html',
         },
       },
     },

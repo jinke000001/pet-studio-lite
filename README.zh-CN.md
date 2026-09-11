@@ -2,7 +2,7 @@
 
 # Pet Studio Lite
 
-一个把 Petdex 宠物包变成 **Windows 便携桌宠** 的制作台。完全离线，不需要账号、网络或任何 AI 服务。
+一个把 Petdex 宠物包变成 **Windows 便携桌宠** 的制作台。不需要账号或任何 AI 服务；可按用户操作联网下载 Petdex 宠物，其他制作流程都在本地完成。
 
 **闭环**：导入宠物包 → 自动检查 → 动作预览 → 配置 → 导出 Windows x64 便携 ZIP → 解压双击 EXE 运行桌宠。
 
@@ -29,9 +29,9 @@ npm run dev
 
 ### 2. 导入宠物包
 
-点 **「选择宠物包目录」** 或 **「选择 ZIP 压缩包」**。还没有宠物包？展开导入页的
-**「第一次使用？如何从 Petdex 获取宠物包」**，按里面的步骤用 Petdex 官方 CLI
-下载（`npx petdex install boba`），再回来选择下载好的目录。
+直接把 Petdex 页面提供的完整命令（例如 `npx petdex@latest install boba`）粘贴到
+**「从 Petdex 下载」**，下载完成后核对宠物信息并确认导入。也可以继续点
+**「选择宠物包目录」** 或 **「选择 ZIP 压缩包」** 导入已有文件。
 
 宠物包长这样：
 ```
@@ -90,8 +90,8 @@ ZIP 里有 `启动说明.txt`（同样这份说明）和 `manifest.json`（版�
 
 ## 隐私
 
-- 制作台和桌宠都 **完全离线**，不发起任何网络请求。
-- 制作台只把数据存在自己的目录（`~/Library/Application Support/pet-studio-lite`），不读取、不修改 `~/.nom`、`~/.codex`、`~/.petdex` 等任何其他产品的数据。导入宠物包时是**只读复制**。
+- 只有用户主动提交 Petdex 安装命令时，制作台才会启动官方 CLI 联网下载；导出的桌宠始终离线。
+- 下载保留在 `~/.petdex/pets`。用户确认后，制作台只读复制宠物包到自己的目录（`~/Library/Application Support/pet-studio-lite`），不会移动或删除原包，也不读取 `~/.nom`。
 
 ## 开发者
 

@@ -8,9 +8,10 @@
     "build": "electron-vite build",
     "build:pet": "electron-vite build --config electron.vite.pet.config.ts",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:petpack && npm run test:zip && npm run test:runtime",
+    "test": "npm run test:petpack && npm run test:zip && npm run test:petdex && npm run test:runtime",
     "test:petpack": "esbuild scripts/test-petpack.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petpack.bundle.mjs --packages=external && node scripts/test-petpack.bundle.mjs",
     "test:zip": "esbuild scripts/test-zip.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-zip.bundle.mjs --packages=external && node scripts/test-zip.bundle.mjs",
+    "test:petdex": "esbuild scripts/test-petdex.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petdex.bundle.mjs --packages=external && node scripts/test-petdex.bundle.mjs",
     "test:runtime": "esbuild scripts/test-runtime.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-runtime.bundle.mjs --packages=external && node scripts/test-runtime.bundle.mjs",
     "fixtures": "node scripts/make-fixtures.mjs",
     "check:export": "node scripts/check-export.mjs"

@@ -16,6 +16,23 @@ export type ImportResult =
   | { ok: false; cancelled: true }
   | { ok: false; cancelled?: false; errors: string[] };
 
+/** Petdex 下载完成、尚未写入制作台项目的只读候选。 */
+export interface PetdexImportCandidate {
+  token: string;
+  slug: string;
+  petId: string;
+  displayName: string;
+  petdexVersion: PetdexVersion;
+  declaredVersion: PetdexVersion | null;
+  license: LicenseStatus;
+  sprite: PetSpriteConfig;
+  spritesheetDataUrl: string;
+}
+
+export type PetdexPrepareResult =
+  | { ok: true; candidate: PetdexImportCandidate }
+  | { ok: false; errors: string[] };
+
 /** 检查步骤的展示模型：每一项检查一行。 */
 export interface CheckItem {
   label: string;

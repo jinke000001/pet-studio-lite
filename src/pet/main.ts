@@ -13,7 +13,7 @@ import { PetWindowHost } from './host';
  * - 完全离线：不发起任何网络请求。
  * - 宠物包与配置随包封装在 resources/petpack/，首次启动不下载任何东西。
  * - 自己的 userData 命名空间（pet-lite-pet），只存窗口位置、缩放与"自动游走"开关。
- * - 右键菜单：自动游走开关、缩放（bottom-center 锚点 + workArea 夹紧）、
+ * - 右键菜单：自动游走开关、连续尺寸滑杆（bottom-center 锚点 + workArea 夹紧）、
  *   回到屏幕右下角、关于、真正退出。
  * - 状态写盘：单一内存状态 + 串行原子写（PetStateStore），退出前先 flush。
  */
@@ -82,6 +82,8 @@ async function main() {
     }),
     preloadFile: path.join(__dirname, '../preload/petwin.js'),
     rendererUrl: `file://${path.join(__dirname, '../renderer/pet.html')}`,
+    sizeControlPreloadFile: path.join(__dirname, '../preload/sizeControl.js'),
+    sizeControlRendererUrl: `file://${path.join(__dirname, '../renderer/size-control.html')}`,
     initialPosition: persisted.windowPosition,
     onPositionChange: (pos) => { void stateStore.update({ windowPosition: pos }); },
     onZoomChange: (zoom) => { void stateStore.update({ zoom }); },

@@ -19,6 +19,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           petwin: 'src/preload/petwin.ts',
+          sizeControl: 'src/preload/size-control.ts',
         },
       },
     },
@@ -30,6 +31,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           pet: 'src/renderer/pet.html',
+          sizeControl: 'src/renderer/size-control.html',
         },
       },
     },

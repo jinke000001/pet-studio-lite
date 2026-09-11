@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { StudioApi } from '../preload/studio';
-import type { ExportProgressEvent, PreviewPayload, ProjectMeta, StudioState } from '../shared/types';
+import type { ExportProgressEvent, PetdexImportCandidate, PreviewPayload, ProjectMeta, StudioState } from '../shared/types';
 import { resolveDistribution, distributionNote } from '../shared/manifest';
 import { removeConfirmMessage } from '../shared/messages';
-import { validatePetConfig, ZOOM_OPTIONS } from '../shared/config';
+import { validatePetConfig, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../shared/config';
 import { Sprite, type PetState } from './pet/Sprite';
+import { GlyphField } from './components/GlyphField';
 
 declare global {
   interface Window {
@@ -57,6 +58,7 @@ export function App() {
   const [step, setStep] = useState<Step>('import');
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [petdexCandidate, setPetdexCandidate] = useState<PetdexImportCandidate | null>(null);
 
   async function refresh() {
     try {
@@ -95,6 +97,52 @@ export function App() {
     }
   }
 
+  async function preparePetdexImport(command: string) {
+    setBusy('petdex-downloading');
+    setNotice(null);
+    setImportErrors([]);
+    setPetdexCandidate(null);
+    try {
+      const res = await window.studio.preparePetdexImport(command);
+      if (res.ok) setPetdexCandidate(res.candidate);
+      else setImportErrors(res.errors);
+    } catch (err) {
+      setImportErrors([err instanceof Error ? err.message : String(err)]);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function confirmPetdexImport(candidate: PetdexImportCandidate) {
+    setBusy('petdex-confirming');
+    setImportErrors([]);
+    try {
+      const res = await window.studio.confirmPetdexImport(candidate.token);
+      setPetdexCandidate(null);
+      if (res.ok) {
+        await refresh();
+        setStep('check');
+        setNotice(`已导入「${res.project.displayName}」（${res.project.petdexVersion}）`);
+      } else if (!res.cancelled) {
+        setImportErrors(res.errors);
+      }
+    } catch (err) {
+      setPetdexCandidate(null);
+      setImportErrors([err instanceof Error ? err.message : String(err)]);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function cancelPetdexImport(candidate: PetdexImportCandidate) {
+    setPetdexCandidate(null);
+    try {
+      await window.studio.cancelPetdexImport(candidate.token);
+    } catch (err) {
+      setImportErrors([err instanceof Error ? err.message : String(err)]);
+    }
+  }
+
   /** 删除最近项目：先确认（说明影响范围），失败时刷新真实状态并报错。 */
   async function requestRemove(p: ProjectMeta) {
     if (!window.confirm(removeConfirmMessage(p.displayName))) return; // 取消：不做任何修改
@@ -115,38 +163,68 @@ export function App() {
 
   if (loadErr) {
     return (
-      <div className="fatal">
-        <h1>制作台启动失败</h1>
-        <p>{loadErr}</p>
-        <button className="btn" onClick={() => void refresh()}>重试</button>
-      </div>
+      <>
+        <div className="window-drag-region" aria-hidden="true" />
+        <div className="fatal">
+          <h1>制作台启动失败</h1>
+          <p>{loadErr}</p>
+          <button className="btn" onClick={() => void refresh()}>重试</button>
+        </div>
+      </>
     );
   }
-  if (!state) return <div className="fatal"><p>加载中…</p></div>;
+  if (!state) {
+    return (
+      <>
+        <div className="window-drag-region" aria-hidden="true" />
+        <div className="fatal"><p>加载中…</p></div>
+      </>
+    );
+  }
 
   return (
     <div className="layout">
+      <div className="window-drag-region" aria-hidden="true" />
       <aside className="rail">
         <div className="brand">
-          <div className="brand-name">Pet Studio Lite</div>
-          <div className="brand-sub">桌宠制作台 · 完全离线</div>
+          <div className="brand-mark" aria-hidden="true">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+              <ellipse cx="12" cy="15.5" rx="4.6" ry="4" fill="#ffffff" />
+              <ellipse cx="6.4" cy="10.4" rx="1.9" ry="2.4" fill="#ffffff" transform="rotate(-18 6.4 10.4)" />
+              <ellipse cx="17.6" cy="10.4" rx="1.9" ry="2.4" fill="#ffffff" transform="rotate(18 17.6 10.4)" />
+              <ellipse cx="9.6" cy="7.6" rx="1.8" ry="2.3" fill="#ffffff" transform="rotate(-6 9.6 7.6)" />
+              <ellipse cx="14.4" cy="7.6" rx="1.8" ry="2.3" fill="#ffffff" transform="rotate(6 14.4 7.6)" />
+            </svg>
+          </div>
+          <div>
+            <div className="brand-name">Pet Studio Lite</div>
+            <div className="brand-sub">桌宠制作台 · 本地工作区</div>
+          </div>
         </div>
         <nav className="steps">
           {STEPS.map((s, i) => {
             const locked = s.id !== 'import' && !current;
+            // 「已完成」是纯 UI 态：步骤 index 小于当前步骤 index 即视为已完成
+            const currentIndex = STEPS.findIndex((x) => x.id === step);
+            const done = i < currentIndex;
             return (
-              <button
+              <div
                 key={s.id}
-                className={`step ${step === s.id ? 'step--on' : ''}`}
-                disabled={locked}
-                onClick={() => setStep(s.id)}
+                className={`step ${step === s.id ? 'step--on' : ''} ${done ? 'step--done' : ''}`}
               >
-                <span className="step-no">{i + 1}</span>
-                <span className="step-text">
-                  <span className="step-label">{s.label}</span>
-                  <span className="step-hint">{s.hint}</span>
-                </span>
-              </button>
+                <button
+                  type="button"
+                  className="step-btn"
+                  disabled={locked}
+                  onClick={() => setStep(s.id)}
+                >
+                  <span className="step-no">{done ? '✓' : i + 1}</span>
+                  <span className="step-text">
+                    <span className="step-label">{s.label}</span>
+                    <span className="step-hint">{s.hint}</span>
+                  </span>
+                </button>
+              </div>
             );
           })}
         </nav>
@@ -192,10 +270,14 @@ export function App() {
         {notice && <div className="notice" onClick={() => setNotice(null)}>{notice}</div>}
         {step === 'import' && (
           <ImportStep
-            busy={busy === 'importing'}
+            busy={busy}
             errors={importErrors}
             projects={state.index.projects}
+            petdexCandidate={petdexCandidate}
             onImport={doImport}
+            onPreparePetdex={preparePetdexImport}
+            onConfirmPetdex={confirmPetdexImport}
+            onCancelPetdex={cancelPetdexImport}
             onClearErrors={() => setImportErrors([])}
           />
         )}
@@ -260,8 +342,8 @@ function CommandLine({ cmd }: { cmd: string }) {
 /**
  * 新手帮助：如何从 Petdex 获取宠物包。
  * 命令与保存位置以 Petdex 官方 CLI（npm: petdex）实际行为为准：
- * `petdex install <名字>` 会把宠物包放到 ~/.petdex/pets/<名字>/ 并在终端
- * 输出保存位置；制作台本身不联网、不读取任何 Petdex 目录。
+ * `petdex install <名字>` 会把宠物包放到 ~/.petdex/pets/<名字>/。制作台
+ * 现在可代为执行严格白名单化的下载，并在用户确认后导入工作区副本。
  */
 function PetdexHelp() {
   const [open, setOpen] = useState(false);
@@ -275,16 +357,14 @@ function PetdexHelp() {
         <div className="help-body">
           <ol className="help-steps">
             <li>安装 <strong>Node.js 20 或更高版本</strong>（官网 nodejs.org，安装后重新打开终端）。</li>
-            <li>打开终端（macOS：聚焦搜索输入「终端」；Windows：PowerShell）。</li>
+            <li>在 Petdex 宠物页面复制完整安装命令。</li>
             <li>
-              用 Petdex 官方 CLI 下载宠物，例如：
-              <CommandLine cmd="npx petdex install boba" />
-              下载完成后，终端会显示保存位置（默认在 <code>~/.petdex/pets/boba/</code>，
-              请以终端实际输出为准）。
+              把命令粘贴到本页「从 Petdex 下载」输入框，例如：
+              <CommandLine cmd="npx petdex@latest install boba" />
             </li>
             <li>
-              回到本页面，点「选择宠物包目录」选中刚才的目录；
-              如果你拿到的是 <code>.zip</code> 文件，则点「选择 ZIP 压缩包」。
+              下载完成后核对名称、版本、授权与预览，再点「确认导入」。原包仍保留在
+              <code>~/.petdex/pets/</code>。
             </li>
           </ol>
           <p className="muted">
@@ -292,8 +372,7 @@ function PetdexHelp() {
           </p>
           <CommandLine cmd="npm install -g petdex" />
           <p className="muted">
-            制作台不会自动联网下载，也不会读取你的 Petdex 目录——所有文件都由你主动选择。
-            「在制作台里一键下载并导入」是后续版本的能力，当前版本请先按上面步骤获取宠物包。
+            如果已经有本地宠物包，也可以继续使用上方的目录或 ZIP 导入。
           </p>
         </div>
       )}
@@ -302,30 +381,114 @@ function PetdexHelp() {
 }
 
 function ImportStep(props: {
-  busy: boolean;
+  busy: string | null;
   errors: string[];
   projects: ProjectMeta[];
+  petdexCandidate: PetdexImportCandidate | null;
   onImport: (kind: 'dir' | 'zip') => void;
+  onPreparePetdex: (command: string) => void;
+  onConfirmPetdex: (candidate: PetdexImportCandidate) => void;
+  onCancelPetdex: (candidate: PetdexImportCandidate) => void;
   onClearErrors: () => void;
 }) {
+  const [command, setCommand] = useState('');
+  const downloading = props.busy === 'petdex-downloading';
+  const confirming = props.busy === 'petdex-confirming';
+  const unavailable = props.busy !== null;
   return (
     <section>
+      <div className="eyebrow page-eyebrow">STEP · 01 — IMPORT · PETDEX PACK</div>
       <h1>导入宠物包</h1>
       <p className="lead">
         选择一个 Petdex 宠物包目录或 ZIP 压缩包。导入会把包复制到制作台自己的工作区，
         不会修改你的原始文件。
       </p>
       <div className="import-actions">
-        <button className="btn btn-primary" disabled={props.busy} onClick={() => props.onImport('dir')}>
-          {props.busy ? '导入中…' : '选择宠物包目录'}
+        <button className="btn" disabled={unavailable} onClick={() => props.onImport('dir')}>
+          {props.busy === 'importing' ? '导入中…' : '选择宠物包目录'}
         </button>
-        <button className="btn" disabled={props.busy} onClick={() => props.onImport('zip')}>
+        <button className="btn" disabled={unavailable} onClick={() => props.onImport('zip')}>
           选择 ZIP 压缩包
         </button>
       </div>
+
+      <div className="petdex-import-card">
+        <div className="petdex-import-head">
+          <div>
+            <div className="eyebrow">PETDEX · DIRECT IMPORT</div>
+            <h2>从 Petdex 下载</h2>
+          </div>
+          <span className="petdex-location">保存至 ~/.petdex/pets</span>
+        </div>
+        <form className="petdex-command-form" onSubmit={(event) => {
+          event.preventDefault();
+          props.onPreparePetdex(command);
+        }}>
+          <label className="field-label" htmlFor="petdex-command">粘贴完整安装命令</label>
+          <div className="petdex-command-row">
+            <input
+              id="petdex-command"
+              className="field-input petdex-command-input"
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+              placeholder="npx petdex@latest install capvolt"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              disabled={unavailable}
+              aria-describedby="petdex-command-hint"
+            />
+            <button className="btn btn-primary" type="submit" disabled={unavailable || command.trim() === ''}>
+              {downloading ? '正在下载…' : '下载并读取信息'}
+            </button>
+          </div>
+          <div id="petdex-command-hint" className="field-hint">
+            仅支持 Petdex 官方安装命令。制作台不会执行其中的其他代码。
+          </div>
+        </form>
+
+        {downloading && (
+          <div className="petdex-loading" role="status" aria-live="polite">
+            <span className="check-dot check-dot--pending" aria-hidden="true" />
+            正在连接 Petdex 并校验宠物包，通常需要几十秒…
+          </div>
+        )}
+
+        {props.petdexCandidate && (
+          <div className="petdex-candidate" aria-live="polite">
+            <div className="petdex-candidate-preview" aria-label={`${props.petdexCandidate.displayName} 待导入预览`}>
+              <Sprite
+                config={props.petdexCandidate.sprite}
+                spritesheetUrl={props.petdexCandidate.spritesheetDataUrl}
+                state="idle"
+                zoom={1.2}
+              />
+            </div>
+            <div className="petdex-candidate-info">
+              <div className="eyebrow">READY · 等待确认</div>
+              <h2>{props.petdexCandidate.displayName}</h2>
+              <dl className="petdex-meta">
+                <div><dt>ID</dt><dd>{props.petdexCandidate.petId}</dd></div>
+                <div><dt>版本</dt><dd>{props.petdexCandidate.petdexVersion}</dd></div>
+                <div><dt>授权</dt><dd>{LICENSE_LABEL[props.petdexCandidate.license]}</dd></div>
+                <div><dt>目录</dt><dd>{props.petdexCandidate.slug}</dd></div>
+              </dl>
+              <p className="field-hint">确认后才会复制到制作台项目；Petdex 原包不会移动或删除。</p>
+              <div className="petdex-candidate-actions">
+                <button className="btn" type="button" disabled={confirming} onClick={() => props.onCancelPetdex(props.petdexCandidate!)}>
+                  暂不导入
+                </button>
+                <button className="btn btn-primary" type="button" disabled={confirming} onClick={() => props.onConfirmPetdex(props.petdexCandidate!)}>
+                  {confirming ? '正在导入…' : '确认导入'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       <PetdexHelp />
       {props.errors.length > 0 && (
-        <div className="error-panel">
+        <div className="error-panel" style={{ marginTop: 20, maxWidth: 560 }}>
           <div className="error-panel-title">
             导入失败
             <button className="link" onClick={props.onClearErrors}>知道了</button>
@@ -367,6 +530,7 @@ function CheckStep({ project }: { project: ProjectMeta }) {
 
   return (
     <section>
+      <div className="eyebrow page-eyebrow">STEP · 02 — CHECK · VALIDATION</div>
       <h1>检查「{project.displayName}」</h1>
       <p className="lead">对项目工作区里的只读副本重新做完整校验。原始来源：{project.sourcePath}</p>
       <div className="card">
@@ -430,6 +594,7 @@ function PreviewStep({ project }: { project: ProjectMeta }) {
 
   return (
     <section>
+      <div className="eyebrow page-eyebrow">STEP · 03 — PREVIEW · SPRITE &amp; LIVE</div>
       <h1>预览「{project.displayName}」</h1>
       {error && (
         <div className="error-panel">
@@ -461,11 +626,12 @@ function PreviewStep({ project }: { project: ProjectMeta }) {
               ))}
             </div>
           </div>
-          <div className="card">
+          <div className="card card--navy">
+            <div className="eyebrow" style={{ marginBottom: 6 }}>LIVE · TRANSPARENT WINDOW</div>
             <h2>真实桌宠预览</h2>
-            <p className="muted">
+            <p className="muted" style={{ lineHeight: 1.7, margin: '0 0 12px' }}>
               打开一个透明、无边框、置顶的真实桌宠窗口（与导出的 Windows 桌宠同一套代码）。
-              可以拖动、单击、右键缩放；预览窗口不写任何持久化状态。
+              可以拖动、单击、右键打开尺寸滑杆；预览窗口不写任何持久化状态。
             </p>
             <button
               className="btn btn-primary"
@@ -527,12 +693,15 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
     name !== project.config.petName ||
     zoom !== project.config.zoom ||
     wander !== project.config.wanderEnabled;
+  const zoomPercent = Math.round(zoom * 100);
+  const sliderProgress = ((zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)) * 100;
 
   return (
     <section>
+      <div className="eyebrow page-eyebrow">STEP · 04 — CONFIG · NAME / ZOOM / BEHAVIOR</div>
       <h1>配置「{project.displayName}」</h1>
       <p className="lead">配置会保存到项目里，并随导出一起进入独立桌宠。</p>
-      <div className="card">
+      <div className="card" style={{ maxWidth: 520 }}>
         <label className="field">
           <span className="field-label">宠物显示名称</span>
           <input
@@ -543,20 +712,40 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
           />
           <span className="field-hint">1–24 个字符，显示在气泡和关于窗口里。</span>
         </label>
-        <label className="field">
-          <span className="field-label">默认缩放</span>
-          <select className="field-input" value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
-            {ZOOM_OPTIONS.map((o) => (
-              <option key={o.zoom} value={o.zoom}>{o.label}</option>
-            ))}
-          </select>
-          <span className="field-hint">桌宠首次启动时的窗口大小；用户还可用右键菜单调整。</span>
-        </label>
-        <label className="field field--row">
-          <input type="checkbox" checked={wander} onChange={(e) => setWander(e.target.checked)} />
+        <div className="field size-control">
+          <div className="size-control-head">
+            <label className="field-label" htmlFor="pet-size">宠物尺寸</label>
+            <output className="size-value" htmlFor="pet-size" aria-live="polite">{zoomPercent}%</output>
+          </div>
+          <span className="field-hint" id="pet-size-hint">
+            调整桌宠首次启动时的大小；保存后会同步到真实预览和导出产物。
+          </span>
+          <input
+            id="pet-size"
+            className="size-slider"
+            type="range"
+            min={ZOOM_MIN}
+            max={ZOOM_MAX}
+            step={ZOOM_STEP}
+            value={zoom}
+            aria-describedby="pet-size-hint"
+            style={{ '--size-progress': `${sliderProgress}%` } as React.CSSProperties}
+            onChange={(e) => setZoom(Number(e.target.value))}
+          />
+          <div className="size-scale" aria-hidden="true">
+            <span>小 · 100%</span>
+            <span>中 · 200%</span>
+            <span>大 · 300%</span>
+          </div>
+        </div>
+        <div className="field field--row">
+          <label className="switch">
+            <input type="checkbox" checked={wander} onChange={(e) => setWander(e.target.checked)} />
+            <span className="switch-track" />
+          </label>
           <span>允许闲置时自动游走</span>
-        </label>
-        <p className="field-hint">等待和思考会在闲置后自动触发；点击或拖动会重新计时。</p>
+        </div>
+        <p className="field-hint" style={{ margin: '0 0 16px' }}>等待和思考会在闲置后自动触发；点击或拖动会重新计时。</p>
         {errors.length > 0 && (
           <div className="error-panel">
             {errors.map((e, i) => <div className="error-line" key={i}>{e}</div>)}
@@ -572,11 +761,17 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
 
 // --- 步骤 5：导出 -----------------------------------------------------------
 
+/** 一次导出预计发出的进度事件总数，用于点阵玩具估算进度（见 src/main/export-win.ts：
+ *  prepare（首次导出 2 条）+ build-runtime + assemble + verify + done ≈ 6 条）。
+ *  只是视觉估算，不准也不影响真实导出流程；完成时强制按 100% 聚形。 */
+const EXPECTED_EXPORT_EVENTS = 6;
+
 function ExportStep({ project }: { project: ProjectMeta }) {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<ExportProgressEvent[]>([]);
   const [result, setResult] = useState<{ zipPath: string; sha256: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exportRunId, setExportRunId] = useState(0);
 
   useEffect(() => {
     return window.studio.onExportProgress((e) => {
@@ -588,6 +783,7 @@ function ExportStep({ project }: { project: ProjectMeta }) {
   const note = distributionNote(project.license, project.usageMode);
 
   async function run() {
+    setExportRunId((id) => id + 1);
     setRunning(true);
     setProgress([]);
     setResult(null);
@@ -603,13 +799,14 @@ function ExportStep({ project }: { project: ProjectMeta }) {
 
   return (
     <section>
+      <div className="eyebrow page-eyebrow">STEP · 05 — EXPORT · WINDOWS X64</div>
       <h1>导出 Windows 便携包</h1>
       <p className="lead">
         导出一个不依赖任何开发环境的 Windows x64 便携 ZIP：解压后双击 EXE 即可运行桌宠。
         每次导出生成新文件，不会覆盖之前的产物。
       </p>
 
-      <div className="card">
+      <div className="card" style={{ maxWidth: 600 }}>
         <div className="check-row">
           <span className="check-dot check-dot--ok" />
           <span>原包授权状态</span>
@@ -646,19 +843,21 @@ function ExportStep({ project }: { project: ProjectMeta }) {
         {running ? '导出中，请稍候…' : '选择导出位置并导出'}
       </button>
 
-      {progress.length > 0 && (
-        <div className="card">
-          {progress.map((p, i) => (
-            <div className="progress-line" key={i}>
-              <span className="check-dot check-dot--ok" /> {p.message}
-            </div>
-          ))}
-          {running && <div className="progress-line muted">进行中…（首次导出需要下载 Electron 运行时，可能耗时几分钟）</div>}
+      {/* 导出等待玩具：符号流点阵。出现在原进度日志卡片位置（导出按钮下方），
+          running 时挂载，导出完成后保留展示聚形终态；进度只来自已有的
+          ExportProgressEvent 数组条数估算，不新增 IPC。 */}
+      {(running || result) && (
+        <div style={{ maxWidth: 600, marginTop: 16 }}>
+          <GlyphField
+            key={exportRunId}
+            progress={result ? 1 : Math.min(1, progress.length / EXPECTED_EXPORT_EVENTS)}
+            done={result !== null}
+          />
         </div>
       )}
 
       {result && (
-        <div className="success-panel">
+        <div className="success-panel" style={{ maxWidth: 600 }}>
           <div className="success-title">导出完成</div>
           <div className="mono">{result.zipPath}</div>
           <div className="mono muted">SHA-256：{result.sha256}</div>

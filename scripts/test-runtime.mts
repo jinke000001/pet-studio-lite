@@ -2,10 +2,10 @@
 // 运行：npm run test:runtime
 //
 // 覆盖（对应任务书 §6）：
-//   ✓ 缩放 bottom-center 锚点 + workArea 夹紧（含右下角 125%→200%）
+//   ✓ 缩放 bottom-center 锚点 + workArea 夹紧（含 100%→300%）
 //   ✓ "回到屏幕右下角"复位几何（多显示器负原点 / 缩放 DIP / 小 workArea 夹紧）
 //   ✓ 配置校验：合法值、非法类型、空名字、超长名字、
-//     严格三档缩放（125%/150%/200%）、中间值拒绝、旧档 50%/75%/100% 迁移为 125%
+//     连续尺寸滑杆（100%–300%、步进 5%）、旧档 50%/75% 迁移为 100%
 //   ✓ IPC 校验器：非法类型 / 枚举 / 项目 id 注入
 //   ✓ 项目存储：导入复制不修改源、哈希核对、版本化目录、索引损坏恢复、
 //     非法配置不入库、删除语义（当前项目切换 / 源包不变）
@@ -30,7 +30,14 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { clampBoundsToWorkArea, computeAnchoredZoomBounds, computeWorkAreaHomePosition, type Rect } from '../src/shared/geometry.ts';
-import { validatePetConfig, normalizeZoom, ZOOM_LEVELS, ZOOM_OPTIONS, DEFAULT_PET_CONFIG } from '../src/shared/config.ts';
+import {
+  validatePetConfig,
+  normalizeZoom,
+  ZOOM_MIN,
+  ZOOM_MAX,
+  ZOOM_STEP,
+  DEFAULT_PET_CONFIG,
+} from '../src/shared/config.ts';
 import { requireProjectId, requireEnum, requireFiniteNumber, requireBoolean, IpcValidationError } from '../src/shared/ipc-validate.ts';
 import { ProjectsStore, packFingerprint, defaultUsageMode } from '../src/shared/projects.ts';
 import { removeConfirmMessage } from '../src/shared/messages.ts';
@@ -45,6 +52,7 @@ import { FlushableDebouncer } from '../src/shared/debounce.ts';
 import { ExportRegistry, resolveRevealTarget } from '../src/shared/export-registry.ts';
 import { buildPetContextMenu } from '../src/pet/menu.ts';
 import { shouldQuitOnAllWindowsClosed, handleActivate, type ActivatableWindow } from '../src/shared/lifecycle.ts';
+import { advanceEstimatedProgress, interpolateProgress } from '../src/renderer/components/progress-motion.ts';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIXTURES = path.join(REPO, 'assets', 'fixtures');
@@ -62,6 +70,20 @@ function check(name: string, cond: boolean, detail = ''): void {
     failures.push(name + (detail ? ` — ${detail}` : ''));
     console.log(`  ✗ ${name}${detail ? `  (${detail})` : ''}`);
   }
+}
+
+function progressMotionTests(): void {
+  console.log('\n[导出进度平滑动画]');
+  const middle = interpolateProgress(1 / 3, 1 / 2, 250, 500);
+  check('阶段进度在动画中间连续前进且不提前到达目标', middle > 1 / 3 && middle < 1 / 2);
+  check('动画结束时准确到达真实阶段进度', interpolateProgress(1 / 3, 1 / 2, 500, 500) === 1 / 2);
+  check('迟到或乱序事件不会让显示进度倒退', interpolateProgress(1 / 2, 1 / 3, 250, 500) === 1 / 2);
+  check('完成事件也先平滑过渡而非瞬间跳到 100%', interpolateProgress(1 / 2, 1, 325, 650) > 1 / 2 && interpolateProgress(1 / 2, 1, 325, 650) < 1);
+  const creeping = advanceEstimatedProgress(1 / 3, 1 / 3, 1_000);
+  check('等待下一真实节点时显示进度仍会缓慢前行', creeping > 1 / 3);
+  check('未收到完成事件前显示进度保留在 92% 以下', advanceEstimatedProgress(0.919, 1, 10_000) <= 0.92);
+  check('新真实节点到来时比等待漂移更快地追赶',
+    advanceEstimatedProgress(1 / 3, 1 / 2, 100) - 1 / 3 > advanceEstimatedProgress(1 / 3, 1 / 3, 100) - 1 / 3);
 }
 
 async function expectThrow(name: string, kw: string, fn: () => unknown | Promise<unknown>): Promise<void> {
@@ -94,6 +116,13 @@ function geometryTests(): void {
     const prev: Rect = { x: 700, y: 400, width: 250, height: 250 };
     const next = computeAnchoredZoomBounds(prev, 400, workArea);
     check('屏幕中间 125%→200%：bottom-center 完全保持',
+      next.x + next.width / 2 === prev.x + prev.width / 2 && next.y + next.height === prev.y + prev.height);
+  }
+  {
+    // 新范围端点：100%→300%（200→600px）仍保持底部中心锚点。
+    const prev: Rect = { x: 700, y: 400, width: 200, height: 200 };
+    const next = computeAnchoredZoomBounds(prev, 600, workArea);
+    check('100%→300%：bottom-center 完全保持',
       next.x + next.width / 2 === prev.x + prev.width / 2 && next.y + next.height === prev.y + prev.height);
   }
   {
@@ -143,37 +172,35 @@ function configTests(): void {
   expectThrowSync('wander 非布尔被拒绝', validatePetConfig({ wanderEnabled: 'yes' }).ok === false);
   expectThrowSync('非对象被拒绝', validatePetConfig('str').ok === false);
 
-  // 严格三档契约：全产品只剩 小 125% / 中 150% / 大 200%（推荐）
-  check('缩放档位恰好三档（125%/150%/200%）',
-    ZOOM_LEVELS.length === 3 && ZOOM_LEVELS[0] === 1.25 && ZOOM_LEVELS[1] === 1.5 && ZOOM_LEVELS[2] === 2);
-  check('档位标签与档位一一对应（配置页与右键菜单共用）',
-    ZOOM_OPTIONS.length === 3 &&
-    ZOOM_OPTIONS[0]!.zoom === 1.25 && ZOOM_OPTIONS[0]!.label === '小 125%' &&
-    ZOOM_OPTIONS[1]!.zoom === 1.5 && ZOOM_OPTIONS[1]!.label === '中 150%' &&
-    ZOOM_OPTIONS[2]!.zoom === 2 && ZOOM_OPTIONS[2]!.label === '大 200%（推荐）');
-  // 历史数据兼容：旧档 50%/75%/100% 自动迁移为 125%（不报错）
+  // 制作台与导出桌宠都使用同一安全范围内的连续 5% 步进。
+  check('制作台尺寸滑杆范围为 100%–300%，步进 5%',
+    ZOOM_MIN === 1 && ZOOM_MAX === 3 && ZOOM_STEP === 0.05);
+  // 历史数据兼容：旧档 50%/75% 自动迁移为新的最小值 100%；100% 现在正式受支持。
   const legacy50 = validatePetConfig({ zoom: 0.5 });
-  check('旧档 50% 迁移为 125%（不报错）', legacy50.ok && legacy50.config.zoom === 1.25);
+  check('旧档 50% 迁移为 100%（不报错）', legacy50.ok && legacy50.config.zoom === 1);
   const legacy75 = validatePetConfig({ zoom: 0.75 });
-  check('旧档 75% 迁移为 125%（不报错）', legacy75.ok && legacy75.config.zoom === 1.25);
-  const legacy100 = validatePetConfig({ zoom: 1 });
-  check('旧档 100% 迁移为 125%（不报错）', legacy100.ok && legacy100.config.zoom === 1.25);
-  // 任意中间值不再接受：安全回落默认 200%（不报错、不保留原值）
-  const mid12 = validatePetConfig({ zoom: 1.2 });
-  check('中间值 1.2 不被接受（回落默认 200%）', mid12.ok && mid12.config.zoom === 2);
+  check('旧档 75% 迁移为 100%（不报错）', legacy75.ok && legacy75.config.zoom === 1);
+  const min100 = validatePetConfig({ zoom: 1 });
+  check('最小值 100% 被接受', min100.ok && min100.config.zoom === 1);
+  // 滑杆步进值可以保存；越界或不落在 5% 网格上的值安全回落默认 200%。
   const mid17 = validatePetConfig({ zoom: 1.7 });
-  check('中间值 1.7 不被接受（回落默认 200%）', mid17.ok && mid17.config.zoom === 2);
-  const oob = validatePetConfig({ zoom: 3 });
-  check('越界值 3 回落默认 200%', oob.ok && oob.config.zoom === 2);
+  check('滑杆中间值 170% 被接受', mid17.ok && mid17.config.zoom === 1.7);
+  const offStep = validatePetConfig({ zoom: 1.73 });
+  check('非 5% 步进值 1.73 回落默认 200%', offStep.ok && offStep.config.zoom === 2);
+  const max300 = validatePetConfig({ zoom: 3 });
+  check('最大值 300% 被接受', max300.ok && max300.config.zoom === 3);
+  const oob = validatePetConfig({ zoom: 3.05 });
+  check('越界值 3.05 回落默认 200%', oob.ok && oob.config.zoom === 2);
   const nonNum = validatePetConfig({ zoom: 'big' });
   check('非数字回落默认 200%', nonNum.ok && nonNum.config.zoom === 2);
-  check('normalizeZoom：非数字/非有限/中间值/越界一律 null',
+  check('normalizeZoom：非数字/非有限/非步进值/越界一律 null',
     normalizeZoom('big') === null && normalizeZoom(NaN) === null && normalizeZoom(Infinity) === null &&
-    normalizeZoom(1.2) === null && normalizeZoom(1.7) === null && normalizeZoom(3) === null && normalizeZoom(0.9) === null);
-  check('normalizeZoom：旧档 0.5/0.75/1 → 1.25',
-    normalizeZoom(0.5) === 1.25 && normalizeZoom(0.75) === 1.25 && normalizeZoom(1) === 1.25);
-  check('normalizeZoom：125%/150%/200% 原样保留',
-    normalizeZoom(1.25) === 1.25 && normalizeZoom(1.5) === 1.5 && normalizeZoom(2) === 2);
+    normalizeZoom(1.73) === null && normalizeZoom(3.05) === null && normalizeZoom(0.9) === null);
+  check('normalizeZoom：旧档 0.5/0.75 → 1',
+    normalizeZoom(0.5) === 1 && normalizeZoom(0.75) === 1);
+  check('normalizeZoom：滑杆步进值原样保留',
+    normalizeZoom(1) === 1 && normalizeZoom(1.2) === 1.2 && normalizeZoom(1.7) === 1.7 &&
+    normalizeZoom(2) === 2 && normalizeZoom(3) === 3);
 
   // 默认缩放：Windows 系统缩放 100% 时，新项目 / 缺省配置 = 200%。
   check('默认 zoom 为 2', DEFAULT_PET_CONFIG.zoom === 2);
@@ -244,13 +271,15 @@ async function storeTests(tmp: string): Promise<void> {
   // 配置更新
   const updated = await store2.updateConfig(meta.id, { petName: '新名字', zoom: 1.5 });
   check('配置更新落盘', updated.config.petName === '新名字' && updated.config.zoom === 1.5);
-  // 严格档位契约：不受支持的缩放值不抛错、不保留原值，安全回落默认 200%
+  // 越界值安全回落默认 200%；滑杆中间值可以持久化。
   const fell = await store2.updateConfig(meta.id, { zoom: 9 });
   check('越界缩放安全回落默认 200%', fell.config.zoom === 2);
   const mid = await store2.updateConfig(meta.id, { zoom: 1.7 });
-  check('中间值缩放安全回落默认 200%', mid.config.zoom === 2);
-  const mig100 = await store2.updateConfig(meta.id, { zoom: 1 });
-  check('旧档 100% 经配置更新迁移为 125%', mig100.config.zoom === 1.25);
+  check('滑杆中间值缩放可以持久化', mid.config.zoom === 1.7);
+  const max = await store2.updateConfig(meta.id, { zoom: 3 });
+  check('最大缩放 300% 可以持久化', max.config.zoom === 3);
+  const min = await store2.updateConfig(meta.id, { zoom: 1 });
+  check('最小缩放 100% 可以持久化', min.config.zoom === 1);
   await expectThrow('非法名字仍被拒绝入库', '空', () => store2.updateConfig(meta.id, { petName: '  ' }));
 
   // 用户明确保存的缩放不被默认值覆盖
@@ -377,7 +406,7 @@ async function storeTests(tmp: string): Promise<void> {
     check('旧项目迁移出 declaredVersion', migrated?.declaredVersion === 'v1');
     check('旧项目迁移出内容指纹（dir 来源）',
       migrated?.source.type === 'dir' && migrated.source.fingerprint === packFingerprint(migrated.hashes));
-    check('旧项目保存的 100% 缩放迁移为 125%（其余字段不动）', migrated?.config.zoom === 1.25);
+    check('旧项目保存的 100% 缩放保持不变（其余字段不动）', migrated?.config.zoom === 1);
     check('迁移不改变内部实例 id 与 sourcePath',
       migrated?.id === legacyId && migrated.sourcePath === '/Users/someone/pets/demo-cat');
     check('authorized 旧项目迁移出 usageMode=general', migrated?.usageMode === 'general');
@@ -411,11 +440,11 @@ async function storeTests(tmp: string): Promise<void> {
     check('迁移保留项目 ID / 配置 / 哈希 / 路径',
       migrated?.id === legacyId && migrated.config.petName === '无授权包' &&
       migrated.hashes.petJson === 'c'.repeat(64) && migrated.sourcePath === '/Users/someone/pets/mystery');
-    check('旧项目保存的 75% 缩放迁移为 125%', migrated?.config.zoom === 1.25);
+    check('旧项目保存的 75% 缩放迁移为 100%', migrated?.config.zoom === 1);
   }
 
-  // 缩放档位迁移：旧项目的 50% → 125%；非法/越界/中间值回落默认 200%；
-  // 已有的 125%/150%/200% 不被触碰。
+  // 缩放迁移：旧项目的 50% → 100%；滑杆步进值保留；非法/越界值
+  // 回落默认 200%。
   {
     const { index } = await store.load();
     const mk = (id: string, zoom: unknown) => ({
@@ -437,10 +466,10 @@ async function storeTests(tmp: string): Promise<void> {
     await fs.writeFile(path.join(root, 'projects.json'), JSON.stringify(index, null, 2), 'utf8');
 
     const store6 = new ProjectsStore(root);
-    check('旧项目 50% 缩放迁移为 125%', (await store6.get('zoom50-20250101000000'))?.config.zoom === 1.25);
+    check('旧项目 50% 缩放迁移为 100%', (await store6.get('zoom50-20250101000000'))?.config.zoom === 1);
     check('旧项目 150% 缩放保持不变', (await store6.get('zoom150-20250101000000'))?.config.zoom === 1.5);
     check('旧项目 125% 缩放保持不变', (await store6.get('zoom125-20250101000000'))?.config.zoom === 1.25);
-    check('旧项目中间值 1.7 缩放回落默认 200%', (await store6.get('zoommid-20250101000000'))?.config.zoom === 2);
+    check('旧项目滑杆步进值 170% 保持不变', (await store6.get('zoommid-20250101000000'))?.config.zoom === 1.7);
     check('旧项目越界缩放回落默认 200%', (await store6.get('zoombad-20250101000000'))?.config.zoom === 2);
   }
 
@@ -564,6 +593,10 @@ function petIpcRouterTests(): void {
       dragEnd: () => { calls.push(`dragEnd:${tag}`); },
       getBoundsInfo: () => ({ tag }),
       moveTo: () => { calls.push(`moveTo:${tag}`); },
+      getSizeControlState: () => ({ zoom: 2, min: 1, max: 3, step: 0.05, persistent: true }),
+      ownsSizeControlSender: (senderId) => senderId === 41,
+      setZoom: (zoom) => { calls.push(`setZoom:${tag}:${zoom}`); },
+      closeSizeControl: () => { calls.push(`closeSize:${tag}`); },
     };
   }
 
@@ -613,6 +646,16 @@ function petIpcRouterTests(): void {
   active = hostB;
   ipc.listeners.get('pet:drag:begin')![0]!(null as never, { x: 'bad', y: 2 } as never);
   check('非法拖动坐标被丢弃', hostB.calls.filter((c) => c === 'dragBegin:B').length === 0);
+
+  // 尺寸面板 IPC 必须校验发送窗口，不能让桌宠 renderer 或其他窗口越权调用。
+  const sizeState = ipc.handlers.get('pet:size-control:state')!({ sender: { id: 41 } } as never) as { zoom: number };
+  check('尺寸面板可读取连续缩放状态', sizeState.zoom === 2);
+  ipc.listeners.get('pet:size-control:set-zoom')![0]!({ sender: { id: 41 } } as never, 2.35 as never);
+  check('尺寸面板可即时设置任意合法步进值', hostB.calls.includes('setZoom:B:2.35'));
+  ipc.listeners.get('pet:size-control:set-zoom')![0]!({ sender: { id: 99 } } as never, 2.4 as never);
+  check('非尺寸面板发送的缩放请求被拒绝', !hostB.calls.includes('setZoom:B:2.4'));
+  ipc.listeners.get('pet:size-control:close')![0]!({ sender: { id: 41 } } as never);
+  check('尺寸面板可关闭自身窗口', hostB.calls.includes('closeSize:B'));
 }
 
 // --- 自动行为调度器（可注入 random，测试确定性） --------------------------------
@@ -789,7 +832,7 @@ async function darkModeTests(): Promise<void> {
     ['卡片背景', '.card'],
     ['输入框', '.field-input'],
     ['最近项目选中', '.rail-project--on'],
-    ['步骤选中', '.step--on'],
+    ['步骤选中', '.step--on .step-btn'],
     ['删除按钮悬停', '.rail-project-del:hover'],
     ['错误面板', '.error-panel'],
     ['成功面板', '.success-panel'],
@@ -810,7 +853,7 @@ async function darkModeTests(): Promise<void> {
   check('气泡背景使用变量', !!bubble && bubble.includes('var(--bubble-bg)'));
   check('气泡箭头与气泡同色（同一变量）', !!arrow && arrow.includes('var(--bubble-bg)'));
   check('深色气泡背景与箭头变量在 dark media 中被覆盖',
-    /prefers-color-scheme:\s*dark[\s\S]*?--bubble-bg:\s*rgba\(44, 44, 46/.test(petCss));
+    /prefers-color-scheme:\s*dark[\s\S]*?--bubble-bg:\s*rgba\(18, 32, 60/.test(petCss));
   check('桌宠窗口背景保持透明（无不透明方形背景）',
     /html, body\s*\{[\s\S]*?background:\s*transparent/.test(petCss));
 
@@ -847,6 +890,27 @@ async function railProjectStructureTests(): Promise<void> {
   check('选择按钮内不嵌套删除按钮', selectBtn.length > 0 && !selectBtn.includes('rail-project-del'));
   check('删除按钮保留 stopPropagation 防御', /className="rail-project-del"[\s\S]*?stopPropagation/.test(block));
   check('删除按钮有键盘可达的 aria-label', /className="rail-project-del"[\s\S]*?aria-label/.test(block));
+}
+
+// --- 制作台窗口拖动区域 ---------------------------------------------------------
+// macOS 使用 hiddenInset 后，网页内容覆盖系统标题栏；若渲染器没有显式的
+// app-region: drag，用户就只能碰运气命中系统残留区域，窗口会显得很难拖动。
+
+async function workbenchDragRegionTests(): Promise<void> {
+  console.log('\n[制作台窗口拖动区域]');
+  const app = await fs.readFile(path.join(REPO, 'src', 'renderer', 'App.tsx'), 'utf8');
+  const css = await fs.readFile(path.join(REPO, 'src', 'renderer', 'styles.css'), 'utf8');
+  const main = await fs.readFile(path.join(REPO, 'src', 'main', 'index.ts'), 'utf8');
+
+  check('macOS 制作台使用内容延伸标题栏',
+    /titleBarStyle:\s*process\.platform === 'darwin' \? 'hiddenInset' : 'default'/.test(main));
+  check('制作台渲染独立的顶部拖动带', /className="window-drag-region"/.test(app));
+  const dragBlock = /\.window-drag-region\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  check('顶部拖动带声明 app-region: drag', /-webkit-app-region:\s*drag/.test(dragBlock));
+  check('顶部拖动带覆盖足够宽的空白标题栏',
+    /left:\s*0/.test(dragBlock) && /right:\s*0/.test(dragBlock) && /height:\s*28px/.test(dragBlock));
+  const brandBlock = /\.brand\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  check('左上品牌区也是可发现的拖动入口', /-webkit-app-region:\s*drag/.test(brandBlock));
 }
 
 // --- 旧数据目录隔离 ---------------------------------------------------------------------
@@ -919,17 +983,17 @@ function petStateTests(): void {
 
   const bad = parsePersistedPetState({ zoom: 'big', wanderEnabled: 'yes', windowPosition: { x: 'a', y: 1 } });
   check('坏字段丢弃为 null（不进入运行时）', bad.zoom === null && bad.wanderEnabled === null && bad.windowPosition === null);
-  // 历史数据兼容：pet-state.json 里的旧档 50%/75%/100% 迁移为 125%；
-  // 中间值/越界/非数字回落 null（用随包配置）
-  check('持久化的旧档 50%/75%/100% 迁移为 125%',
-    parsePersistedPetState({ zoom: 0.5 }).zoom === 1.25 &&
-    parsePersistedPetState({ zoom: 0.75 }).zoom === 1.25 && parsePersistedPetState({ zoom: 1 }).zoom === 1.25);
-  check('持久化的 125%/150%/200% 原样保留',
-    parsePersistedPetState({ zoom: 1.25 }).zoom === 1.25 &&
-    parsePersistedPetState({ zoom: 1.5 }).zoom === 1.5 && parsePersistedPetState({ zoom: 2 }).zoom === 2);
-  check('持久化的中间值/越界缩放回落 null（用随包配置）',
-    parsePersistedPetState({ zoom: 1.2 }).zoom === null && parsePersistedPetState({ zoom: 1.7 }).zoom === null &&
-    parsePersistedPetState({ zoom: 3 }).zoom === null && parsePersistedPetState({ zoom: 0.4 }).zoom === null);
+  // 历史数据兼容：pet-state.json 里的旧档 50%/75% 迁移为 100%；
+  // 非步进值/越界/非数字回落 null（用随包配置）
+  check('持久化的旧档 50%/75% 迁移为 100%',
+    parsePersistedPetState({ zoom: 0.5 }).zoom === 1 && parsePersistedPetState({ zoom: 0.75 }).zoom === 1);
+  check('持久化的 100%/150%/200%/300% 原样保留',
+    parsePersistedPetState({ zoom: 1 }).zoom === 1 && parsePersistedPetState({ zoom: 1.5 }).zoom === 1.5 &&
+    parsePersistedPetState({ zoom: 2 }).zoom === 2 && parsePersistedPetState({ zoom: 3 }).zoom === 3);
+  check('持久化的滑杆步进值保留，非步进值/越界缩放回落 null（用随包配置）',
+    parsePersistedPetState({ zoom: 1.7 }).zoom === 1.7 && parsePersistedPetState({ zoom: 1.73 }).zoom === null &&
+    parsePersistedPetState({ zoom: 3.05 }).zoom === null &&
+    parsePersistedPetState({ zoom: 0.4 }).zoom === null);
   const noDisplay = parsePersistedPetState({ windowPosition: { x: 1, y: 2 } });
   check('位置缺 displayId 仍合法', noDisplay.windowPosition?.x === 1 && noDisplay.windowPosition.displayId === undefined);
 
@@ -1051,32 +1115,28 @@ function petMenuTests(): void {
   const calls: string[] = [];
   const actions = {
     onToggleWander: (enabled: boolean) => { calls.push(`wander:${enabled}`); },
-    onSetZoom: (zoom: number) => { calls.push(`zoom:${zoom}`); },
+    onOpenSizeControl: () => { calls.push('size-control'); },
     onGoHome: () => { calls.push('home'); },
     onInfo: () => { calls.push('info'); },
     onClose: () => { calls.push('close'); },
   };
-  const items = buildPetContextMenu({ wanderEnabled: true, zoom: 1.5, closeLabel: '👋  退出' }, actions);
+  const items = buildPetContextMenu({ wanderEnabled: true, closeLabel: '👋  退出' }, actions);
   const order = items.map((i) => (i.type === 'separator' ? '|' : i.label));
   check('菜单顺序：自动游走 / 缩放 / 回到屏幕右下角 / 关于 / 退出',
-    order.join('') === '🐾  自动游走🔍  缩放|📍  回到屏幕右下角ℹ️  关于这只宠物|👋  退出',
+    order.join('') === '🐾  自动游走🔍  调整宠物尺寸…|📍  回到屏幕右下角ℹ️  关于这只宠物|👋  退出',
     order.join(' '));
 
   const wanderItem = items[0]!;
   check('自动游走是 checkbox 且反映当前状态（开）', wanderItem.type === 'checkbox' && wanderItem.checked === true);
-  const offItems = buildPetContextMenu({ wanderEnabled: false, zoom: 1.25, closeLabel: '关闭预览' }, actions);
+  const offItems = buildPetContextMenu({ wanderEnabled: false, closeLabel: '关闭预览' }, actions);
   check('开关关闭时 checkbox 不勾选', offItems[0]!.type === 'checkbox' && offItems[0]!.checked === false);
 
   // 模拟点击勾选框：Electron 传勾选后的新状态
   (wanderItem.click as (item: { checked: boolean }) => void)({ checked: false });
   check('点击自动游走传回勾选后的新状态', calls[0] === 'wander:false');
-  const zoomSub = items[1]!.submenu as Array<{ label?: string; checked?: boolean }>;
-  check('缩放子菜单恰好三档（小 125% / 中 150% / 大 200%（推荐））',
-    zoomSub.length === 3 && zoomSub.map((s) => s.label).join(',') === '小 125%,中 150%,大 200%（推荐）');
-  check('菜单标签与共享档位定义一致（无文案漂移）',
-    zoomSub.map((s) => s.label).join(',') === ZOOM_OPTIONS.map((o) => o.label).join(','));
-  check('缩放子菜单恰好一个档位选中（当前 150%）',
-    zoomSub.filter((s) => s.checked).length === 1 && zoomSub.find((s) => s.checked)?.label === '中 150%');
+  check('尺寸入口不再包含三档子菜单', !items[1]!.submenu);
+  (items[1]!.click as () => void)();
+  check('点击尺寸入口打开连续滑杆面板', calls.includes('size-control'));
 
   (items[3]!.click as () => void)();
   check('点击"回到屏幕右下角"派发复位动作', calls.includes('home'));
@@ -1143,9 +1203,9 @@ async function bubbleCssTests(): Promise<void> {
     const pct = Number(/max-width:\s*(\d+)%/.exec(bubble)?.[1]);
     const padX = Number(/padding:\s*\d+px\s+(\d+)px/.exec(bubble)?.[1]);
     const borderW = Number(/border:\s*(\d+)px/.exec(bubble)?.[1]);
-    // 窗口最小尺寸：基准 200px × 最小缩放档 125% = 250px（src/pet/host.ts PET_WIN_BASE_SIZE）
-    const minWinPx = 200 * 1.25;
-    check('125% 缩放（最小窗口 250px）：气泡总宽 = max-width ≤ 窗口',
+    // 窗口最小尺寸：基准 200px × 最小缩放 100% = 200px（src/pet/host.ts PET_WIN_BASE_SIZE）
+    const minWinPx = 200;
+    check('100% 缩放（最小窗口 200px）：气泡总宽 = max-width ≤ 窗口',
       (pct / 100) * minWinPx <= minWinPx && (pct / 100) * minWinPx - 2 * padX - 2 * borderW > 0,
       `max=${(pct / 100) * minWinPx}px 窗口=${minWinPx}px`);
   }
@@ -1200,10 +1260,45 @@ async function uxWiringTests(): Promise<void> {
   const appSrc = await fs.readFile(path.join(REPO, 'src', 'renderer', 'App.tsx'), 'utf8');
   check('配置页含自动行为说明文案', appSrc.includes('等待和思考会在闲置后自动触发；点击或拖动会重新计时。'));
   check('导出成功页有"打开所在文件夹"按钮', appSrc.includes('打开所在文件夹') && appSrc.includes('revealExport'));
-  // 两处 UI 共用同一份档位/标签定义（ZOOM_OPTIONS），文案不漂移
+  check('每次重新导出都会重置独立的进度动画会话',
+    appSrc.includes('setExportRunId((id) => id + 1)') && /<GlyphField\s+key=\{exportRunId\}/.test(appSrc));
+  // 制作台与导出桌宠都使用同一范围的连续滑杆。
   const menuSrc = await fs.readFile(path.join(REPO, 'src', 'pet', 'menu.ts'), 'utf8');
-  check('配置页缩放下拉使用共享 ZOOM_OPTIONS', /ZOOM_OPTIONS\.map/.test(appSrc));
-  check('右键缩放菜单使用共享 ZOOM_OPTIONS', /ZOOM_OPTIONS\.map/.test(menuSrc));
+  check('配置页使用原生尺寸 range 滑杆', /type="range"/.test(appSrc) && /id="pet-size"/.test(appSrc));
+  check('尺寸滑杆使用共享最小值、最大值与步进契约',
+    /min=\{ZOOM_MIN\}/.test(appSrc) && /max=\{ZOOM_MAX\}/.test(appSrc) && /step=\{ZOOM_STEP\}/.test(appSrc));
+  check('尺寸滑杆刻度展示 100% / 200% / 300%',
+    appSrc.includes('小 · 100%') && appSrc.includes('中 · 200%') && appSrc.includes('大 · 300%'));
+  check('尺寸滑杆有可读标签、说明关联与当前值输出',
+    /htmlFor="pet-size"/.test(appSrc) && /aria-describedby="pet-size-hint"/.test(appSrc) &&
+    /<output[^>]*htmlFor="pet-size"/.test(appSrc));
+  check('尺寸滑杆以当前值绘制已完成轨道', appSrc.includes("'--size-progress'"));
+  const css = await fs.readFile(path.join(REPO, 'src', 'renderer', 'styles.css'), 'utf8');
+  check('尺寸滑杆有键盘焦点与双内核滑块样式',
+    css.includes('.size-slider:focus-visible') && css.includes('::-webkit-slider-thumb') && css.includes('::-moz-range-thumb'));
+  check('右键菜单改为打开尺寸面板且不再生成三档子菜单',
+    menuSrc.includes('调整宠物尺寸…') && menuSrc.includes('onOpenSizeControl') && !/ZOOM_OPTIONS\.map/.test(menuSrc));
+
+  const sizeAppSrc = await fs.readFile(path.join(REPO, 'src', 'renderer', 'size-control', 'SizeControlApp.tsx'), 'utf8');
+  check('桌宠尺寸面板使用 100%–300%、5% 步进的共享契约',
+    /min=\{state\.min\}/.test(sizeAppSrc) && /max=\{state\.max\}/.test(sizeAppSrc) && /step=\{state\.step\}/.test(sizeAppSrc));
+  check('桌宠尺寸面板使用原生 range、可读标签与当前值输出',
+    /type="range"/.test(sizeAppSrc) && /htmlFor="runtime-pet-size"/.test(sizeAppSrc) && /<output/.test(sizeAppSrc));
+
+  const sizePreloadSrc = await fs.readFile(path.join(REPO, 'src', 'preload', 'size-control.ts'), 'utf8');
+  check('尺寸面板 preload 只暴露状态、缩放、关闭与同步监听',
+    sizePreloadSrc.includes("exposeInMainWorld('petSizeControl'") &&
+    !sizePreloadSrc.includes('dragBegin') && !sizePreloadSrc.includes('getPayload'));
+  check('宿主校验尺寸面板 IPC sender 所有权', hostSrc.includes('ownsSizeControlSender'));
+  check('宿主关闭桌宠时一并销毁尺寸面板', /closeSizeControl\(\)[\s\S]{0,400}?this\.sizeWin/.test(hostSrc));
+
+  const studioBuildSrc = await fs.readFile(path.join(REPO, 'electron.vite.config.ts'), 'utf8');
+  const petBuildSrc = await fs.readFile(path.join(REPO, 'electron.vite.pet.config.ts'), 'utf8');
+  for (const [label, buildSrc] of [['制作台', studioBuildSrc], ['导出运行时', petBuildSrc]] as const) {
+    check(`${label}构建包含尺寸面板 preload 与 renderer`,
+      buildSrc.includes("sizeControl: 'src/preload/size-control.ts'") &&
+      buildSrc.includes("sizeControl: 'src/renderer/size-control.html'"));
+  }
 
   const exportSrc = await fs.readFile(path.join(REPO, 'src', 'main', 'export-win.ts'), 'utf8');
   check('启动说明包含新菜单项', exportSrc.includes('回到屏幕右下角') && exportSrc.includes('自动游走'));
@@ -1214,6 +1309,7 @@ async function main(): Promise<void> {
   console.log(`fixture 根目录：${tmp}\n`);
   try {
     geometryTests();
+    progressMotionTests();
     homeGeometryTests();
     configTests();
     ipcTests();
@@ -1234,6 +1330,7 @@ async function main(): Promise<void> {
     await bubbleCssTests();
     await uxWiringTests();
     await railProjectStructureTests();
+    await workbenchDragRegionTests();
     await isolationCheck();
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

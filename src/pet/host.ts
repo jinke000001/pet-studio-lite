@@ -1,6 +1,6 @@
 import { BrowserWindow, Menu, screen, ipcMain } from 'electron';
 import { clampBoundsToWorkArea, computeAnchoredZoomBounds, computeWorkAreaHomePosition } from '../shared/geometry';
-import { normalizeZoom } from '../shared/config';
+import { normalizeZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../shared/config';
 import { FlushableDebouncer } from '../shared/debounce';
 import type { PetWindowPayload } from '../shared/types';
 import { registerPetIpc, type PetIpcTarget } from './ipc-router';
@@ -23,6 +23,10 @@ export interface PetHostOptions {
   preloadFile: string;
   /** 加载地址（dev server URL 或 file:// 路径）。 */
   rendererUrl: string;
+  /** 尺寸面板 preload 脚本绝对路径。 */
+  sizeControlPreloadFile: string;
+  /** 尺寸面板加载地址（dev server URL 或 file:// 路径）。 */
+  sizeControlRendererUrl: string;
   /** 初始位置（持久化恢复用）；不给则用屏幕右下角默认位。 */
   initialPosition?: { x: number; y: number } | null;
   /** 拖动停止后回调（运行时用来持久化位置）。 */
@@ -57,6 +61,7 @@ function defaultPosition(display: Electron.Display, size: number): { x: number; 
 
 export class PetWindowHost implements PetIpcTarget {
   private win: BrowserWindow | null = null;
+  private sizeWin: BrowserWindow | null = null;
   private zoom = 1;
   private wanderEnabled = true;
   private dragOrigin: { mouseX: number; mouseY: number; winX: number; winY: number } | null = null;
@@ -72,6 +77,20 @@ export class PetWindowHost implements PetIpcTarget {
 
   getPayload(): Promise<PetWindowPayload> {
     return this.opts.getPayload();
+  }
+
+  getSizeControlState(): { zoom: number; min: number; max: number; step: number; persistent: boolean } {
+    return {
+      zoom: this.zoom,
+      min: ZOOM_MIN,
+      max: ZOOM_MAX,
+      step: ZOOM_STEP,
+      persistent: !!this.opts.onZoomChange,
+    };
+  }
+
+  ownsSizeControlSender(senderId: number): boolean {
+    return !!this.sizeWin && !this.sizeWin.isDestroyed() && this.sizeWin.webContents.id === senderId;
   }
   dragBegin(p: { x: number; y: number } | null): void {
     if (!this.win || !p) return;
@@ -129,7 +148,74 @@ export class PetWindowHost implements PetIpcTarget {
       this.win.setBounds(bounds);
       this.win.webContents.send('pet:zoom', this.zoom);
     }
+    if (this.sizeWin && !this.sizeWin.isDestroyed()) {
+      this.sizeWin.webContents.send('pet:size-control:zoom-changed', this.zoom);
+    }
     this.opts.onZoomChange?.(this.zoom);
+  }
+
+  /** 打开独立尺寸面板；重复点击只聚焦已有窗口。 */
+  openSizeControl(): void {
+    if (!this.win || this.win.isDestroyed()) return;
+    if (this.sizeWin && !this.sizeWin.isDestroyed()) {
+      this.sizeWin.show();
+      this.sizeWin.focus();
+      return;
+    }
+
+    const panelWidth = 360;
+    const panelHeight = 224;
+    const petBounds = this.win.getBounds();
+    const workArea = screen.getDisplayMatching(petBounds).workArea;
+    const preferredY = petBounds.y - panelHeight - 12;
+    const x = Math.max(workArea.x, Math.min(
+      Math.round(petBounds.x + petBounds.width / 2 - panelWidth / 2),
+      workArea.x + workArea.width - panelWidth,
+    ));
+    const y = Math.max(workArea.y, Math.min(
+      preferredY >= workArea.y ? preferredY : petBounds.y + petBounds.height + 12,
+      workArea.y + workArea.height - panelHeight,
+    ));
+
+    const sizeWin = new BrowserWindow({
+      x,
+      y,
+      width: panelWidth,
+      height: panelHeight,
+      title: '宠物尺寸',
+      parent: this.win,
+      show: false,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      autoHideMenuBar: true,
+      backgroundColor: '#f7f5f1',
+      webPreferences: {
+        preload: this.opts.sizeControlPreloadFile,
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    this.sizeWin = sizeWin;
+    sizeWin.removeMenu();
+    sizeWin.on('closed', () => {
+      if (this.sizeWin === sizeWin) this.sizeWin = null;
+    });
+    sizeWin.once('ready-to-show', () => {
+      if (!sizeWin.isDestroyed()) sizeWin.show();
+    });
+    void sizeWin.loadURL(this.opts.sizeControlRendererUrl).catch(() => {
+      if (!sizeWin.isDestroyed()) sizeWin.close();
+    });
+  }
+
+  closeSizeControl(): void {
+    const sizeWin = this.sizeWin;
+    this.sizeWin = null;
+    if (sizeWin && !sizeWin.isDestroyed()) sizeWin.destroy();
   }
 
   /**
@@ -215,6 +301,7 @@ export class PetWindowHost implements PetIpcTarget {
 
     win.on('closed', () => {
       positionSaver.flush();
+      this.closeSizeControl();
       if (this.displayMetricsListener) {
         screen.removeListener('display-metrics-changed', this.displayMetricsListener);
         this.displayMetricsListener = null;
@@ -228,10 +315,10 @@ export class PetWindowHost implements PetIpcTarget {
     win.webContents.on('context-menu', () => {
       if (!this.win) return;
       const items = buildPetContextMenu(
-        { wanderEnabled: this.wanderEnabled, zoom: this.zoom, closeLabel: this.opts.closeLabel ?? '👋  退出' },
+        { wanderEnabled: this.wanderEnabled, closeLabel: this.opts.closeLabel ?? '👋  退出' },
         {
           onToggleWander: (enabled) => this.setWanderEnabled(enabled),
-          onSetZoom: (z) => this.setZoom(z),
+          onOpenSizeControl: () => this.openSizeControl(),
           onGoHome: () => this.goHome(),
           onInfo: () => this.opts.onInfo?.(),
           onClose: () => this.win?.close(),
@@ -248,6 +335,7 @@ export class PetWindowHost implements PetIpcTarget {
       screen.removeListener('display-metrics-changed', this.displayMetricsListener);
       this.displayMetricsListener = null;
     }
+    this.closeSizeControl();
     if (this.win && !this.win.isDestroyed()) this.win.destroy();
     this.win = null;
     this.dragOrigin = null;

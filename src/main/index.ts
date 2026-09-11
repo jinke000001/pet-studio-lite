@@ -3,24 +3,25 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { ProjectsStore } from '../shared/projects';
+import { ProjectsStore, packFingerprint } from '../shared/projects';
 import { validatePetPack, petPackToSpriteConfig, readSpritesheetDataUrl } from '../shared/petpack';
 import { extractPetPackFromZip } from '../shared/zip';
-import { requireObject, requireProjectId, requireEnum, IpcValidationError } from '../shared/ipc-validate';
+import { requireObject, requireProjectId, requireEnum, requireString, IpcValidationError } from '../shared/ipc-validate';
 import { validatePetConfig } from '../shared/config';
 import { ExportRegistry, resolveRevealTarget } from '../shared/export-registry';
 import { shouldQuitOnAllWindowsClosed, handleActivate } from '../shared/lifecycle';
-import type { ImportResult, PreviewPayload, StudioState } from '../shared/types';
+import type { ImportResult, PetdexPrepareResult, PreviewPayload, StudioState } from '../shared/types';
 import { PetWindowHost } from '../pet/host';
 import { exportWindowsZip } from './export-win';
 import { sharpImageProbe } from './image-probe';
+import { findNpxExecutable, parsePetdexInstallCommand, PetdexCandidateRegistry, resolvePetdexPetDirectory, runPetdexInstall } from './petdex-install';
 
 /**
  * Pet Studio Lite 制作台 main process。
  *
- * 完全离线、无账号、无遥测。不读 ~/.nom / ~/.codex / ~/.petdex 的任何
- * 状态；用户主动选择的宠物包只读导入副本，一切自有数据只写自己的
- * userData（app.setName('pet-studio-lite')）。
+ * 无账号、无遥测。除用户主动发起的 Petdex 命令导入外，不读 ~/.nom /
+ * ~/.codex / ~/.petdex 的状态；所有导入来源均只读复制，一切自有数据只写
+ * 自己的 userData（app.setName('pet-studio-lite')）。
  */
 
 app.setName('pet-studio-lite'); // 独立 userData 命名空间，须在读取 userData 之前
@@ -30,6 +31,8 @@ let petPreview: PetWindowHost | null = null;
 /** 当前桌宠预览所属的制作台项目 ID（删除该项目时先关对应预览）。 */
 let previewProjectId: string | null = null;
 let exportInFlight = false;
+let petdexInstallInFlight = false;
+const pendingPetdexCandidates = new PetdexCandidateRegistry();
 /** 本次会话内导出生成的 ZIP 登记册（"打开所在文件夹"的唯一合法目标来源）。 */
 const exportRegistry = new ExportRegistry();
 
@@ -88,7 +91,7 @@ function createWindow(): BrowserWindow {
     minHeight: 560,
     title: 'Pet Studio Lite',
     // 窗口加载完成前的底色跟随系统外观（内容与主题切换由 CSS 变量 + media query 处理）
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f6f7f9',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a1220' : '#f7faff',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, '../preload/studio.js'),
@@ -130,6 +133,70 @@ function registerIpc(): void {
         });
     if (picked.canceled || picked.filePaths.length === 0) return { ok: false, cancelled: true };
     return importFromPath(picked.filePaths[0]!);
+  });
+
+  ipcMain.handle('studio:petdex:prepare', async (_, rawCommand: unknown): Promise<PetdexPrepareResult> => {
+    if (petdexInstallInFlight) return { ok: false, errors: ['已有 Petdex 下载任务进行中，请等待完成'] };
+    petdexInstallInFlight = true;
+    try {
+      parsePetdexInstallCommand(rawCommand); // 先拒绝非法输入，再探测本机可执行文件。
+      const executable = await findNpxExecutable();
+      const { slug } = await runPetdexInstall(rawCommand, { executable });
+      const petsRoot = path.join(os.homedir(), '.petdex', 'pets');
+      const sourcePath = await resolvePetdexPetDirectory(petsRoot, slug);
+      const result = await validatePetPack(sourcePath, { probe: decodeProbe });
+      if (!result.ok) return { ok: false, errors: result.errors };
+
+      const spritesheetDataUrl = await readSpritesheetDataUrl(result.pack);
+      const token = pendingPetdexCandidates.issue({
+        slug,
+        sourcePath,
+        fingerprint: packFingerprint(result.pack.hashes),
+      });
+      return {
+        ok: true,
+        candidate: {
+          token,
+          slug,
+          petId: result.pack.id,
+          displayName: result.pack.displayName,
+          petdexVersion: result.pack.version,
+          declaredVersion: result.pack.declaredVersion,
+          license: result.pack.license,
+          sprite: petPackToSpriteConfig(result.pack),
+          spritesheetDataUrl,
+        },
+      };
+    } catch (err) {
+      return { ok: false, errors: [err instanceof Error ? err.message : String(err)] };
+    } finally {
+      petdexInstallInFlight = false;
+    }
+  });
+
+  ipcMain.handle('studio:petdex:confirm', async (_, rawToken: unknown): Promise<ImportResult> => {
+    try {
+      const token = requireString(rawToken, 'Petdex 候选令牌', 128);
+      const pending = pendingPetdexCandidates.take(token);
+
+      const petsRoot = path.join(os.homedir(), '.petdex', 'pets');
+      const currentPath = await resolvePetdexPetDirectory(petsRoot, pending.slug);
+      if (currentPath !== pending.sourcePath) return { ok: false, errors: ['下载候选目录已发生变化，请重新下载'] };
+      const result = await validatePetPack(currentPath, { probe: decodeProbe });
+      if (!result.ok) return { ok: false, errors: result.errors };
+      if (packFingerprint(result.pack.hashes) !== pending.fingerprint) {
+        return { ok: false, errors: ['下载候选内容已发生变化，请重新下载后确认'] };
+      }
+      const meta = await store.importValidatedPack(result.pack, { type: 'dir', path: currentPath });
+      return { ok: true, project: meta };
+    } catch (err) {
+      return { ok: false, errors: [err instanceof Error ? err.message : String(err)] };
+    }
+  });
+
+  ipcMain.handle('studio:petdex:cancel', (_, rawToken: unknown) => {
+    const token = requireString(rawToken, 'Petdex 候选令牌', 128);
+    pendingPetdexCandidates.cancel(token);
   });
 
   ipcMain.handle('studio:select', async (_, rawId: unknown) => {
@@ -204,6 +271,10 @@ function registerIpc(): void {
       rendererUrl: process.env['ELECTRON_RENDERER_URL']
         ? `${process.env['ELECTRON_RENDERER_URL']}/pet.html`
         : `file://${path.join(__dirname, '../renderer/pet.html')}`,
+      sizeControlPreloadFile: path.join(__dirname, '../preload/sizeControl.js'),
+      sizeControlRendererUrl: process.env['ELECTRON_RENDERER_URL']
+        ? `${process.env['ELECTRON_RENDERER_URL']}/size-control.html`
+        : `file://${path.join(__dirname, '../renderer/size-control.html')}`,
       closeLabel: '关闭预览',
       onInfo: () => {
         void dialog.showMessageBox({

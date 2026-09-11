@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ExportProgressEvent, ExportResult, ImportResult, PreviewPayload, ProjectMeta, StudioState } from '../shared/types';
+import type { ExportProgressEvent, ExportResult, ImportResult, PetdexPrepareResult, PreviewPayload, ProjectMeta, StudioState } from '../shared/types';
 
 /**
  * 制作台窗口的窄桥。只暴露实际需要的动作；所有入参在 main 进程还会
@@ -12,6 +12,16 @@ const api = {
   /** 弹出系统文件选择框并导入（dir = 宠物包目录，zip = ZIP 包）。 */
   importPack(kind: 'dir' | 'zip'): Promise<ImportResult> {
     return ipcRenderer.invoke('studio:import', kind) as Promise<ImportResult>;
+  },
+  /** 下载并校验 Petdex 候选；确认前不会创建制作台项目。 */
+  preparePetdexImport(command: string): Promise<PetdexPrepareResult> {
+    return ipcRenderer.invoke('studio:petdex:prepare', command) as Promise<PetdexPrepareResult>;
+  },
+  confirmPetdexImport(token: string): Promise<ImportResult> {
+    return ipcRenderer.invoke('studio:petdex:confirm', token) as Promise<ImportResult>;
+  },
+  cancelPetdexImport(token: string): Promise<void> {
+    return ipcRenderer.invoke('studio:petdex:cancel', token) as Promise<void>;
   },
   selectProject(id: string): Promise<StudioState> {
     return ipcRenderer.invoke('studio:select', id) as Promise<StudioState>;

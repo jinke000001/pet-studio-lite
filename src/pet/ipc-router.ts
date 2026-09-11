@@ -23,14 +23,25 @@ export interface PetIpcTarget {
   dragEnd(): void;
   getBoundsInfo(): unknown;
   moveTo(x: number, y: number): void;
+  getSizeControlState(): { zoom: number; min: number; max: number; step: number; persistent: boolean };
+  ownsSizeControlSender(senderId: number): boolean;
+  setZoom(zoom: number): void;
+  closeSizeControl(): void;
 }
 
 /** 每个 IPC 对象只注册一次（WeakSet：测试里每个假 ipc 互不影响）。 */
 const registeredIpc = new WeakSet<PetIpcLike>();
 
 /** pet:* 通道清单（测试用来断言"恰好注册这些通道、不多不少"）。 */
-export const PET_IPC_HANDLE_CHANNELS = ['pet:payload', 'pet:window:bounds'] as const;
-export const PET_IPC_ON_CHANNELS = ['pet:drag:begin', 'pet:drag:move', 'pet:drag:end', 'pet:window:moveTo'] as const;
+export const PET_IPC_HANDLE_CHANNELS = ['pet:payload', 'pet:window:bounds', 'pet:size-control:state'] as const;
+export const PET_IPC_ON_CHANNELS = [
+  'pet:drag:begin',
+  'pet:drag:move',
+  'pet:drag:end',
+  'pet:window:moveTo',
+  'pet:size-control:set-zoom',
+  'pet:size-control:close',
+] as const;
 
 function parsePoint(raw: unknown): { x: number; y: number } | null {
   const { x, y } = (raw ?? {}) as { x?: unknown; y?: unknown };
@@ -58,5 +69,25 @@ export function registerPetIpc(ipc: PetIpcLike, getActive: () => PetIpcTarget | 
   ipc.on('pet:window:moveTo', (_event: unknown, raw: unknown) => {
     const p = parsePoint(raw);
     if (p) getActive()?.moveTo(p.x, p.y);
+  });
+
+  ipc.handle('pet:size-control:state', (event: { sender?: { id?: unknown } }) => {
+    const host = getActive();
+    const senderId = event.sender?.id;
+    if (!host || typeof senderId !== 'number' || !host.ownsSizeControlSender(senderId)) {
+      throw new Error('无权访问宠物尺寸面板');
+    }
+    return host.getSizeControlState();
+  });
+  ipc.on('pet:size-control:set-zoom', (event: { sender?: { id?: unknown } }, raw: unknown) => {
+    const host = getActive();
+    const senderId = event.sender?.id;
+    if (!host || typeof senderId !== 'number' || !host.ownsSizeControlSender(senderId)) return;
+    if (typeof raw === 'number' && Number.isFinite(raw)) host.setZoom(raw);
+  });
+  ipc.on('pet:size-control:close', (event: { sender?: { id?: unknown } }) => {
+    const host = getActive();
+    const senderId = event.sender?.id;
+    if (host && typeof senderId === 'number' && host.ownsSizeControlSender(senderId)) host.closeSizeControl();
   });
 }

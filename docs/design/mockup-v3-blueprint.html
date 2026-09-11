@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pet Studio Lite — 视觉升级样板 v3「蓝图」</title>
+<style>
+/* ============================================================
+   Pet Studio Lite 视觉升级样板 v3 · 「蓝图 Blueprint」
+   设计决策：
+   1. 蓝的三层明度 —— 浅蓝 #eaf1fd / 白 / 深藏青 #101f3c，
+      靠明度分区而不是描边堆叠
+   2. 符号点阵肌理（- + / ( ) * ▲ K # ⬡）—— 图纸气质，
+      左栏、命令块、等待玩具共用同一套语言
+   3. 等宽大写小标签（STEP · 03 / GESTURE · WAIT · PLAY）——
+      蓝图注记，是这套风格的签名细节
+   4. 主蓝 #2e6be6 做唯一强调色；深色模式整体压成藏青图纸
+   5. 导出等待玩具：符号流随鼠标拨动，进度推进时聚成爪印
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  --bg-page: #f7faff;
+  --bg-rail: #ffffff;
+  --bg-card: #ffffff;
+  --bg-tint: #eaf1fd;            /* 浅蓝明度层 */
+  --bg-input: #ffffff;
+  --bg-sunken: #f0f5fd;
+  --bg-navy: #101f3c;            /* 深藏青对比层 */
+  --navy-text: #dbe7ff;
+  --navy-text-dim: #6d84b8;
+
+  --text-primary: #101f3c;
+  --text-secondary: #40527a;
+  --text-muted: #7a8cb0;
+  --text-faint: #b3c1da;
+
+  --border: #dce6f7;
+  --border-strong: #c3d5f2;
+  --border-soft: #e9f0fb;
+
+  --accent: #2e6be6;
+  --accent-hover: #1f56c4;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(46, 107, 230, 0.08);
+  --accent-soft-border: rgba(46, 107, 230, 0.30);
+
+  --ok: #16a06c;
+  --bad: #e5484d;
+  --pending: #b9c8e4;
+
+  --notice-bg: #fdf3e0;
+  --notice-border: #ecd9a8;
+  --notice-bar: #e8a33d;
+  --info-bg: var(--accent-soft);
+  --info-border: var(--accent-soft-border);
+  --error-bg: #fdecea;
+  --error-border: #f3c0ba;
+  --error-title: #b3261e;
+  --error-text: #7a2d24;
+  --error-hint: #ad6a5e;
+  --success-bg: #e6f7ee;
+  --success-border: #b3e5c9;
+  --success-title: #0d7a4d;
+
+  --code-bg: #e3ecfb;
+  --cmd-bg: #101f3c;
+  --cmd-text: #c7d9fb;
+
+  --checker-a: #e8effb;
+  --checker-b: #f7faff;
+
+  --shadow-card: 0 1px 2px rgba(16, 31, 60, 0.05), 0 4px 18px rgba(16, 31, 60, 0.06);
+  --shadow-pop: 0 2px 8px rgba(16, 31, 60, 0.10), 0 12px 32px rgba(16, 31, 60, 0.12);
+  --shadow-accent: 0 3px 10px rgba(46, 107, 230, 0.32);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-page: #0a1220;
+  --bg-rail: #0d1730;
+  --bg-card: #12203c;
+  --bg-tint: #16263f;
+  --bg-input: #0d1830;
+  --bg-sunken: #101c36;
+  --bg-navy: #060b18;
+  --navy-text: #dbe7ff;
+  --navy-text-dim: #51648f;
+
+  --text-primary: #e8effc;
+  --text-secondary: #aebdd9;
+  --text-muted: #7488ad;
+  --text-faint: #46587c;
+
+  --border: #22365c;
+  --border-strong: #2e4a7a;
+  --border-soft: #1a2a4a;
+
+  --accent: #5b8cff;
+  --accent-hover: #7ba3ff;
+  --accent-contrast: #0a1220;
+  --accent-soft: rgba(91, 140, 255, 0.12);
+  --accent-soft-border: rgba(91, 140, 255, 0.38);
+
+  --ok: #3ddc97;
+  --bad: #ff7a6b;
+  --pending: #3a4f7d;
+
+  --notice-bg: rgba(255, 190, 92, 0.10);
+  --notice-border: rgba(255, 190, 92, 0.30);
+  --error-bg: rgba(255, 105, 85, 0.12);
+  --error-border: rgba(255, 105, 85, 0.35);
+  --error-title: #ff8a7a;
+  --error-text: #f0bcb2;
+  --error-hint: #c98a7d;
+  --success-bg: rgba(61, 220, 151, 0.10);
+  --success-border: rgba(61, 220, 151, 0.32);
+  --success-title: #4fe3a4;
+
+  --code-bg: #1a2c50;
+  --cmd-bg: #060b18;
+  --cmd-text: #b9cff7;
+
+  --checker-a: #12203c;
+  --checker-b: #0a1220;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 22px rgba(0, 0, 0, 0.30);
+  --shadow-pop: 0 2px 8px rgba(0, 0, 0, 0.45), 0 14px 38px rgba(0, 0, 0, 0.45);
+  --shadow-accent: 0 3px 12px rgba(91, 140, 255, 0.30);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  transition: background 0.25s ease;
+}
+
+.layout { display: flex; height: 100vh; }
+
+/* 等宽蓝图注记 */
+.eyebrow {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ---------- 左栏 ---------- */
+.rail {
+  width: 248px;
+  flex-shrink: 0;
+  background: var(--bg-rail);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding-top: 28px;
+  transition: background 0.25s ease;
+  position: relative;
+}
+/* 图纸点网格肌理 */
+.rail::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: radial-gradient(var(--border-strong) 0.8px, transparent 0.8px);
+  background-size: 14px 14px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.brand { padding: 14px 20px 20px; display: flex; align-items: center; gap: 11px; position: relative; }
+.brand-mark {
+  width: 36px; height: 36px; border-radius: 11px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-accent);
+  flex-shrink: 0;
+}
+.brand-name { font-size: 15px; font-weight: 700; letter-spacing: 0.01em; }
+.brand-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+.steps { display: flex; flex-direction: column; padding: 2px 12px 0; position: relative; }
+
+.step { position: relative; }
+.step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 25px; top: 40px; bottom: -4px;
+  width: 2px;
+  background: var(--border-strong);
+  border-radius: 1px;
+}
+.step--done:not(:last-child)::before { background: var(--accent); opacity: 0.45; }
+
+.step-btn {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 8px 12px 8px 8px;
+  margin-bottom: 6px;
+  border: none; border-radius: 12px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left; cursor: pointer;
+  transition: background 0.15s ease;
+}
+.step-btn:hover:not(:disabled) { background: var(--bg-sunken); }
+.step-btn:disabled { opacity: 0.4; cursor: default; }
+
+.step-no {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: var(--bg-tint);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 13px; font-weight: 700;
+  font-family: ui-monospace, Menlo, monospace;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+  position: relative; z-index: 1;
+}
+.step--on .step-btn { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-soft-border); }
+.step--on .step-no {
+  background: var(--accent); border-color: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow-accent);
+}
+.step--on .step-hint { color: var(--accent); }
+.step--done .step-no {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft-border);
+  color: var(--accent);
+}
+.step-text { display: flex; flex-direction: column; gap: 1px; }
+.step-label { font-weight: 600; font-size: 13px; }
+.step-hint { font-size: 11px; color: var(--text-muted); }
+
+.rail-projects {
+  margin-top: auto;
+  padding: 12px 12px 16px;
+  border-top: 1px solid var(--border);
+  max-height: 220px; overflow-y: auto;
+  position: relative;
+}
+.rail-projects-title {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em;
+  color: var(--text-muted); padding: 0 8px 8px;
+  text-transform: uppercase;
+}
+.rail-project { display: flex; align-items: center; gap: 6px; width: 100%; border-radius: 10px; }
+.rail-project--on { background: var(--bg-tint); }
+.rail-project-select {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  flex: 1; min-width: 0;
+  border: none; background: transparent; border-radius: 10px;
+  padding: 7px 9px; cursor: pointer;
+  font-size: 13px; color: var(--text-primary); text-align: left;
+}
+.rail-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-project-meta {
+  color: var(--text-muted); font-size: 11px; margin-left: auto;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.rail-project-del {
+  border: none; background: transparent; color: var(--text-muted);
+  font-size: 14px; line-height: 1; padding: 2px 6px;
+  border-radius: 6px; cursor: pointer; opacity: 0; flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.rail-project:hover .rail-project-del,
+.rail-project--on .rail-project-del { opacity: 1; }
+.rail-project-del:hover { background: var(--error-bg); color: var(--bad); }
+
+/* ---------- 内容区 ---------- */
+.content { flex: 1; overflow-y: auto; padding: 28px 36px 44px; }
+
+.page-eyebrow { margin-bottom: 6px; }
+h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.015em; margin: 0 0 8px; }
+h2 { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+.lead { color: var(--text-secondary); line-height: 1.75; margin: 0 0 20px; max-width: 560px; }
+.muted { color: var(--text-muted); font-size: 12px; }
+.mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+
+.notice {
+  position: relative;
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-border);
+  border-radius: 12px;
+  padding: 10px 14px 10px 18px;
+  margin-bottom: 18px;
+  cursor: pointer;
+  font-size: 13px;
+  overflow: hidden;
+}
+.notice::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--notice-bar);
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+  transition: background 0.25s ease;
+}
+/* 深藏青对比卡（真实桌宠预览等重点卡） */
+.card--navy {
+  background: var(--bg-navy);
+  border-color: transparent;
+  color: var(--navy-text);
+}
+.card--navy h2 { color: var(--navy-text); }
+.card--navy .muted { color: var(--navy-text-dim); }
+.card--navy .eyebrow { color: var(--navy-text-dim); }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow-accent);
+  font-weight: 700;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); color: var(--accent-contrast); }
+/* 深藏青卡上的按钮反白 */
+.card--navy .btn {
+  background: transparent;
+  border-color: rgba(219, 231, 255, 0.35);
+  color: var(--navy-text);
+}
+.card--navy .btn:hover:not(:disabled) { border-color: var(--navy-text); color: var(--navy-text); }
+.card--navy .btn-primary {
+  background: var(--navy-text); border-color: var(--navy-text);
+  color: var(--bg-navy);
+  box-shadow: none;
+}
+.link { border: none; background: none; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600; }
+
+.import-actions { display: flex; gap: 12px; margin-bottom: 20px; }
+
+.info-panel {
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.info-line { color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+
+.error-panel {
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.error-panel-title {
+  font-weight: 700; color: var(--error-title);
+  margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.error-line { color: var(--error-text); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.error-hint { margin-top: 10px; color: var(--error-hint); font-size: 12px; }
+
+.success-panel {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+}
+.success-title { font-weight: 700; color: var(--success-title); }
+
+.check-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.check-row:last-child { border-bottom: none; }
+.check-state { margin-left: auto; color: var(--text-muted); font-size: 12px; }
+.check-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; position: relative; }
+.check-dot--ok { background: var(--ok); }
+.check-dot--bad { background: var(--bad); }
+.check-dot--pending { background: var(--pending); }
+.check-dot--pending::after {
+  content: '';
+  position: absolute; inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid var(--pending);
+  animation: pulse 1.4s ease-out infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .check-dot--pending::after { animation: none; opacity: 0; }
+}
+
+/* 预览舞台 */
+.preview-stage {
+  background: repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%) 0 0 / 22px 22px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 26px;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  margin-bottom: 16px;
+}
+.preview-sprite { min-height: 170px; display: flex; align-items: flex-end; }
+.sprite-placeholder {
+  width: 128px; height: 128px;
+  border-radius: 24px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-strong);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-faint); font-size: 12px;
+  box-shadow: var(--shadow-card);
+}
+.preview-controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.chip {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 6px 15px;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip:active { transform: scale(0.96); }
+.chip--on {
+  background: var(--accent); border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+  box-shadow: var(--shadow-accent);
+}
+
+/* 表单 */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.field--row { flex-direction: row; align-items: center; gap: 10px; }
+.field-label { font-weight: 700; font-size: 13px; }
+.field-input {
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-size: 13px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  caret-color: var(--accent);
+}
+.field-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.field-hint { color: var(--text-muted); font-size: 12px; }
+
+/* 开关 */
+.switch { position: relative; width: 42px; height: 25px; flex-shrink: 0; cursor: pointer; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch-track {
+  position: absolute; inset: 0;
+  background: var(--border-strong);
+  border-radius: 999px;
+  transition: background 0.18s ease;
+}
+.switch-track::after {
+  content: '';
+  position: absolute; top: 3px; left: 3px;
+  width: 19px; height: 19px; border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+  transition: transform 0.2s cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+.switch input:checked + .switch-track { background: var(--accent); }
+.switch input:checked + .switch-track::after { transform: translateX(17px); }
+
+.progress-line { padding: 5px 0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+
+/* 帮助盒：浅蓝明度层 */
+.help-box {
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-tint);
+  max-width: 560px;
+}
+.help-toggle {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 11px 15px;
+  border: 0; background: transparent;
+  font-size: 13px; font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer; text-align: left;
+}
+.help-arrow { display: inline-block; transition: transform 0.18s ease; color: var(--accent); }
+.help-arrow--open { transform: rotate(90deg); }
+.help-body { padding: 0 15px 14px; font-size: 13px; color: var(--text-secondary); line-height: 1.75; }
+.help-body code { background: var(--code-bg); border-radius: 5px; padding: 1px 6px; font-size: 12px; }
+.cmd-line {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--cmd-bg);
+  border-radius: 12px;
+  padding: 9px 13px;
+  margin: 8px 0;
+  max-width: 420px;
+}
+.cmd-line code {
+  color: var(--cmd-text); font-size: 12.5px;
+  flex: 1; overflow-x: auto; white-space: nowrap;
+  background: transparent; padding: 0;
+}
+.cmd-line .link { color: #8fb4ff; }
+
+/* 焦点 */
+.btn:focus-visible, .chip:focus-visible, .link:focus-visible,
+.step-btn:focus-visible, .rail-project-select:focus-visible,
+.rail-project-del:focus-visible, .help-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- 导出等待玩具：符号流点阵 ---------- */
+.glyph-field-card {
+  background: var(--bg-navy);
+  border-radius: 16px;
+  padding: 14px 16px 12px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-pop);
+}
+.glyph-field-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 10px;
+}
+.glyph-field-head .eyebrow { color: var(--navy-text-dim); }
+.glyph-field-hint { font-size: 11px; color: var(--navy-text-dim); }
+#glyphField {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
+  cursor: crosshair;
+}
+.glyph-field-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 10px;
+}
+.glyph-progress-label {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px; color: var(--navy-text-dim); letter-spacing: 0.08em;
+}
+.glyph-progress-bar {
+  flex: 1; height: 3px; margin-left: 14px;
+  background: rgba(219, 231, 255, 0.14);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.glyph-progress-bar i {
+  display: block; height: 100%; width: 0%;
+  background: #8fb4ff;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* 主题切换（仅样板预览用） */
+.theme-toggle {
+  position: fixed; top: 14px; right: 18px; z-index: 10;
+  display: flex; gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+  box-shadow: var(--shadow-card);
+}
+.theme-toggle button {
+  border: none; background: transparent;
+  padding: 5px 14px; border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-muted); cursor: pointer;
+  transition: all 0.15s ease;
+}
+.theme-toggle button.on { background: var(--accent); color: var(--accent-contrast); }
+
+.step-page { display: none; }
+.step-page.on { display: block; }
+</style>
+</head>
+<body>
+
+<div class="theme-toggle" id="themeToggle">
+  <button class="on" data-t="light">浅色</button>
+  <button data-t="dark">深色</button>
+</div>
+
+<div class="layout">
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+          <ellipse cx="12" cy="15.5" rx="4.6" ry="4" fill="#ffffff"/>
+          <ellipse cx="6.4" cy="10.4" rx="1.9" ry="2.4" fill="#ffffff" transform="rotate(-18 6.4 10.4)"/>
+          <ellipse cx="17.6" cy="10.4" rx="1.9" ry="2.4" fill="#ffffff" transform="rotate(18 17.6 10.4)"/>
+          <ellipse cx="9.6" cy="7.6" rx="1.8" ry="2.3" fill="#ffffff" transform="rotate(-6 9.6 7.6)"/>
+          <ellipse cx="14.4" cy="7.6" rx="1.8" ry="2.3" fill="#ffffff" transform="rotate(6 14.4 7.6)"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">Pet Studio Lite</div>
+        <div class="brand-sub">桌宠制作台 · 完全离线</div>
+      </div>
+    </div>
+
+    <nav class="steps" id="steps">
+      <div class="step step--done" data-page="import">
+        <button class="step-btn">
+          <span class="step-no">✓</span>
+          <span class="step-text"><span class="step-label">导入</span><span class="step-hint">选择宠物包</span></span>
+        </button>
+      </div>
+      <div class="step step--done" data-page="check">
+        <button class="step-btn">
+          <span class="step-no">✓</span>
+          <span class="step-text"><span class="step-label">检查</span><span class="step-hint">结构与图集校验</span></span>
+        </button>
+      </div>
+      <div class="step step--done" data-page="preview">
+        <button class="step-btn">
+          <span class="step-no">✓</span>
+          <span class="step-text"><span class="step-label">预览</span><span class="step-hint">动作与桌宠效果</span></span>
+        </button>
+      </div>
+      <div class="step step--done" data-page="config">
+        <button class="step-btn">
+          <span class="step-no">✓</span>
+          <span class="step-text"><span class="step-label">配置</span><span class="step-hint">名字 / 缩放 / 行为</span></span>
+        </button>
+      </div>
+      <div class="step step--on" data-page="export">
+        <button class="step-btn">
+          <span class="step-no">5</span>
+          <span class="step-text"><span class="step-label">导出</span><span class="step-hint">Windows 便携包</span></span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="rail-projects">
+      <div class="rail-projects-title">RECENT · 最近项目</div>
+      <div class="rail-project rail-project--on">
+        <button class="rail-project-select">
+          <span class="rail-project-name">悟空 Wukong</span>
+          <span class="rail-project-meta">v2</span>
+        </button>
+        <button class="rail-project-del" title="删除项目">×</button>
+      </div>
+      <div class="rail-project">
+        <button class="rail-project-select">
+          <span class="rail-project-name">蜡笔小新</span>
+          <span class="rail-project-meta">v1</span>
+        </button>
+        <button class="rail-project-del" title="删除项目">×</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- 导出步（默认展示，含等待玩具） -->
+    <section class="step-page on" data-page="export">
+      <div class="eyebrow page-eyebrow">STEP · 05 — EXPORT · WINDOWS X64</div>
+      <h1>导出 Windows 便携包</h1>
+      <p class="lead">导出一个不依赖任何开发环境的 Windows x64 便携 ZIP：解压后双击 EXE 即可运行桌宠。首次导出需要下载运行时，可能要几分钟——等待时可以玩一玩下面的点阵。</p>
+
+      <div class="card" style="max-width:600px">
+        <div class="check-row"><span class="check-dot check-dot--ok"></span><span>原包授权状态</span><span class="check-state">已授权</span></div>
+        <div class="check-row"><span class="check-dot check-dot--ok"></span><span>使用方式</span><span class="check-state">常规使用</span></div>
+        <div class="check-row"><span class="check-dot check-dot--ok"></span><span>产物性质</span><span class="check-state">可分发候选（candidate）</span></div>
+        <div class="check-row"><span class="check-dot check-dot--ok"></span><span>配置</span><span class="check-state">悟空 · 150% · 游走开</span></div>
+      </div>
+
+      <button class="btn btn-primary" id="exportBtn">选择导出位置并导出</button>
+
+      <!-- 符号流点阵：导出等待玩具 -->
+      <div class="glyph-field-card" id="glyphCard" style="display:none;max-width:600px;margin-top:16px">
+        <div class="glyph-field-head">
+          <span class="eyebrow">GESTURE · WAIT · PLAY</span>
+          <span class="glyph-field-hint">动一动鼠标，拨动点阵</span>
+        </div>
+        <canvas id="glyphField" height="220"></canvas>
+        <div class="glyph-field-foot">
+          <span class="glyph-progress-label" id="glyphLabel">EXPORTING · 0%</span>
+          <span class="glyph-progress-bar"><i id="glyphBar"></i></span>
+        </div>
+      </div>
+
+      <div class="success-panel" id="exportDone" style="display:none;max-width:600px">
+        <div class="success-title">导出完成 — 点阵聚成了它的爪印</div>
+        <div class="mono">/Users/…/petlite-pet-wukong-win-x64-20260909.zip</div>
+        <div class="mono muted">SHA-256：3f9a…c21e</div>
+        <button class="btn">打开所在文件夹</button>
+      </div>
+    </section>
+
+    <!-- 导入步 -->
+    <section class="step-page" data-page="import">
+      <div class="eyebrow page-eyebrow">STEP · 01 — IMPORT · PETDEX PACK</div>
+      <h1>导入宠物包</h1>
+      <p class="lead">选择一个 Petdex 宠物包目录或 ZIP 压缩包。导入会把包复制到制作台自己的工作区，不会修改你的原始文件。</p>
+      <div class="import-actions">
+        <button class="btn btn-primary">选择宠物包目录</button>
+        <button class="btn">选择 ZIP 压缩包</button>
+      </div>
+      <div class="help-box">
+        <button class="help-toggle">
+          <span class="help-arrow">▸</span>
+          第一次使用？如何从 Petdex 获取宠物包
+        </button>
+      </div>
+      <div class="error-panel" style="margin-top:20px;max-width:560px">
+        <div class="error-panel-title">导入失败 <button class="link">知道了</button></div>
+        <div class="error-line">pet.json 缺少必需字段「spritesheet」。</div>
+        <div class="error-hint">修复后可以重新导入；失败的导入不会留下半成品项目。</div>
+      </div>
+    </section>
+
+    <!-- 检查步 -->
+    <section class="step-page" data-page="check">
+      <div class="eyebrow page-eyebrow">STEP · 02 — CHECK · VALIDATION</div>
+      <h1>检查「悟空 Wukong」</h1>
+      <p class="lead">对项目工作区里的只读副本重新做完整校验。</p>
+      <div class="card">
+        <div class="check-row"><span class="check-dot check-dot--ok"></span><span>包结构与 pet.json</span><span class="check-state">通过</span></div>
+        <div class="check-row"><span class="check-dot check-dot--ok"></span><span>图集尺寸（识别为 petdex v2）</span><span class="check-state">通过</span></div>
+        <div class="check-row"><span class="check-dot check-dot--pending"></span><span>图像可解码性</span><span class="check-state">检查中…</span></div>
+        <div class="check-row"><span class="check-dot check-dot--pending"></span><span>包内路径安全</span><span class="check-state">检查中…</span></div>
+        <div class="check-row"><span class="check-dot check-dot--ok"></span><span>原包授权状态</span><span class="check-state">已授权</span></div>
+        <div class="check-row"><span class="check-dot check-dot--ok"></span><span>使用方式</span><span class="check-state">常规使用</span></div>
+      </div>
+      <button class="btn">重新检查</button>
+    </section>
+
+    <!-- 预览步 -->
+    <section class="step-page" data-page="preview">
+      <div class="eyebrow page-eyebrow">STEP · 03 — PREVIEW · SPRITE &amp; LIVE</div>
+      <h1>预览「悟空 Wukong」</h1>
+      <p class="lead">逐行检查图集里的每个动作，或打开一个真实透明桌宠窗口查看实际效果。</p>
+      <div class="preview-stage">
+        <div class="preview-sprite">
+          <div class="sprite-placeholder">精灵动画区</div>
+        </div>
+        <div class="preview-controls">
+          <button class="chip chip--on">待机</button>
+          <button class="chip">行走</button>
+          <button class="chip">奔跑</button>
+          <button class="chip">说话/挥手</button>
+          <button class="chip">跳跃</button>
+          <button class="chip">被拖动</button>
+          <button class="chip">等待</button>
+          <button class="chip">思考/观察</button>
+        </div>
+      </div>
+      <div class="card card--navy">
+        <div class="eyebrow" style="margin-bottom:6px">LIVE · TRANSPARENT WINDOW</div>
+        <h2>真实桌宠预览</h2>
+        <p class="muted" style="line-height:1.7;margin:0 0 12px">
+          打开一个透明、无边框、置顶的真实桌宠窗口（与导出的 Windows 桌宠同一套代码）。
+          可以拖动、单击、右键缩放；预览窗口不写任何持久化状态。
+        </p>
+        <button class="btn btn-primary">打开桌宠预览</button>
+      </div>
+    </section>
+
+    <!-- 配置步 -->
+    <section class="step-page" data-page="config">
+      <div class="eyebrow page-eyebrow">STEP · 04 — CONFIG · NAME / ZOOM / BEHAVIOR</div>
+      <h1>配置「悟空 Wukong」</h1>
+      <p class="lead">配置会保存到项目里，并随导出一起进入独立桌宠。</p>
+      <div class="card" style="max-width:520px">
+        <label class="field">
+          <span class="field-label">宠物显示名称</span>
+          <input class="field-input" value="悟空" maxlength="24" />
+          <span class="field-hint">1–24 个字符，显示在气泡和关于窗口里。</span>
+        </label>
+        <label class="field">
+          <span class="field-label">默认缩放</span>
+          <select class="field-input">
+            <option>小 · 125%</option>
+            <option selected>中 · 150%（推荐）</option>
+            <option>大 · 200%</option>
+          </select>
+          <span class="field-hint">桌宠首次启动时的窗口大小；用户还可用右键菜单调整。</span>
+        </label>
+        <div class="field field--row">
+          <label class="switch">
+            <input type="checkbox" checked />
+            <span class="switch-track"></span>
+          </label>
+          <span>允许闲置时自动游走</span>
+        </div>
+        <p class="field-hint" style="margin:0 0 16px">等待和思考会在闲置后自动触发；点击或拖动会重新计时。</p>
+        <button class="btn btn-primary">保存配置</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ---------- 步骤切换（样板演示） ---------- */
+document.querySelectorAll('#steps .step').forEach(function (el) {
+  el.querySelector('.step-btn').addEventListener('click', function () {
+    document.querySelectorAll('#steps .step').forEach(function (s) { s.classList.remove('step--on'); });
+    el.classList.add('step--on');
+    var page = el.getAttribute('data-page');
+    document.querySelectorAll('.step-page').forEach(function (p) {
+      p.classList.toggle('on', p.getAttribute('data-page') === page);
+    });
+  });
+});
+
+/* ---------- 主题切换（仅样板） ---------- */
+document.querySelectorAll('#themeToggle button').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('#themeToggle button').forEach(function (b) { b.classList.remove('on'); });
+    btn.classList.add('on');
+    document.documentElement.setAttribute('data-theme', btn.getAttribute('data-t'));
+  });
+});
+
+/* ---------- chips 单选 ---------- */
+document.querySelectorAll('.preview-controls').forEach(function (group) {
+  group.addEventListener('click', function (e) {
+    var chip = e.target.closest('.chip');
+    if (!chip) return;
+    group.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('chip--on'); });
+    chip.classList.add('chip--on');
+  });
+});
+
+/* ============================================================
+   符号流点阵 · 导出等待玩具
+   - 字形表按密度从疏到浓：· - + / ( ) * ▲ K # ⬡
+   - 基础场：流动的正弦伪噪声
+   - 鼠标：高斯隆起，拨动点阵
+   - 进度 0→1：场向爪印目标形状收敛（聚形）
+   ============================================================ */
+(function () {
+  var GLYPHS = ['·', '-', '+', '/', '(', ')', '*', '▲', 'K', '#', '⬡'];
+  var CELL = 16;
+
+  var canvas = document.getElementById('glyphField');
+  var ctx = canvas.getContext('2d');
+  var card = document.getElementById('glyphCard');
+  var bar = document.getElementById('glyphBar');
+  var label = document.getElementById('glyphLabel');
+
+  var cols = 0, rows = 0;
+  var target = null;      // 爪印目标场（Float32Array）
+  var progress = 0;       // 聚形进度 0..1
+  var mouse = { x: -9999, y: -9999 };
+  var raf = null, t0 = performance.now();
+  var running = false;
+
+  /* 用离屏 canvas 画爪印，采样成目标强度场 */
+  function buildTarget() {
+    var off = document.createElement('canvas');
+    off.width = cols; off.height = rows;
+    var c = off.getContext('2d');
+    c.fillStyle = '#000'; c.fillRect(0, 0, cols, rows);
+    c.fillStyle = '#fff';
+    var cx = cols / 2, cy = rows / 2 + rows * 0.10;
+    function ell(x, y, rx, ry, rot) {
+      c.beginPath();
+      c.ellipse(x, y, rx, ry, rot || 0, 0, Math.PI * 2);
+      c.fill();
+    }
+    var u = cols / 22; // 尺度单位
+    ell(cx, cy + u * 1.4, u * 4.2, u * 3.5);            // 掌垫
+    ell(cx - u * 5.4, cy - u * 2.2, u * 1.7, u * 2.2, -0.35);  // 趾 1
+    ell(cx + u * 5.4, cy - u * 2.2, u * 1.7, u * 2.2, 0.35);   // 趾 2
+    ell(cx - u * 2.1, cy - u * 4.8, u * 1.6, u * 2.1, -0.12);  // 趾 3
+    ell(cx + u * 2.1, cy - u * 4.8, u * 1.6, u * 2.1, 0.12);   // 趾 4
+    var data = c.getImageData(0, 0, cols, rows).data;
+    target = new Float32Array(cols * rows);
+    for (var i = 0; i < cols * rows; i++) target[i] = data[i * 4] / 255;
+  }
+
+  function resize() {
+    var w = Math.max(card.clientWidth - 32, 320); // 防御：父容器未布局时取兜底宽
+    canvas.width = w;
+    canvas.height = 220;
+    cols = Math.floor(w / CELL);
+    rows = Math.floor(canvas.height / CELL);
+    buildTarget();
+  }
+
+  /* 深浅色下符号配色（藏青底上由暗蓝到亮蓝白） */
+  function glyphColor(v) {
+    if (v < 0.15) return 'rgba(143, 180, 255, 0.18)';
+    if (v < 0.35) return 'rgba(143, 180, 255, 0.45)';
+    if (v < 0.55) return '#6f9cf0';
+    if (v < 0.75) return '#a8c4f8';
+    return '#e8effc';
+  }
+
+  function frame(now) {
+    var t = (now - t0) / 1000;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '12px ui-monospace, Menlo, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (var y = 0; y < rows; y++) {
+      for (var x = 0; x < cols; x++) {
+        /* 基础流动场：两层正交正弦 */
+        var flow = 0.5 + 0.28 * Math.sin(x * 0.32 + t * 0.9) * Math.sin(y * 0.41 - t * 0.7)
+                        + 0.22 * Math.sin((x + y) * 0.18 + t * 0.5);
+        /* 鼠标隆起 */
+        var px = x * CELL + CELL / 2, py = y * CELL + CELL / 2;
+        var dx = px - mouse.x, dy = py - mouse.y;
+        var boost = 0.55 * Math.exp(-(dx * dx + dy * dy) / (2 * 42 * 42));
+        var v = Math.min(1, flow * 0.55 + boost);
+        /* 聚形：随进度向爪印收敛；形内压实到高浓度字形带，形外退潮 */
+        if (progress > 0) {
+          var tv = target[y * cols + x];
+          var shaped = tv > 0.3 ? 0.78 + 0.22 * tv : 0;
+          v = v * (1 - progress) + shaped * progress + v * 0.10 * progress;
+        }
+        if (v < 0.08) continue;
+        var gi = Math.min(GLYPHS.length - 1, Math.floor(v * GLYPHS.length));
+        ctx.fillStyle = glyphColor(v);
+        ctx.fillText(GLYPHS[gi], px, py);
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  canvas.addEventListener('mousemove', function (e) {
+    var r = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - r.left;
+    mouse.y = e.clientY - r.top;
+  });
+  canvas.addEventListener('mouseleave', function () { mouse.x = -9999; mouse.y = -9999; });
+
+  function start() {
+    if (running) return;
+    running = true;
+    resize();
+    raf = requestAnimationFrame(frame);
+  }
+
+  /* ---------- 导出流程演示 ---------- */
+  document.getElementById('exportBtn').addEventListener('click', function () {
+    card.style.display = 'block';
+    document.getElementById('exportDone').style.display = 'none';
+    start();
+    progress = 0;
+    var pct = 0;
+    var timer = setInterval(function () {
+      pct += 2;
+      progress = Math.min(1, pct / 100);
+      bar.style.width = pct + '%';
+      label.textContent = pct < 100 ? 'EXPORTING · ' + pct + '%' : 'DONE · 已聚形';
+      if (pct >= 100) {
+        clearInterval(timer);
+        document.getElementById('exportDone').style.display = 'flex';
+      }
+    }, 120);
+  });
+
+  window.addEventListener('resize', function () { if (running) resize(); });
+
+  /* 演示钩子：?demo=export 自动开始导出流程（便于截图/验收） */
+  if (new URLSearchParams(location.search).get('demo') === 'export') {
+    document.getElementById('exportBtn').click();
+  }
+})();
+</script>
+</body>
+</html>
