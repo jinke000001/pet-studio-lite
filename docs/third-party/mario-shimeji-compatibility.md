@@ -19,7 +19,7 @@
 
 源快照只读保留；转换和项目导入均复制到新目录，不修改这份文件。
 
-当前 Windows x64 内测候选：`deliverables/petlite-pet-classic-mario-mario-by-diva-don-shimejis-xyz-20260911-win-x64-20260911-222937.zip`，SHA-256 为 `cb69e62fe82cbcb357ee852d5add351e201c0cc21a6bcec2bbf60ac6791b9797`。该候选已通过 30 项 ZIP 静态核验，但尚未替代 Windows 实机视觉和交互验收。
+Windows x64 导出候选必须保持 `internal-test-only` 并通过 ZIP 静态核验；具体候选文件名和 SHA-256 在每次测试交接时单独记录，避免报告中的自引用哈希失效。静态核验不能替代 Windows 实机视觉和交互验收。
 
 ## 当前转换结果
 

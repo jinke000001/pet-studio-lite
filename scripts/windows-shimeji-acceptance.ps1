@@ -122,10 +122,13 @@ $virtual = [ordered]@{
   width = [PetStudioWin32]::GetSystemMetrics(78); height = [PetStudioWin32]::GetSystemMetrics(79)
 }
 $first = $one[0]
-$inside = $first.x -ge $virtual.x -and $first.y -ge $virtual.y -and
-  ($first.x + $first.width) -le ($virtual.x + $virtual.width) -and
-  ($first.y + $first.height) -le ($virtual.y + $virtual.height)
-Add-Check '首只宠物完整位于虚拟桌面范围内' $inside ("window=$($first.x),$($first.y),$($first.width)x$($first.height)")
+$overlapsVirtualDesktop = ($first.x + $first.width) -gt $virtual.x -and
+  ($first.y + $first.height) -gt $virtual.y -and
+  $first.x -lt ($virtual.x + $virtual.width) -and
+  $first.y -lt ($virtual.y + $virtual.height)
+# BrowserWindow 为气泡保留透明区域。为了让可见角色真正碰到屏幕边缘，
+# 这部分透明留白可以伸出虚拟桌面，因此不能再要求整个原生窗口都在屏内。
+Add-Check '首只宠物窗口与虚拟桌面有效相交' $overlapsVirtualDesktop ("window=$($first.x),$($first.y),$($first.width)x$($first.height)")
 $dpi = try { [PetStudioWin32]::GetDpiForWindow([IntPtr]$first.hwnd) } catch { 0 }
 Add-Check '记录当前 Windows DPI' ($dpi -gt 0) ("dpi=$dpi scale=" + [Math]::Round($dpi / 96 * 100) + '%')
 Save-Screenshot '01-first-launch.png'
@@ -140,7 +143,7 @@ Start-Sleep -Seconds ([Math]::Max(8, $ObserveSeconds))
 $afterMotionWindows = @(Get-PetWindows)
 $afterMotion = @($afterMotionWindows | ForEach-Object { "$($_.hwnd):$($_.x),$($_.y)" })
 $moved = ($beforeMotion -join '|') -ne ($afterMotion -join '|')
-Add-Check '经典行为计划触发可观察的自动移动' $moved ("before=" + ($beforeMotion -join ';') + " after=" + ($afterMotion -join ';'))
+Add-Check '自动游走触发可观察的位置变化' $moved ("before=" + ($beforeMotion -join ';') + " after=" + ($afterMotion -join ';'))
 Save-Screenshot '03-after-motion.png'
 
 if ($afterMotionWindows.Count -ge 2) {
