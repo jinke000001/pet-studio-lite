@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { parseClassicRuntimePlan, type ClassicRuntimeBehavior } from './shimeji/classic-config';
 
 /**
  * Petdex 宠物包（目录形式）的只读校验与加载。
@@ -56,6 +57,8 @@ export interface PetPackInfo {
   sheet: { width: number; height: number };
   /** pet.json 与图集的 SHA-256（导出 manifest 用）。 */
   hashes: { petJson: string; spritesheet: string };
+  /** 经典 Shimeji 转换包的安全自动行为子集；普通 Petdex 包为 null。 */
+  classicBehaviorPlan: ClassicRuntimeBehavior[] | null;
 }
 
 export type ValidateResult =
@@ -233,6 +236,12 @@ export async function validatePetPack(dir: string, opts: ValidateOptions = {}): 
   }
   const obj = raw as Record<string, unknown>;
   const petJsonHash = crypto.createHash('sha256').update(rawText, 'utf8').digest('hex');
+  let classicBehaviorPlan: ClassicRuntimeBehavior[] | null = null;
+  try {
+    classicBehaviorPlan = parseClassicRuntimePlan(obj['classicBehaviorPlan']);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
 
   // 版本声明（可选，声明了就必须合法）：spriteVersionNumber 优先，
   // version 为兼容别名；两者冲突或值不受支持都直接拒绝。
@@ -340,6 +349,7 @@ export async function validatePetPack(dir: string, opts: ValidateOptions = {}): 
       frame: { ...PETDEX_FRAME },
       sheet: sheetSize!,
       hashes: { petJson: petJsonHash, spritesheet: sheetHash },
+      classicBehaviorPlan,
     },
   };
 }

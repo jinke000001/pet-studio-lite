@@ -277,6 +277,7 @@ function registerIpc(): void {
         preview: true,
         petdexVersion: pack.version,
         license: pack.license,
+        classicBehaviorPlan: pack.classicBehaviorPlan,
       }),
       preloadFile: path.join(__dirname, '../preload/petwin.js'),
       rendererUrl: process.env['ELECTRON_RENDERER_URL']

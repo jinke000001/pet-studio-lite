@@ -47,6 +47,42 @@ export interface ClassicShimejiProfile {
   behaviors: ClassicBehavior[];
 }
 
+export type ClassicRuntimeBehaviorKind = 'waiting' | 'wander' | 'review';
+
+export interface ClassicRuntimeBehavior {
+  name: string;
+  kind: ClassicRuntimeBehaviorKind;
+  weight: number;
+  durationMs: number;
+}
+
+export function parseClassicRuntimePlan(raw: unknown): ClassicRuntimeBehavior[] | null {
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 128) {
+    throw new Error('classicBehaviorPlan 必须是 1–128 项数组');
+  }
+  return raw.map((entry, index) => {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+      throw new Error(`classicBehaviorPlan 第 ${index + 1} 项格式错误`);
+    }
+    const value = entry as Record<string, unknown>;
+    const name = safeName(typeof value['name'] === 'string' ? value['name'] : undefined, '经典运行行为');
+    const kind = value['kind'];
+    if (kind !== 'waiting' && kind !== 'wander' && kind !== 'review') {
+      throw new Error(`经典运行行为 ${name} 类型不支持`);
+    }
+    const weight = value['weight'];
+    const durationMs = value['durationMs'];
+    if (typeof weight !== 'number' || !Number.isInteger(weight) || weight <= 0 || weight > 1_000_000) {
+      throw new Error(`经典运行行为 ${name} 权重无效`);
+    }
+    if (typeof durationMs !== 'number' || !Number.isInteger(durationMs) || durationMs < 1_000 || durationMs > 10_000) {
+      throw new Error(`经典运行行为 ${name} 时长无效`);
+    }
+    return { name, kind, weight, durationMs };
+  });
+}
+
 export type ClassicCompileResult =
   | { ok: true; profile: ClassicShimejiProfile; warnings: string[] }
   | { ok: false; errors: string[]; warnings: string[] };
@@ -281,6 +317,61 @@ export function compileClassicShimeji(actionsXml: string, behaviorsXml: string):
   } catch (error) {
     return { ok: false, errors: [error instanceof Error ? error.message : String(error)], warnings };
   }
+}
+
+/**
+ * Reduce the broad classic action model to automatic behaviors this runtime can
+ * execute safely. Physical Fall/Dragged/Thrown/Jump/Climb actions are excluded:
+ * terrain physics and direct pointer interaction own those transitions.
+ */
+export function compileClassicRuntimePlan(profile: ClassicShimejiProfile): ClassicRuntimeBehavior[] {
+  const actions = new Map(profile.actions.map((action) => [action.name, action]));
+  const resolveKind = (action: ClassicAction, seen = new Set<string>()): ClassicActionKind => {
+    if (seen.has(action.name)) return 'unknown';
+    if (action.kind !== 'unknown') return action.kind;
+    seen.add(action.name);
+    for (const reference of action.references) {
+      const next = actions.get(reference);
+      if (!next) continue;
+      const kind = resolveKind(next, new Set(seen));
+      if (kind !== 'unknown') return kind;
+    }
+    return 'unknown';
+  };
+  const durationOf = (action: ClassicAction, seen = new Set<string>()): number => {
+    if (seen.has(action.name)) return 0;
+    seen.add(action.name);
+    const own = action.poses.reduce((sum, pose) => sum + (pose.durationMs ?? 0), 0)
+      || action.durationMs
+      || 0;
+    const nested = action.references.reduce((sum, reference) => {
+      const next = actions.get(reference);
+      return sum + (next ? durationOf(next, new Set(seen)) : 0);
+    }, 0);
+    return own + nested;
+  };
+  const kindMap: Partial<Record<ClassicActionKind, ClassicRuntimeBehaviorKind>> = {
+    stand: 'waiting',
+    walk: 'wander',
+    'chase-mouse': 'wander',
+    unknown: 'review',
+  };
+  const plan: ClassicRuntimeBehavior[] = [];
+  for (const behavior of profile.behaviors) {
+    if (behavior.frequency <= 0) continue;
+    const action = actions.get(behavior.actionName);
+    if (!action) continue;
+    const kind = kindMap[resolveKind(action)];
+    if (!kind) continue;
+    const rawDuration = durationOf(action);
+    plan.push({
+      name: behavior.name,
+      kind,
+      weight: behavior.frequency,
+      durationMs: Math.max(kind === 'wander' ? 3_000 : 1_000, Math.min(10_000, rawDuration || (kind === 'review' ? 6_000 : 4_000))),
+    });
+  }
+  return plan;
 }
 
 /** Select from the current behavior's successors, or from the root weighted list. */

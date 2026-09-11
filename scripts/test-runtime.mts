@@ -46,7 +46,7 @@ import { sharpImageProbe } from '../src/main/image-probe.ts';
 import { buildManifest, resolveDistribution, distributionNote } from '../src/shared/manifest.ts';
 import { reserveOutputPath, buildRuntimeConfig } from '../src/main/export-win.ts';
 import { registerPetIpc, PET_IPC_HANDLE_CHANNELS, PET_IPC_ON_CHANNELS, type PetIpcTarget } from '../src/pet/ipc-router.ts';
-import { PetBehaviorScheduler, DEFAULT_BEHAVIOR_TIMINGS, stopWalkingState } from '../src/shared/pet-behavior.ts';
+import { ClassicPetBehaviorScheduler, PetBehaviorScheduler, DEFAULT_BEHAVIOR_TIMINGS, stopWalkingState } from '../src/shared/pet-behavior.ts';
 import { parsePersistedPetState, applyPersistedPetState, PetStateStore } from '../src/shared/pet-state.ts';
 import { FlushableDebouncer } from '../src/shared/debounce.ts';
 import { ExportRegistry, resolveRevealTarget } from '../src/shared/export-registry.ts';
@@ -755,6 +755,32 @@ function behaviorTests(): void {
     check('自动调度只产生 waiting/review/wander',
       [...kinds].every((k) => k === 'waiting' || k === 'review' || k === 'wander') && kinds.size > 0);
   }
+
+  const classicPlan = [
+    { name: 'Stand', kind: 'waiting' as const, weight: 10, durationMs: 1_000 },
+    { name: 'Walk', kind: 'wander' as const, weight: 30, durationMs: 3_000 },
+  ];
+  {
+    const s = new ClassicPetBehaviorScheduler(classicPlan, () => 0, 0);
+    check('经典计划启动后保留最短闲置期',
+      s.decide(3_999, { canAct: true, wanderEnabled: true }) === null);
+    const d = s.decide(4_001, { canAct: true, wanderEnabled: true });
+    check('经典计划按权重选中 waiting 并保留动作时长',
+      d?.kind === 'waiting' && d.durationMs === 1_000);
+    check('经典计划动作之间保留防重叠间隔',
+      s.decide(4_002, { canAct: true, wanderEnabled: true }) === null);
+  }
+  {
+    const s = new ClassicPetBehaviorScheduler(classicPlan, () => 0.99, 0);
+    const d = s.decide(4_001, { canAct: true, wanderEnabled: true });
+    check('经典计划可按权重选中 wander 并保留动作时长',
+      d?.kind === 'wander' && d.durationMs === 3_000);
+  }
+  {
+    const s = new ClassicPetBehaviorScheduler(classicPlan, () => 0.99, 0);
+    const d = s.decide(4_001, { canAct: true, wanderEnabled: false });
+    check('关闭自动游走后经典计划过滤 wander 但保留 waiting', d?.kind === 'waiting');
+  }
 }
 
 // --- 窗口生命周期策略（macOS 常驻 / 其他平台退出） + activate 决策 -------------------------
@@ -1290,6 +1316,9 @@ async function uxWiringTests(): Promise<void> {
     petAppSrc.includes('DesktopRuntimeSession') && petAppSrc.includes('onDesktopTerrain'));
   check('渲染器把拖拽释放速度交给共享 Shimeji 会话',
     petAppSrc.includes('PointerVelocityTracker') && petAppSrc.includes('.release(velocity)'));
+  check('渲染器收到经典计划后改用安全加权调度器并沿用转换时长',
+    petAppSrc.includes('new ClassicPetBehaviorScheduler(p.classicBehaviorPlan')
+    && petAppSrc.includes('startWander(decision.durationMs || undefined)'));
   check('Windows 宿主启动并在关闭时停止窗口快照监控',
     hostSrc.includes('SharedWindowSnapshotSource') && hostSrc.includes('stopDesktopTerrainMonitor'));
 

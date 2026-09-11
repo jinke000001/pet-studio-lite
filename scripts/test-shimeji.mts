@@ -16,6 +16,7 @@ import { SharedWindowSnapshotSource, WindowSnapshotMonitor } from '../src/pet/wi
 import { DesktopRuntimeSession } from '../src/shared/shimeji/desktop-runtime-session';
 import {
   compileClassicShimeji,
+  compileClassicRuntimePlan,
   selectClassicBehavior,
 } from '../src/shared/shimeji/classic-config';
 import { PointerVelocityTracker } from '../src/shared/shimeji/pointer-velocity';
@@ -284,6 +285,12 @@ check('动态表达式不执行并从兼容子集中排除', compiledClassic.ok
 check('固定随机数按 Frequency 确定性选择行为', compiledClassic.ok
   && selectClassicBehavior(compiledClassic.profile, 0, 'Stand')?.name === 'Walk'
   && selectClassicBehavior(compiledClassic.profile, 0.99, 'Stand')?.name === 'Fall');
+const runtimePlan = compiledClassic.ok ? compileClassicRuntimePlan(compiledClassic.profile) : [];
+check('经典频率编译为等待与游走计划',
+  runtimePlan.some((behavior) => behavior.name === 'Stand' && behavior.kind === 'waiting' && behavior.weight === 50)
+  && runtimePlan.some((behavior) => behavior.name === 'Walk' && behavior.kind === 'wander' && behavior.weight === 30));
+check('物理动作不会进入随机自动行为计划',
+  !runtimePlan.some((behavior) => ['Fall', 'Dragged', 'Thrown'].includes(behavior.name)));
 
 const withDoctype = compileClassicShimeji(
   '<!DOCTYPE Mascot SYSTEM "https://example.invalid/evil.dtd"><Mascot/>',

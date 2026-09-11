@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { PetWindowPayload } from '../../shared/types';
 import type { PetWindowApi } from '../../preload/petwin';
-import { PetBehaviorScheduler, stopWalkingState } from '../../shared/pet-behavior';
+import { ClassicPetBehaviorScheduler, PetBehaviorScheduler, stopWalkingState, type BehaviorScheduler } from '../../shared/pet-behavior';
 import { computeWorkAreaHomePosition } from '../../shared/geometry';
 import { DesktopRuntimeSession } from '../../shared/shimeji/desktop-runtime-session';
 import type { DesktopTerrain } from '../../shared/shimeji/desktop-terrain';
@@ -51,7 +51,7 @@ export function PetWindowApp() {
   const autoActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wanderRafRef = useRef<number | null>(null);
   const wanderEnabledRef = useRef<boolean>(true);
-  const schedulerRef = useRef<PetBehaviorScheduler | null>(null);
+  const schedulerRef = useRef<BehaviorScheduler | null>(null);
   const desktopTerrainRef = useRef<DesktopTerrain | null>(null);
   const desktopSessionRef = useRef<DesktopRuntimeSession | null>(null);
   const desktopRafRef = useRef<number | null>(null);
@@ -212,7 +212,7 @@ export function PetWindowApp() {
       });
       if (decision) {
         if (decision.kind === 'wander') {
-          void startWander();
+          void startWander(decision.durationMs || undefined);
         } else {
           // waiting / review：原地播放数秒后回到 idle（单一 timer，无竞态）
           shimejiVisualRef.current = null;
@@ -233,7 +233,9 @@ export function PetWindowApp() {
         setPayload(p);
         setZoom(p.config.zoom);
         wanderEnabledRef.current = p.config.wanderEnabled;
-        schedulerRef.current = new PetBehaviorScheduler(Math.random, undefined, Date.now());
+        schedulerRef.current = p.classicBehaviorPlan?.length
+          ? new ClassicPetBehaviorScheduler(p.classicBehaviorPlan, Math.random, Date.now())
+          : new PetBehaviorScheduler(Math.random, undefined, Date.now());
         armAutoCheck();
         // 启动问候：说话/挥手 + 气泡
         setTimeout(() => {
@@ -282,7 +284,7 @@ export function PetWindowApp() {
   }, []);
 
   /** 自动游走（决策由调度器做出，这里只负责移动动画）。 */
-  async function startWander() {
+  async function startWander(durationOverrideMs?: number) {
     if (petStateRef.current !== 'idle') return;
 
     if (desktopTerrainRef.current) {
@@ -292,8 +294,8 @@ export function PetWindowApp() {
       const direction = Math.random() < 0.5 ? 'left' : 'right';
       setFacing(direction);
       session.setWalking(true, direction);
-      const duration = SHIMEJI_WANDER_MIN_MS
-        + Math.random() * (SHIMEJI_WANDER_MAX_MS - SHIMEJI_WANDER_MIN_MS);
+      const duration = durationOverrideMs ?? (SHIMEJI_WANDER_MIN_MS
+        + Math.random() * (SHIMEJI_WANDER_MAX_MS - SHIMEJI_WANDER_MIN_MS));
       if (autoActionTimerRef.current) clearTimeout(autoActionTimerRef.current);
       autoActionTimerRef.current = setTimeout(() => {
         autoActionTimerRef.current = null;

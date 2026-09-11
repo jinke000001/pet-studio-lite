@@ -3,6 +3,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import {
   compileClassicShimeji,
+  compileClassicRuntimePlan,
   type ClassicAction,
   type ClassicPose,
   type ClassicShimejiProfile,
@@ -98,6 +99,7 @@ export async function convertClassicShimejiDirectory(
     license: 'unknown',
     sourceFormat: 'classic-shimeji',
     classicProfile: compiled.profile,
+    classicBehaviorPlan: compileClassicRuntimePlan(compiled.profile),
   };
 
   try {

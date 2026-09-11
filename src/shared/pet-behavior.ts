@@ -32,6 +32,12 @@ export interface BehaviorDecision {
   durationMs: number;
 }
 
+export interface BehaviorScheduler {
+  recordActivity(now: number): void;
+  nextCheckDelay(): number;
+  decide(now: number, opts: { canAct: boolean; wanderEnabled: boolean }): BehaviorDecision | null;
+}
+
 export interface BehaviorTimings {
   /** 无互动多久后允许 waiting（区间，随机取一个绝对时间点）。 */
   waitingIdleMs: [number, number];
@@ -139,6 +145,59 @@ export class PetBehaviorScheduler {
     if (kind === 'waiting') this.nextWaitingAt = now + this.randRange(this.timings.waitingIdleMs);
     if (kind === 'review') this.nextReviewAt = now + this.randRange(this.timings.reviewIdleMs);
     return { kind, durationMs };
+  }
+
+  private randRange([min, max]: [number, number]): number {
+    return min + this.random() * (max - min);
+  }
+}
+
+const CLASSIC_FIRST_ACTION_IDLE_MS = 4_000;
+const CLASSIC_MIN_ACTION_GAP_MS = 2_000;
+const CLASSIC_CHECK_INTERVAL_MS: [number, number] = [1_500, 3_000];
+
+/** Weighted scheduler for the sanitized classic Shimeji behavior subset. */
+export class ClassicPetBehaviorScheduler implements BehaviorScheduler {
+  private lastActivityAt: number;
+  private lastAutoAt = Number.NEGATIVE_INFINITY;
+
+  constructor(
+    private readonly plan: readonly import('./shimeji/classic-config').ClassicRuntimeBehavior[],
+    private readonly random: () => number = Math.random,
+    now = 0,
+  ) {
+    this.lastActivityAt = now;
+  }
+
+  recordActivity(now: number): void {
+    this.lastActivityAt = now;
+  }
+
+  nextCheckDelay(): number {
+    return this.randRange(CLASSIC_CHECK_INTERVAL_MS);
+  }
+
+  decide(now: number, opts: { canAct: boolean; wanderEnabled: boolean }): BehaviorDecision | null {
+    if (!opts.canAct
+      || now - this.lastActivityAt < CLASSIC_FIRST_ACTION_IDLE_MS
+      || now - this.lastAutoAt < CLASSIC_MIN_ACTION_GAP_MS) return null;
+    const candidates = this.plan.filter((behavior) => opts.wanderEnabled || behavior.kind !== 'wander');
+    const total = candidates.reduce((sum, behavior) => sum + behavior.weight, 0);
+    if (total <= 0) return null;
+    let cursor = Math.max(0, Math.min(0.999999999, this.random())) * total;
+    let selected = candidates.at(-1)!;
+    for (const candidate of candidates) {
+      cursor -= candidate.weight;
+      if (cursor < 0) {
+        selected = candidate;
+        break;
+      }
+    }
+    this.lastAutoAt = now;
+    return {
+      kind: selected.kind,
+      durationMs: selected.durationMs,
+    };
   }
 
   private randRange([min, max]: [number, number]): number {

@@ -71,7 +71,8 @@ try {
   const generatedJson = JSON.parse(await fs.readFile(path.join(convertedDir, 'pet.json'), 'utf8')) as Record<string, unknown>;
   check('生成包保留安全编译后的经典行为资料',
     generatedJson['sourceFormat'] === 'classic-shimeji'
-    && typeof generatedJson['classicProfile'] === 'object');
+    && typeof generatedJson['classicProfile'] === 'object'
+    && Array.isArray(generatedJson['classicBehaviorPlan']));
   check('转换结果默认保持 unknown 授权，不伪造可分发权利', generatedJson['license'] === 'unknown');
   check('转换全程不修改原经典包', before === await hashTree(source));
   check('动作引用可递归找到资源帧', converted.warnings.every((warning) => !warning.includes('ChaseMouse')));
@@ -98,6 +99,15 @@ try {
   await convertClassicShimejiDirectory(extracted, path.join(temp, 'zip-converted'));
   check('经典 Shimeji ZIP 解压后可完成转换',
     (await validatePetPack(path.join(temp, 'zip-converted'), { probe: sharpImageProbe })).ok);
+
+  const tamperedDir = path.join(temp, 'tampered-plan');
+  await fs.cp(convertedDir, tamperedDir, { recursive: true });
+  const tamperedJson = JSON.parse(await fs.readFile(path.join(tamperedDir, 'pet.json'), 'utf8')) as Record<string, unknown>;
+  tamperedJson['classicBehaviorPlan'] = [{ name: 'Unsafe', kind: 'execute-script', weight: 1, durationMs: 1_000 }];
+  await fs.writeFile(path.join(tamperedDir, 'pet.json'), JSON.stringify(tamperedJson), 'utf8');
+  const tampered = await validatePetPack(tamperedDir, { probe: sharpImageProbe });
+  check('篡改后的未知运行行为在加载边界被拒绝',
+    !tampered.ok && tampered.errors.some((error) => error.includes('类型不支持')));
 
   const brokenSource = path.join(temp, 'Broken');
   await fs.cp(source, brokenSource, { recursive: true });
