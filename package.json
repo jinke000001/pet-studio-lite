@@ -17,6 +17,7 @@
     "test:classic": "esbuild scripts/test-classic-import.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-classic-import.bundle.mjs --packages=external && node scripts/test-classic-import.bundle.mjs",
     "smoke:electron": "npm run build:pet && esbuild scripts/smoke-round2.mts --bundle --platform=node --format=cjs --target=node20 --outfile=scripts/smoke-round2.bundle.cjs --external:electron --packages=external && electron scripts/smoke-round2.bundle.cjs",
     "smoke:multi": "npm run build:pet && esbuild scripts/smoke-multi-runtime.mts --bundle --platform=node --format=cjs --target=node20 --outfile=scripts/smoke-multi-runtime.bundle.cjs --external:electron --packages=external && electron scripts/smoke-multi-runtime.bundle.cjs",
+    "export:shimeji-test": "npm run build:pet && esbuild scripts/export-shimeji-acceptance.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/export-shimeji-acceptance.bundle.mjs --packages=external && node scripts/export-shimeji-acceptance.bundle.mjs",
     "fixtures": "node scripts/make-fixtures.mjs",
     "check:export": "node scripts/check-export.mjs"
   },
