@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { loadWindowsEvidenceCandidate } from '../src/main/windows-evidence-verifier';
 import { inspectZip, readZipEntry, ZIP_LIMITS_RELAXED } from '../src/shared/zip';
 import { appendToZip } from '../src/shared/zipw';
-import { ensureUtf8Bom } from '../src/shared/text-encoding';
+import { ensureCrLf, ensureUtf8Bom } from '../src/shared/text-encoding';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -43,6 +43,9 @@ async function main(): Promise<void> {
   const acceptanceScript = ensureUtf8Bom(
     await fs.readFile(path.join(REPO, 'scripts', 'windows-shimeji-acceptance.ps1')),
   );
+  const stageOneLauncher = ensureCrLf(
+    await fs.readFile(path.join(REPO, 'scripts', 'run-windows-stage1-100.cmd')),
+  );
   const acceptanceGuide = await fs.readFile(
     path.join(REPO, 'docs', 'acceptance', 'shimeji-windows.md'),
   );
@@ -52,11 +55,15 @@ async function main(): Promise<void> {
 
   const refreshed = await appendToZip(await fs.readFile(sourcePath), [
     { name: 'Windows统一验收.ps1', data: acceptanceScript, compress: false },
+    { name: 'windows-acceptance.ps1', data: acceptanceScript, compress: false },
+    { name: '01-run-stage1-100dpi.cmd', data: stageOneLauncher, compress: false },
     { name: 'Shimeji-Windows-验收说明.md', data: acceptanceGuide, compress: false },
   ]);
   const entries = inspectZip(refreshed, ZIP_LIMITS_RELAXED).entries;
   const expectedEntries = new Map<string, Buffer>([
     ['Windows统一验收.ps1', acceptanceScript],
+    ['windows-acceptance.ps1', acceptanceScript],
+    ['01-run-stage1-100dpi.cmd', stageOneLauncher],
     ['Shimeji-Windows-验收说明.md', acceptanceGuide],
   ]);
   for (const [expectedName, expectedBytes] of expectedEntries) {

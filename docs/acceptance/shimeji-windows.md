@@ -16,7 +16,7 @@
 ## 自动验收
 
 1. 将测试 ZIP 完整解压到普通英文或中文目录；不要直接在压缩软件内运行。
-2. 右键 `Windows统一验收.ps1`，选择“使用 PowerShell 运行”；若策略阻止，在该目录打开 PowerShell 后执行：
+2. 第一阶段直接双击 `01-run-stage1-100dpi.cmd`；它会自动按 100% + core 档位调用验收脚本，并在结束后保留窗口以便查看结果。若批处理无法启动，在该目录打开 PowerShell 后执行：
 
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\Windows统一验收.ps1 -ExpectedDpiPercent 100 -ManualProfile core

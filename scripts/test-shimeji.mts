@@ -29,7 +29,7 @@ import {
   selectClassicBehavior,
 } from '../src/shared/shimeji/classic-config';
 import { PointerVelocityTracker } from '../src/shared/shimeji/pointer-velocity';
-import { ensureUtf8Bom } from '../src/shared/text-encoding';
+import { ensureCrLf, ensureUtf8Bom } from '../src/shared/text-encoding';
 
 let passed = 0;
 let failed = 0;
@@ -486,9 +486,13 @@ check('为含中文的 Windows PowerShell 5.1 脚本添加 UTF-8 BOM',
   bomScript.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf]))
   && bomScript.subarray(3).equals(utf8Script));
 check('已有 UTF-8 BOM 时保持字节稳定', ensureUtf8Bom(bomScript).equals(bomScript));
+check('Windows 批处理换行统一为 CRLF 且不会重复插入回车',
+  ensureCrLf(Buffer.from('a\nb\r\nc\r')).equals(Buffer.from('a\r\nb\r\nc\r\n')));
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const acceptanceScript = await fs.readFile(path.join(repoRoot, 'scripts', 'windows-shimeji-acceptance.ps1'), 'utf8');
+const stageOneLauncherBytes = await fs.readFile(path.join(repoRoot, 'scripts', 'run-windows-stage1-100.cmd'));
+const stageOneLauncher = stageOneLauncherBytes.toString('ascii');
 check('Windows 验收脚本提供可选 1 小时长稳模式',
   acceptanceScript.includes('$SoakMinutes')
   && acceptanceScript.includes('$SampleSeconds')
@@ -523,6 +527,11 @@ check('Windows 脚本启动时核对目标 DPI 并使用可辨识的证据目录
   && acceptanceScript.includes("'当前 DPI 与目标档位一致'")
   && acceptanceScript.includes('"win$windowsGeneration-dpi$dpiPercent-$ManualProfile"')
   && acceptanceScript.includes('"acceptance-evidence-$runLabel-"'));
+check('第一阶段提供可双击且不依赖中文代码页的 ASCII 启动器',
+  stageOneLauncherBytes.every((byte) => byte <= 0x7f)
+  && stageOneLauncher.includes('windows-acceptance.ps1')
+  && stageOneLauncher.includes('-ExpectedDpiPercent 100 -ManualProfile core')
+  && stageOneLauncher.includes('pause'));
 const exportChecker = await fs.readFile(path.join(repoRoot, 'scripts', 'check-export.mjs'), 'utf8');
 check('导出静态核验按放宽后的受控 ZIP 限制读取大型 Electron EXE',
   exportChecker.includes('readZipEntry(buf, exeEntry, ZIP_LIMITS_RELAXED)'));

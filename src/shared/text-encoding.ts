@@ -8,3 +8,9 @@ export function ensureUtf8Bom(input: Buffer): Buffer {
   if (input.subarray(0, UTF8_BOM.length).equals(UTF8_BOM)) return input;
   return Buffer.concat([UTF8_BOM, input]);
 }
+
+/** Normalize text payloads for Windows command processors without changing content. */
+export function ensureCrLf(input: Buffer): Buffer {
+  const normalized = input.toString('utf8').replace(/\r\n|\r|\n/g, '\n').replace(/\n/g, '\r\n');
+  return Buffer.from(normalized, 'utf8');
+}

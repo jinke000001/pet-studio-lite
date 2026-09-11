@@ -10,7 +10,7 @@ import { validatePetPack } from '../src/shared/petpack';
 import { ProjectsStore } from '../src/shared/projects';
 import { appendToZip } from '../src/shared/zipw';
 import { inspectZip, ZIP_LIMITS_RELAXED } from '../src/shared/zip';
-import { ensureUtf8Bom } from '../src/shared/text-encoding';
+import { ensureCrLf, ensureUtf8Bom } from '../src/shared/text-encoding';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -38,14 +38,22 @@ async function main(): Promise<void> {
     const acceptanceScript = ensureUtf8Bom(
       await fs.readFile(path.join(REPO, 'scripts', 'windows-shimeji-acceptance.ps1')),
     );
+    const stageOneLauncher = ensureCrLf(
+      await fs.readFile(path.join(REPO, 'scripts', 'run-windows-stage1-100.cmd')),
+    );
     const acceptanceGuide = await fs.readFile(path.join(REPO, 'docs', 'acceptance', 'shimeji-windows.md'));
     const augmented = await appendToZip(await fs.readFile(outcome.zipPath), [
       { name: 'Windows统一验收.ps1', data: acceptanceScript, compress: false },
+      { name: 'windows-acceptance.ps1', data: acceptanceScript, compress: false },
+      { name: '01-run-stage1-100dpi.cmd', data: stageOneLauncher, compress: false },
       { name: 'Shimeji-Windows-验收说明.md', data: acceptanceGuide, compress: false },
     ]);
     await fs.writeFile(outcome.zipPath, augmented);
     const names = inspectZip(augmented, ZIP_LIMITS_RELAXED).entries.map((entry) => entry.name);
-    if (!names.includes('Windows统一验收.ps1') || !names.includes('Shimeji-Windows-验收说明.md')) {
+    if (!names.includes('Windows统一验收.ps1')
+      || !names.includes('windows-acceptance.ps1')
+      || !names.includes('01-run-stage1-100dpi.cmd')
+      || !names.includes('Shimeji-Windows-验收说明.md')) {
       throw new Error('测试产物缺少 Windows 统一验收文件');
     }
     const sha256 = crypto.createHash('sha256').update(augmented).digest('hex');
