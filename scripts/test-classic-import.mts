@@ -109,6 +109,27 @@ try {
   check('篡改后的未知运行行为在加载边界被拒绝',
     !tampered.ok && tampered.errors.some((error) => error.includes('类型不支持')));
 
+  const fanoutSource = path.join(temp, 'Fanout');
+  await fs.cp(source, fanoutSource, { recursive: true });
+  const fanoutNodes = Array.from({ length: 8 }, (_, index) => {
+    const target = index === 7 ? 'Stand' : `Fanout-${index + 1}`;
+    return `<Action Name="Fanout-${index}" Type="Sequence">${Array.from({ length: 8 }, () => `<ActionReference Name="${target}" />`).join('')}</Action>`;
+  }).join('');
+  const fanoutActions = `<Mascot><ActionList>
+    <Action Name="Stand" Type="Stay" BorderType="Floor"><Animation><Pose Image="/shime1.png" Duration="250" /></Animation></Action>
+    <Action Name="Walk" Type="Move" BorderType="Floor">${Array.from({ length: 8 }, () => '<ActionReference Name="Fanout-0" />').join('')}</Action>
+    ${fanoutNodes}
+    <Action Name="Fall" Type="Embedded"><Animation><Pose Image="/shime4.png" Duration="100" /></Animation></Action>
+    <Action Name="Dragged" Type="Embedded"><Animation><Pose Image="/shime5.png" Duration="100" /></Animation></Action>
+    <Action Name="Thrown" Type="Embedded"><ActionReference Name="Fall" /></Action>
+    <Action Name="ChaseMouse" Type="Move"><ActionReference Name="Walk" /></Action>
+  </ActionList></Mascot>`;
+  await fs.writeFile(path.join(fanoutSource, 'conf', 'actions.xml'), fanoutActions, 'utf8');
+  const fanoutOutput = path.join(temp, 'fanout-output');
+  await convertClassicShimejiDirectory(fanoutSource, fanoutOutput);
+  check('高扇出经典动作引用只收集一个图集行所需帧，不会指数展开',
+    (await validatePetPack(fanoutOutput, { probe: sharpImageProbe })).ok);
+
   const brokenSource = path.join(temp, 'Broken');
   await fs.cp(source, brokenSource, { recursive: true });
   await fs.rm(path.join(brokenSource, 'img', 'shime5.png'));

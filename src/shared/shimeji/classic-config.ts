@@ -8,6 +8,7 @@ const MAX_REFERENCES = 4_096;
 const MAX_POSES = 4_096;
 const MAX_DEPTH = 64;
 const MAX_NAME_LENGTH = 128;
+const MAX_RUNTIME_BEHAVIORS = 128;
 const REQUIRED_NAMES = ['ChaseMouse', 'Fall', 'Dragged', 'Thrown'] as const;
 
 export type ClassicActionKind = 'stand' | 'walk' | 'fall' | 'dragged' | 'thrown' | 'chase-mouse' | 'jump' | 'climb' | 'unknown';
@@ -58,8 +59,8 @@ export interface ClassicRuntimeBehavior {
 
 export function parseClassicRuntimePlan(raw: unknown): ClassicRuntimeBehavior[] | null {
   if (raw === undefined || raw === null) return null;
-  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 128) {
-    throw new Error('classicBehaviorPlan 必须是 1–128 项数组');
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_RUNTIME_BEHAVIORS) {
+    throw new Error(`classicBehaviorPlan 必须是 1–${MAX_RUNTIME_BEHAVIORS} 项数组`);
   }
   return raw.map((entry, index) => {
     if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
@@ -326,29 +327,44 @@ export function compileClassicShimeji(actionsXml: string, behaviorsXml: string):
  */
 export function compileClassicRuntimePlan(profile: ClassicShimejiProfile): ClassicRuntimeBehavior[] {
   const actions = new Map(profile.actions.map((action) => [action.name, action]));
-  const resolveKind = (action: ClassicAction, seen = new Set<string>()): ClassicActionKind => {
-    if (seen.has(action.name)) return 'unknown';
-    if (action.kind !== 'unknown') return action.kind;
-    seen.add(action.name);
+  const resolvedKinds = new Map<string, ClassicActionKind>();
+  const resolveKind = (action: ClassicAction, visiting = new Set<string>()): ClassicActionKind => {
+    const cached = resolvedKinds.get(action.name);
+    if (cached) return cached;
+    if (visiting.has(action.name)) return 'unknown';
+    if (action.kind !== 'unknown') {
+      resolvedKinds.set(action.name, action.kind);
+      return action.kind;
+    }
+    const nextVisiting = new Set(visiting).add(action.name);
     for (const reference of action.references) {
       const next = actions.get(reference);
       if (!next) continue;
-      const kind = resolveKind(next, new Set(seen));
-      if (kind !== 'unknown') return kind;
+      const kind = resolveKind(next, nextVisiting);
+      if (kind !== 'unknown') {
+        resolvedKinds.set(action.name, kind);
+        return kind;
+      }
     }
+    resolvedKinds.set(action.name, 'unknown');
     return 'unknown';
   };
-  const durationOf = (action: ClassicAction, seen = new Set<string>()): number => {
-    if (seen.has(action.name)) return 0;
-    seen.add(action.name);
-    const own = action.poses.reduce((sum, pose) => sum + (pose.durationMs ?? 0), 0)
+  const resolvedDurations = new Map<string, number>();
+  const durationOf = (action: ClassicAction, visiting = new Set<string>()): number => {
+    const cached = resolvedDurations.get(action.name);
+    if (cached !== undefined) return cached;
+    if (visiting.has(action.name)) return 0;
+    const nextVisiting = new Set(visiting).add(action.name);
+    let duration = action.poses.reduce((sum, pose) => Math.min(10_000, sum + (pose.durationMs ?? 0)), 0)
       || action.durationMs
       || 0;
-    const nested = action.references.reduce((sum, reference) => {
+    for (const reference of action.references) {
       const next = actions.get(reference);
-      return sum + (next ? durationOf(next, new Set(seen)) : 0);
-    }, 0);
-    return own + nested;
+      if (next) duration = Math.min(10_000, duration + durationOf(next, nextVisiting));
+      if (duration >= 10_000) break;
+    }
+    resolvedDurations.set(action.name, duration);
+    return duration;
   };
   const kindMap: Partial<Record<ClassicActionKind, ClassicRuntimeBehaviorKind>> = {
     stand: 'waiting',
@@ -358,6 +374,7 @@ export function compileClassicRuntimePlan(profile: ClassicShimejiProfile): Class
   };
   const plan: ClassicRuntimeBehavior[] = [];
   for (const behavior of profile.behaviors) {
+    if (plan.length >= MAX_RUNTIME_BEHAVIORS) break;
     if (behavior.frequency <= 0) continue;
     const action = actions.get(behavior.actionName);
     if (!action) continue;

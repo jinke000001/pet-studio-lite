@@ -187,16 +187,20 @@ function buildStateRows(
   warnings: string[],
 ): FrameInput[][] {
   const actions = new Map(profile.actions.map((action) => [action.name, action]));
-  const collect = (action: ClassicAction, seen = new Set<string>()): ClassicPose[] => {
-    if (seen.has(action.name)) return [];
-    seen.add(action.name);
-    return [
-      ...action.poses,
-      ...action.references.flatMap((name) => {
-        const referenced = actions.get(name);
-        return referenced ? collect(referenced, new Set(seen)) : [];
-      }),
-    ];
+  const poseCache = new Map<string, ClassicPose[]>();
+  const collect = (action: ClassicAction, visiting = new Set<string>()): ClassicPose[] => {
+    const cached = poseCache.get(action.name);
+    if (cached) return cached;
+    if (visiting.has(action.name)) return [];
+    const nextVisiting = new Set(visiting).add(action.name);
+    const result = action.poses.slice(0, PETDEX_COLS);
+    for (const name of action.references) {
+      if (result.length >= PETDEX_COLS) break;
+      const referenced = actions.get(name);
+      if (referenced) result.push(...collect(referenced, nextVisiting).slice(0, PETDEX_COLS - result.length));
+    }
+    poseCache.set(action.name, result);
+    return result;
   };
   const posesFor = (kinds: ClassicAction['kind'][]): ClassicPose[] => {
     for (const kind of kinds) {

@@ -291,6 +291,33 @@ check('经典频率编译为等待与游走计划',
   && runtimePlan.some((behavior) => behavior.name === 'Walk' && behavior.kind === 'wander' && behavior.weight === 30));
 check('物理动作不会进入随机自动行为计划',
   !runtimePlan.some((behavior) => ['Fall', 'Dragged', 'Thrown'].includes(behavior.name)));
+if (compiledClassic.ok) {
+  const oversizedPlan = compileClassicRuntimePlan({
+    actions: compiledClassic.profile.actions,
+    behaviors: Array.from({ length: 140 }, (_, index) => ({
+      name: `Walk-${index}`,
+      actionName: 'Walk',
+      frequency: 1,
+      next: [],
+    })),
+  });
+  check('经典自动行为计划在加载契约上限内截断', oversizedPlan.length === 128);
+  const fanoutActions = Array.from({ length: 8 }, (_, index) => ({
+    name: `Fanout-${index}`,
+    kind: 'unknown' as const,
+    type: 'Sequence',
+    border: null,
+    durationMs: null,
+    references: Array.from({ length: 8 }, () => index === 7 ? 'Walk' : `Fanout-${index + 1}`),
+    poses: [],
+  }));
+  const boundedFanoutPlan = compileClassicRuntimePlan({
+    actions: [...compiledClassic.profile.actions, ...fanoutActions],
+    behaviors: [{ name: 'Fanout', actionName: 'Fanout-0', frequency: 1, next: [] }],
+  });
+  check('高扇出动作引用通过缓存解析且不会指数展开',
+    boundedFanoutPlan[0]?.kind === 'wander' && boundedFanoutPlan[0].durationMs <= 10_000);
+}
 
 const withDoctype = compileClassicShimeji(
   '<!DOCTYPE Mascot SYSTEM "https://example.invalid/evil.dtd"><Mascot/>',
