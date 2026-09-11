@@ -18,6 +18,15 @@ export interface WindowsEvidenceArtifactOptions {
   minSoakMinutes?: number;
 }
 
+export type WindowsEvidenceRunOptions = Omit<WindowsEvidenceArtifactOptions, 'candidatePath'>;
+
+export interface WindowsEvidenceCandidateIdentity {
+  candidateZipSha256: string;
+  integrity: ArtifactIntegrityExpectation;
+  acceptanceScriptSha256: string;
+  manifest: unknown;
+}
+
 export interface WindowsEvidenceArtifactVerification {
   candidateZipSha256: string;
   integrity: ArtifactIntegrityExpectation;
@@ -72,11 +81,11 @@ async function validPng(filePath: string): Promise<boolean> {
   }
 }
 
-export async function verifyWindowsEvidenceArtifacts(
-  options: WindowsEvidenceArtifactOptions,
-): Promise<WindowsEvidenceArtifactVerification> {
-  const candidateBytes = await fs.readFile(options.candidatePath).catch(() => {
-    throw new Error(`找不到候选 ZIP：${options.candidatePath}`);
+export async function loadWindowsEvidenceCandidate(
+  candidatePath: string,
+): Promise<WindowsEvidenceCandidateIdentity> {
+  const candidateBytes = await fs.readFile(candidatePath).catch(() => {
+    throw new Error(`找不到候选 ZIP：${candidatePath}`);
   });
   const entries = inspectZip(candidateBytes, ZIP_LIMITS_RELAXED).entries;
   const integrityBytes = await readZipEntry(candidateBytes, exactEntry(entries, 'runtime-integrity.json'));
@@ -106,6 +115,18 @@ export async function verifyWindowsEvidenceArtifacts(
     throw new Error('候选 ZIP 内实际 manifest 与 runtime-integrity.json 不一致');
   }
 
+  return {
+    candidateZipSha256: sha256(candidateBytes),
+    integrity: expectedIntegrity,
+    acceptanceScriptSha256: sha256(acceptanceScriptBytes),
+    manifest,
+  };
+}
+
+export async function verifyWindowsEvidenceRun(
+  candidate: WindowsEvidenceCandidateIdentity,
+  options: WindowsEvidenceRunOptions,
+): Promise<WindowsEvidenceArtifactVerification> {
   const evidenceStat = await fs.stat(options.evidencePath).catch(() => null);
   if (!evidenceStat) throw new Error(`找不到 Windows 证据路径：${options.evidencePath}`);
   const resultPath = evidenceStat.isDirectory()
@@ -116,11 +137,10 @@ export async function verifyWindowsEvidenceArtifacts(
     throw new Error(`找不到 Windows result.json：${resultPath}`);
   });
   const result = parseJson(resultBytes, 'result.json');
-  const acceptanceScriptSha256 = sha256(acceptanceScriptBytes);
   const validation = validateWindowsEvidence(result, {
-    expectedIntegrity,
-    expectedManifest: manifest,
-    expectedAcceptanceScriptSha256: acceptanceScriptSha256,
+    expectedIntegrity: candidate.integrity,
+    expectedManifest: candidate.manifest,
+    expectedAcceptanceScriptSha256: candidate.acceptanceScriptSha256,
     expectedWindowsGeneration: options.expectedWindowsGeneration,
     expectedDpiPercent: options.expectedDpiPercent,
     requiredManualProfile: options.requiredManualProfile,
@@ -162,10 +182,18 @@ export async function verifyWindowsEvidenceArtifacts(
   }
 
   return {
-    candidateZipSha256: sha256(candidateBytes),
-    integrity: expectedIntegrity,
-    acceptanceScriptSha256,
+    candidateZipSha256: candidate.candidateZipSha256,
+    integrity: candidate.integrity,
+    acceptanceScriptSha256: candidate.acceptanceScriptSha256,
     validation,
     artifactErrors,
   };
+}
+
+export async function verifyWindowsEvidenceArtifacts(
+  options: WindowsEvidenceArtifactOptions,
+): Promise<WindowsEvidenceArtifactVerification> {
+  const { candidatePath, ...runOptions } = options;
+  const candidate = await loadWindowsEvidenceCandidate(candidatePath);
+  return verifyWindowsEvidenceRun(candidate, runOptions);
 }

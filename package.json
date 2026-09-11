@@ -21,7 +21,8 @@
     "export:shimeji-test": "npm run build:pet && esbuild scripts/export-shimeji-acceptance.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/export-shimeji-acceptance.bundle.mjs --packages=external && node scripts/export-shimeji-acceptance.bundle.mjs",
     "fixtures": "node scripts/make-fixtures.mjs",
     "check:export": "node scripts/check-export.mjs",
-    "check:windows-evidence": "esbuild scripts/check-windows-evidence.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/check-windows-evidence.bundle.mjs --packages=external && node scripts/check-windows-evidence.bundle.mjs"
+    "check:windows-evidence": "esbuild scripts/check-windows-evidence.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/check-windows-evidence.bundle.mjs --packages=external && node scripts/check-windows-evidence.bundle.mjs",
+    "check:windows-matrix": "esbuild scripts/check-windows-matrix.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/check-windows-matrix.bundle.mjs --packages=external && node scripts/check-windows-matrix.bundle.mjs"
   },
   "engines": {
     "node": ">=18"

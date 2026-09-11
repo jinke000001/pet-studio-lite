@@ -2,10 +2,13 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { verifyWindowsEvidenceMatrixArtifacts } from '../src/main/windows-evidence-matrix-verifier';
 import { verifyWindowsEvidenceArtifacts } from '../src/main/windows-evidence-verifier';
 import { createZip } from '../src/shared/zipw';
+import { evaluateWindowsEvidenceMatrix, type WindowsEvidenceMatrixRun } from '../src/shared/windows-evidence-matrix';
 import {
   CORE_MANUAL_CHECK_IDS,
+  MIXED_MANUAL_CHECK_IDS,
   REQUIRED_AUTOMATIC_CHECKS,
   REQUIRED_SOAK_CHECKS,
   validateWindowsEvidence,
@@ -272,6 +275,51 @@ console.log('\n[候选 ZIP 与证据目录联检]');
       verified.validation.ok && verified.artifactErrors.length === 0,
       [...verified.validation.errors, ...verified.artifactErrors].join('；'));
 
+    const matrixEvidenceDirs: string[] = [];
+    for (const windowsGeneration of ['10', '11'] as const) {
+      for (const dpiPercent of [100, 125, 150] as const) {
+        const isMixed = windowsGeneration === '10' && dpiPercent === 100;
+        const isSoak = windowsGeneration === '11' && dpiPercent === 150;
+        const matrixDir = path.join(tempRoot, `matrix-win${windowsGeneration}-${dpiPercent}`);
+        matrixEvidenceDirs.push(matrixDir);
+        await fs.mkdir(matrixDir);
+        const matrixResult = isSoak ? soakResult() : validResult();
+        matrixResult.runtimeExeSha256 = candidateIntegrity.executable.sha256;
+        matrixResult.manifestSha256 = candidateIntegrity.manifestSha256;
+        matrixResult.artifactIntegrity = candidateIntegrity;
+        matrixResult.acceptanceScriptSha256 = candidateAcceptanceScriptSha256;
+        matrixResult.manifest = candidateManifest;
+        matrixResult.dpi = Math.round(96 * dpiPercent / 100);
+        matrixResult.os = {
+          caption: `Microsoft Windows ${windowsGeneration} Pro`,
+          version: windowsGeneration === '11' ? '10.0.26100' : '10.0.19045',
+          buildNumber: windowsGeneration === '11' ? 26100 : 19045,
+          architecture: '64-bit',
+          generation: windowsGeneration,
+        };
+        const manualIds = isMixed ? MIXED_MANUAL_CHECK_IDS : CORE_MANUAL_CHECK_IDS;
+        matrixResult.manual = {
+          profile: isMixed ? 'mixed' : 'core',
+          completedAt: '2026-09-11T10:00:50.000Z',
+          checks: manualIds.map((id) => ({ id, name: id, passed: true, screenshot: `manual-${id}.png` })),
+        };
+        await fs.writeFile(path.join(matrixDir, 'result.json'), JSON.stringify(matrixResult, null, 2));
+        for (const name of ['01-first-launch.png', '02-two-pets.png', '03-after-motion.png',
+          ...manualIds.map((id) => `manual-${id}.png`)]) {
+          await fs.writeFile(path.join(matrixDir, name), fakePng);
+        }
+        if (isSoak) {
+          await fs.writeFile(path.join(matrixDir, '04-after-soak.png'), fakePng);
+          const samples = (matrixResult.soak as { samples: unknown[] }).samples;
+          await fs.writeFile(path.join(matrixDir, 'soak-samples.json'), JSON.stringify(samples, null, 2));
+        }
+      }
+    }
+    const verifiedMatrix = await verifyWindowsEvidenceMatrixArtifacts(candidatePath, matrixEvidenceDirs);
+    check('真实目录联检可一次完成六轮 Windows 验收矩阵',
+      verifiedMatrix.matrix.ok && verifiedMatrix.runs.every((run) => run.errors.length === 0),
+      [...verifiedMatrix.matrix.errors, ...verifiedMatrix.runs.flatMap((run) => run.errors)].join('；'));
+
     await fs.writeFile(path.join(evidenceDir, 'failure.txt'), 'simulated failure');
     const withFailureMarker = await verifyWindowsEvidenceArtifacts({ candidatePath, evidencePath: evidenceDir });
     check('证据目录存在 failure.txt 时拒绝',
@@ -284,6 +332,63 @@ console.log('\n[候选 ZIP 与证据目录联检]');
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
+}
+
+console.log('\n[Windows 10/11 验收矩阵]');
+function completeMatrixRuns(): WindowsEvidenceMatrixRun[] {
+  const runs: WindowsEvidenceMatrixRun[] = [];
+  for (const windowsGeneration of ['10', '11'] as const) {
+    for (const dpiPercent of [100, 125, 150] as const) {
+      runs.push({
+        id: `win${windowsGeneration}-dpi${dpiPercent}`,
+        ok: true,
+        windowsGeneration,
+        dpiPercent,
+        manualProfile: 'core',
+        soakMinutes: 0,
+      });
+    }
+  }
+  runs[0]!.manualProfile = 'mixed';
+  runs[5]!.soakMinutes = 60;
+  return runs;
+}
+{
+  const matrix = evaluateWindowsEvidenceMatrix(completeMatrixRuns());
+  check('六个 OS/DPI 组合加 mixed 与 60 分钟证据可完成矩阵', matrix.ok, matrix.errors.join('；'));
+  check('矩阵准确列出六个核心覆盖项', matrix.coverage.core.length === 6);
+}
+{
+  const runs = completeMatrixRuns().filter((run) => run.windowsGeneration !== '10');
+  const matrix = evaluateWindowsEvidenceMatrix(runs);
+  check('缺少 Windows 10 证据时拒绝', !matrix.ok && matrix.errors.some((item) => item.includes('Windows 10')));
+}
+{
+  const runs = completeMatrixRuns().filter((run) => !(run.windowsGeneration === '11' && run.dpiPercent === 125));
+  const matrix = evaluateWindowsEvidenceMatrix(runs);
+  check('缺少单一 DPI 组合时拒绝', !matrix.ok && matrix.errors.some((item) => item.includes('Windows 11 / 125%')));
+}
+{
+  const runs = completeMatrixRuns().map((run) => ({ ...run, manualProfile: 'core' as const }));
+  const matrix = evaluateWindowsEvidenceMatrix(runs);
+  check('没有 mixed 双屏人工证据时拒绝', !matrix.ok && matrix.errors.some((item) => item.includes('mixed')));
+}
+{
+  const runs = completeMatrixRuns().map((run) => ({ ...run, soakMinutes: 59 }));
+  const matrix = evaluateWindowsEvidenceMatrix(runs);
+  check('没有真实 60 分钟长稳证据时拒绝', !matrix.ok && matrix.errors.some((item) => item.includes('60 分钟')));
+}
+{
+  const runs = completeMatrixRuns();
+  runs.push({ ...runs[0]!, ok: false, id: 'failed-extra' });
+  const matrix = evaluateWindowsEvidenceMatrix(runs);
+  check('纳入矩阵的失败证据不会被忽略', !matrix.ok && matrix.errors.some((item) => item.includes('failed-extra')));
+}
+{
+  const runs = completeMatrixRuns();
+  runs[1]!.id = runs[0]!.id;
+  const matrix = evaluateWindowsEvidenceMatrix(runs);
+  check('同一证据不能重复计数', !matrix.ok && matrix.errors.some((item) => item.includes('重复')));
 }
 
 console.log(`\n结果：${passed} 通过，${failed} 失败`);
