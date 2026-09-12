@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { resolveDeclaredVersion, type PetPackInfo } from './petpack';
-import { validatePetConfig, normalizeZoom, DEFAULT_PET_CONFIG, type PetRuntimeConfig } from './config';
+import { validatePetConfig, normalizeZoom, DEFAULT_PET_CONFIG, PET_NAME_MAX, type PetRuntimeConfig } from './config';
 
 /**
  * 制作台项目存储（纯 Node、rootDir 注入，可在临时目录里单测）。
@@ -307,7 +307,12 @@ export class ProjectsStore {
         },
         sourcePath: source.path,
         importedAt: new Date().toISOString(),
-        config: { ...DEFAULT_PET_CONFIG, petName: pack.displayName },
+        // Project identity keeps the full source name. The runtime label must
+        // already satisfy config limits, including an emoji at the cut point.
+        config: {
+          ...DEFAULT_PET_CONFIG,
+          petName: pack.displayName.trim().slice(0, PET_NAME_MAX).replace(/[\uD800-\uDBFF]$/, '').trim() || DEFAULT_PET_CONFIG.petName,
+        },
       };
       await fs.writeFile(path.join(dir, 'project.json'), JSON.stringify(meta, null, 2), 'utf8');
       const { index } = await this.load();

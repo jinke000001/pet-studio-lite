@@ -44,6 +44,7 @@ interface FrameInput {
 export async function convertClassicShimejiDirectory(
   sourceDir: string,
   outputDir: string,
+  options: { sourceName?: string } = {},
 ): Promise<ClassicConversionResult> {
   const root = await requireDirectory(sourceDir);
   if (await exists(outputDir)) throw new Error(`经典 Shimeji 转换目标已存在：${outputDir}`);
@@ -85,8 +86,8 @@ export async function convertClassicShimejiDirectory(
     }
   }
 
-  const slug = slugify(path.basename(root));
-  const displayName = path.basename(root).trim() || 'Classic Shimeji';
+  const displayName = options.sourceName?.trim() || path.basename(root).trim() || 'Classic Shimeji';
+  const slug = slugify(displayName);
   const classicBehaviorPlan = compileClassicRuntimePlan(compiled.profile);
   const sheet = await sharp({
     create: {

@@ -43,6 +43,7 @@ export interface CheckItem {
 
 /** 制作台内预览需要的数据（图集 data URL + 精灵配置）。 */
 export interface PreviewPayload {
+  sourceFormat?: import('./petpack').PetSourceFormat | null;
   sprite: PetSpriteConfig;
   spritesheetDataUrl: string;
   config: PetRuntimeConfig;

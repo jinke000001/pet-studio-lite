@@ -75,7 +75,9 @@ async function importFromPath(sourcePath: string): Promise<ImportResult> {
     if (!result.ok && !hasPetJson) {
       classicTempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'petstudio-classic-'));
       const convertedDir = path.join(classicTempRoot, 'converted');
-      await convertClassicShimejiDirectory(packDir, convertedDir);
+      await convertClassicShimejiDirectory(packDir, convertedDir, {
+        sourceName: isZip ? path.basename(sourcePath, path.extname(sourcePath)) : path.basename(sourcePath),
+      });
       result = await validatePetPack(convertedDir, { probe: decodeProbe });
       packDir = convertedDir;
     }
@@ -248,6 +250,7 @@ function registerIpc(): void {
       config: meta.config,
       license: result.pack.license,
       petdexVersion: result.pack.version,
+      sourceFormat: result.pack.sourceFormat,
     };
   });
 

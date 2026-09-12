@@ -99,6 +99,10 @@ try {
   check('经典图集奔跑行优先使用 run 动作',
     JSON.stringify(await centerColorForRow(7)) === JSON.stringify([240, 160, 80]));
   const generatedJson = JSON.parse(await fs.readFile(path.join(convertedDir, 'pet.json'), 'utf8')) as Record<string, unknown>;
+  const namedOutput = path.join(temp, 'named-conversion');
+  await convertClassicShimejiDirectory(source, namedOutput, { sourceName: 'My Mushroom' });
+  const namedJson = JSON.parse(await fs.readFile(path.join(namedOutput, 'pet.json'), 'utf8'));
+  check('ZIP 临时解压路径不进入角色名称与 ID', namedJson.displayName === 'My Mushroom' && namedJson.id === 'classic-my-mushroom');
   check('生成包保留安全编译后的经典行为资料',
     generatedJson['sourceFormat'] === 'classic-shimeji'
     && typeof generatedJson['classicProfile'] === 'object'

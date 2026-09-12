@@ -241,6 +241,20 @@ async function storeTests(tmp: string): Promise<void> {
   const srcDir = path.join(FIXTURES, 'pack-v1');
   const srcHashBefore = await hashDir(srcDir);
 
+  for (const [index, displayName] of ['a-long-classic-shimeji-archive-name-20260912', 'a'.repeat(23) + '🐾'].entries()) {
+    const source = path.join(tmp, `long-name-${index}`);
+    await fs.cp(srcDir, source, { recursive: true });
+    const json = JSON.parse(await fs.readFile(path.join(source, 'pet.json'), 'utf8'));
+    await fs.writeFile(path.join(source, 'pet.json'), JSON.stringify({ ...json, displayName }));
+    const pack = await validatePetPack(source);
+    if (!pack.ok) throw new Error(pack.errors.join(';'));
+    const isolated = new ProjectsStore(path.join(tmp, `long-name-store-${index}`));
+    const imported = await isolated.importValidatedPack(pack.pack, { type: 'dir', path: source });
+    check(`长来源名称 ${index} 保留完整项目名且默认配置可直接导出`,
+      imported.displayName === displayName && validatePetConfig(imported.config).ok);
+    check(`长来源名称 ${index} 不截断 Unicode 代理对`, !/[\uD800-\uDBFF]$/.test(imported.config.petName));
+  }
+
   const validated = await validatePetPack(srcDir);
   if (!validated.ok) {
     check('fixture pack-v1 可用于存储测试', false, validated.errors.join('；'));
