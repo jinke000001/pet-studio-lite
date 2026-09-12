@@ -8,7 +8,7 @@
     "build": "electron-vite build",
     "build:pet": "electron-vite build --config electron.vite.pet.config.ts && node scripts/check-pet-runtime-bundle.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:petpack && npm run test:zip && npm run test:petdex && npm run test:runtime && npm run test:shimeji && npm run test:classic && npm run test:evidence",
+    "test": "npm run test:petpack && npm run test:zip && npm run test:petdex && npm run test:runtime && npm run test:shimeji && npm run test:classic && npm run test:evidence && npm run test:export-snapshot",
     "test:petpack": "esbuild scripts/test-petpack.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petpack.bundle.mjs --packages=external && node scripts/test-petpack.bundle.mjs",
     "test:zip": "esbuild scripts/test-zip.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-zip.bundle.mjs --packages=external && node scripts/test-zip.bundle.mjs",
     "test:petdex": "esbuild scripts/test-petdex.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petdex.bundle.mjs --packages=external && node scripts/test-petdex.bundle.mjs",
@@ -23,7 +23,8 @@
     "fixtures": "node scripts/make-fixtures.mjs",
     "check:export": "node scripts/check-export.mjs",
     "check:windows-evidence": "esbuild scripts/check-windows-evidence.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/check-windows-evidence.bundle.mjs --packages=external && node scripts/check-windows-evidence.bundle.mjs",
-    "check:windows-matrix": "esbuild scripts/check-windows-matrix.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/check-windows-matrix.bundle.mjs --packages=external && node scripts/check-windows-matrix.bundle.mjs"
+    "check:windows-matrix": "esbuild scripts/check-windows-matrix.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/check-windows-matrix.bundle.mjs --packages=external && node scripts/check-windows-matrix.bundle.mjs",
+    "test:export-snapshot": "esbuild scripts/test-export-snapshot.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/test-export-snapshot.bundle.mjs && node scripts/test-export-snapshot.bundle.mjs"
   },
   "engines": {
     "node": ">=18"

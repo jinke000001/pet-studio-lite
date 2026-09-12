@@ -4,6 +4,8 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { ProjectMeta } from '../shared/types';
+import { prepareExportPack } from './export-pack';
+import { sharpImageProbe } from './image-probe';
 import type { PetRuntimeConfig } from '../shared/config';
 import { buildManifest, distributionNote, type ExportManifest } from '../shared/manifest';
 import { appendToZip } from '../shared/zipw';
@@ -148,6 +150,10 @@ export async function exportWindowsZip(
   // 产物标记 internal-test-only（见 manifest.distribution / distributionNote）。
   const staging = await fs.mkdtemp(path.join(os.tmpdir(), 'petstudio-export-'));
   try {
+    const extraDir = path.join(staging, 'extra');
+    const packDir = path.join(extraDir, 'petpack');
+    await prepareExportPack(meta, projectDir, packDir, sharpImageProbe);
+
     // 2. 准备运行时构建产物（out-pet）
     deps.onProgress('prepare', '准备宠物运行时…');
     const outPet = path.join(deps.repoRoot, 'out-pet');
@@ -171,14 +177,6 @@ export async function exportWindowsZip(
     }, null, 2), 'utf8');
 
     // 4. 宠物包副本 + manifest + 启动说明
-    const extraDir = path.join(staging, 'extra');
-    const packDir = path.join(extraDir, 'petpack');
-    await fs.mkdir(packDir, { recursive: true });
-    await fs.copyFile(path.join(projectDir, 'pet.json'), path.join(packDir, 'pet.json'));
-    await fs.copyFile(path.join(projectDir, meta.spritesheetFile), path.join(packDir, meta.spritesheetFile));
-    const configForRuntime = buildRuntimeConfig(meta.config);
-    await fs.writeFile(path.join(packDir, 'config.json'), JSON.stringify(configForRuntime, null, 2), 'utf8');
-
     const manifest = buildManifest({
       productVersion: deps.productVersion,
       pet: {
