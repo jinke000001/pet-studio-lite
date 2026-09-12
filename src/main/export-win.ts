@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { ProjectMeta } from '../shared/types';
 import { prepareExportPack } from './export-pack';
+import { preparePetRuntime } from './prepare-pet-runtime';
 import { sharpImageProbe } from './image-probe';
 import type { PetRuntimeConfig } from '../shared/config';
 import { buildManifest, distributionNote, type ExportManifest } from '../shared/manifest';
@@ -156,13 +157,10 @@ export async function exportWindowsZip(
 
     // 2. 准备运行时构建产物（out-pet）
     deps.onProgress('prepare', '准备宠物运行时…');
-    const outPet = path.join(deps.repoRoot, 'out-pet');
-    try {
-      await fs.stat(path.join(outPet, 'main', 'main.js'));
-    } catch {
-      deps.onProgress('prepare', '首次导出需要构建桌宠运行时（一次性）…');
+    const outPet = await preparePetRuntime(deps.repoRoot, async () => {
+      deps.onProgress('prepare', '正在构建最新桌宠运行时…');
       await run('npm', ['run', 'build:pet'], deps.repoRoot);
-    }
+    });
 
     // 3. 组装 app 目录
     const appDir = path.join(staging, 'app');
