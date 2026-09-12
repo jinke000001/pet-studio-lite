@@ -790,6 +790,37 @@ h2 {
   flex-wrap: wrap;
   justify-content: center;
 }
+.animation-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  width: 100%;
+}
+.animation-transport, .animation-options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.animation-transport .btn { padding: 6px 12px; }
+.animation-position {
+  min-width: 72px;
+  color: var(--text-secondary);
+  font: 12px ui-monospace, Menlo, monospace;
+  text-align: center;
+}
+.animation-options label { color: var(--text-secondary); font-size: 12px; }
+.animation-options select {
+  margin-left: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+.animation-hint { margin: 0; color: var(--text-secondary); font-size: 12px; }
+.rail-project-select:disabled, .rail-project-del:disabled { opacity: .45; cursor: wait; }
 .chip {
   border: 1px solid var(--border-strong);
   background: var(--bg-card);

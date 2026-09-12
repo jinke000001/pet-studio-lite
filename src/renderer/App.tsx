@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { StudioApi } from '../preload/studio';
-import type { ExportProgressEvent, PetdexImportCandidate, PreviewPayload, ProjectMeta, StudioState } from '../shared/types';
+import type { ExportProgressEvent, PetdexImportCandidate, PetRuntimeConfig, PreviewPayload, ProjectMeta, StudioState } from '../shared/types';
 import { resolveDistribution, distributionNote } from '../shared/manifest';
 import { removeConfirmMessage } from '../shared/messages';
 import { validatePetConfig, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../shared/config';
 import { Sprite, type PetState } from './pet/Sprite';
 import { GlyphField } from './components/GlyphField';
+import { AnimationInspector } from './components/AnimationInspector';
 
 declare global {
   interface Window {
@@ -27,6 +28,7 @@ const STEPS: Array<{ id: Step; label: string; hint: string }> = [
 const STATE_LABELS: Record<string, string> = {
   idle: '待机',
   walking: '行走',
+  climbing: '攀爬',
   running: '奔跑',
   talking: '说话/挥手',
   jumping: '跳跃',
@@ -38,7 +40,7 @@ const STATE_LABELS: Record<string, string> = {
   extra2: '附加动作 2（v2，语义未公开）',
 };
 /** 展示顺序：先常见动作，再附加动作。 */
-const STATE_ORDER = ['idle', 'walking', 'running', 'talking', 'jumping', 'dragging', 'waiting', 'review', 'failed', 'extra1', 'extra2'];
+const STATE_ORDER = ['idle', 'walking', 'running', 'climbing', 'talking', 'jumping', 'dragging', 'waiting', 'review', 'failed', 'extra1', 'extra2'];
 
 const LICENSE_LABEL: Record<string, string> = {
   'authorized': '已授权',
@@ -59,6 +61,7 @@ export function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [petdexCandidate, setPetdexCandidate] = useState<PetdexImportCandidate | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, PetRuntimeConfig>>({});
 
   async function refresh() {
     try {
@@ -81,6 +84,7 @@ export function App() {
   async function doImport(kind: 'dir' | 'zip') {
     setBusy('importing');
     setNotice(null);
+    setImportErrors([]);
     try {
       const res = await window.studio.importPack(kind);
       if (res.ok) {
@@ -92,6 +96,8 @@ export function App() {
         await refresh();
         setImportErrors(res.errors);
       }
+    } catch (err) {
+      setImportErrors([err instanceof Error ? err.message : String(err)]);
     } finally {
       setBusy(null);
     }
@@ -146,9 +152,11 @@ export function App() {
   /** 删除最近项目：先确认（说明影响范围），失败时刷新真实状态并报错。 */
   async function requestRemove(p: ProjectMeta) {
     if (!window.confirm(removeConfirmMessage(p.displayName))) return; // 取消：不做任何修改
+    setBusy('removing');
     try {
       const next = await window.studio.removeProject(p.id);
       setState(next);
+      setDrafts((previous) => { const next = { ...previous }; delete next[p.id]; return next; });
       setNotice(`已删除「${p.displayName}」（仅删除制作台工作区副本，原始宠物包与已导出的 ZIP 不受影响）`);
       // 没有项目了：回到导入页，其余步骤因 current 为空自动禁用
       if (next.index.projects.length === 0) setStep('import');
@@ -156,6 +164,8 @@ export function App() {
       // 删除失败：以磁盘真实状态为准刷新，避免 UI 与磁盘不一致
       await refresh();
       setNotice(`删除失败：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -215,7 +225,8 @@ export function App() {
                 <button
                   type="button"
                   className="step-btn"
-                  disabled={locked}
+                  disabled={locked || busy !== null}
+                  aria-current={step === s.id ? 'step' : undefined}
                   onClick={() => setStep(s.id)}
                 >
                   <span className="step-no">{done ? '✓' : i + 1}</span>
@@ -242,18 +253,28 @@ export function App() {
                 type="button"
                 className="rail-project-select"
                 title={p.id}
+                disabled={busy !== null}
                 onClick={async () => {
-                  setState(await window.studio.selectProject(p.id));
+                  setBusy('selecting');
+                  setNotice(null);
+                  try {
+                    setState(await window.studio.selectProject(p.id));
+                  } catch (err) {
+                    setNotice(`切换失败：${err instanceof Error ? err.message : String(err)}`);
+                  } finally {
+                    setBusy(null);
+                  }
                 }}
               >
                 <span className="rail-project-name">{p.displayName}</span>
-                <span className="rail-project-meta">{p.petdexVersion}</span>
+                <span className="rail-project-meta">{drafts[p.id] ? '未保存' : p.petdexVersion}</span>
               </button>
               <button
                 type="button"
                 className="rail-project-del"
                 aria-label={`删除项目 ${p.displayName}`}
                 title="删除项目（仅删除工作区副本）"
+                disabled={busy !== null}
                 onClick={(e) => {
                   e.stopPropagation(); // 防御：删除事件永远不冒泡成行交互
                   void requestRemove(p);
@@ -281,12 +302,22 @@ export function App() {
             onClearErrors={() => setImportErrors([])}
           />
         )}
-        {step === 'check' && current && <CheckStep project={current} />}
-        {step === 'preview' && current && <PreviewStep project={current} />}
+        {step === 'check' && current && <CheckStep key={current.id} project={current} />}
+        {step === 'preview' && current && <PreviewStep key={current.id} project={current} onBusyChange={(value) => setBusy(value ? 'preview' : null)} />}
         {step === 'config' && current && (
           <ConfigStep
+            key={current.id}
             project={current}
+            draft={drafts[current.id] ?? current.config}
+            onChange={(draft) => setDrafts((previous) => {
+              const next = { ...previous };
+              if (draft.petName === current.config.petName && draft.zoom === current.config.zoom && draft.wanderEnabled === current.config.wanderEnabled) delete next[current.id];
+              else next[current.id] = draft;
+              return next;
+            })}
+            onBusyChange={(value) => setBusy(value ? 'saving' : null)}
             onSaved={(meta) => {
+              setDrafts((previous) => { const next = { ...previous }; delete next[meta.id]; return next; });
               setState((s) => s && ({
                 ...s,
                 index: {
@@ -298,7 +329,13 @@ export function App() {
             }}
           />
         )}
-        {step === 'export' && current && <ExportStep project={current} />}
+        {current && (
+          <div hidden={step !== 'export'}>
+            <ExportStep key={current.id} project={current} visible={step === 'export'} hasDraft={!!drafts[current.id]}
+              onEditConfig={() => setStep('config')}
+              onBusyChange={(value) => setBusy(value ? 'exporting' : null)} />
+          </div>
+        )}
       </main>
     </div>
   );
@@ -512,8 +549,11 @@ function CheckStep({ project }: { project: ProjectMeta }) {
 
   async function run() {
     setRunning(true);
+    setResult(null);
     try {
       setResult(await window.studio.recheck(project.id));
+    } catch (err) {
+      setResult({ ok: false, errors: [err instanceof Error ? err.message : String(err)] });
     } finally {
       setRunning(false);
     }
@@ -566,20 +606,25 @@ function CheckStep({ project }: { project: ProjectMeta }) {
 
 // --- 步骤 3：预览 -----------------------------------------------------------
 
-function PreviewStep({ project }: { project: ProjectMeta }) {
+function PreviewStep({ project, onBusyChange }: { project: ProjectMeta; onBusyChange: (value: boolean) => void }) {
   const [payload, setPayload] = useState<PreviewPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stateName, setStateName] = useState<PetState>('idle');
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    let active = true;
     setPayload(null);
     setError(null);
     window.studio.getPreviewPayload(project.id)
-      .then(setPayload)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
-    return () => { void window.studio.stopPetPreview(); };
-  }, [project.id]);
+      .then((value) => { if (active) setPayload(value); })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : String(err)); });
+    return () => { active = false; };
+  }, [project.id, reload]);
+
+  useEffect(() => () => { void window.studio.stopPetPreview().catch(() => {}); }, []);
 
   // 预览窗口的任何关闭途径（制作台按钮 / 宠物右键菜单 / 系统关闭）都会
   // 收到 main 的通知，保证按钮状态与真实窗口一致。
@@ -601,24 +646,20 @@ function PreviewStep({ project }: { project: ProjectMeta }) {
           <div className="error-panel-title">预览加载失败</div>
           <div className="error-line">{error}</div>
           <div className="error-hint">可以回到「检查」查看详细原因，或回「导入」重新选择包。</div>
+          {!payload && <button className="btn" onClick={() => setReload((value) => value + 1)}>重新加载预览</button>}
         </div>
       )}
+      {!payload && !error && <p role="status" className="muted">正在读取动作与图集…</p>}
       {payload && (
         <>
           <div className="preview-stage">
-            <div className="preview-sprite">
-              <Sprite
-                config={payload.sprite}
-                spritesheetUrl={payload.spritesheetDataUrl}
-                state={stateName}
-                zoom={2}
-              />
-            </div>
+            <AnimationInspector payload={payload} state={stateName} />
             <div className="preview-controls">
               {stateButtons.map((s) => (
                 <button
                   key={s}
                   className={`chip ${stateName === s ? 'chip--on' : ''}`}
+                  aria-pressed={stateName === s}
                   onClick={() => setStateName(s as PetState)}
                 >
                   {STATE_LABELS[s] ?? s}
@@ -635,20 +676,36 @@ function PreviewStep({ project }: { project: ProjectMeta }) {
             </p>
             <button
               className="btn btn-primary"
+              disabled={opening}
               onClick={async () => {
-                if (previewOpen) {
-                  await window.studio.stopPetPreview();
-                  setPreviewOpen(false);
-                } else {
-                  const res = await window.studio.startPetPreview(project.id);
-                  if (res.ok) setPreviewOpen(true);
-                  else setError(res.error ?? '预览启动失败');
+                setOpening(true);
+                onBusyChange(true);
+                setError(null);
+                try {
+                  if (previewOpen) {
+                    await window.studio.stopPetPreview();
+                    setPreviewOpen(false);
+                  } else {
+                    const res = await window.studio.startPetPreview(project.id);
+                    if (res.ok) setPreviewOpen(true);
+                    else setError(res.error ?? '预览启动失败');
+                  }
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : String(err));
+                } finally {
+                  setOpening(false);
+                  onBusyChange(false);
                 }
               }}
             >
-              {previewOpen ? '关闭桌宠预览' : '打开桌宠预览'}
+              {opening ? '处理中…' : previewOpen ? '关闭桌宠预览' : '打开桌宠预览'}
             </button>
           </div>
+          <p className="field-hint">
+            {payload.sourceFormat === 'classic-shimeji'
+              ? '经典 Shimeji：这里展示转换后的动作，自动行为由 Pet Studio 调度，并非原包完整行为复现。'
+              : 'Petdex：拖动复用行走帧，攀爬复用思考行；附加动作仅供手动预览。'}
+          </p>
         </>
       )}
     </section>
@@ -657,19 +714,16 @@ function PreviewStep({ project }: { project: ProjectMeta }) {
 
 // --- 步骤 4：配置 -----------------------------------------------------------
 
-function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: ProjectMeta) => void }) {
-  const [name, setName] = useState(project.config.petName);
-  const [zoom, setZoom] = useState(project.config.zoom);
-  const [wander, setWander] = useState(project.config.wanderEnabled);
+function ConfigStep({ project, draft, onChange, onSaved, onBusyChange }: {
+  project: ProjectMeta;
+  draft: PetRuntimeConfig;
+  onChange: (draft: PetRuntimeConfig) => void;
+  onSaved: (m: ProjectMeta) => void;
+  onBusyChange: (value: boolean) => void;
+}) {
+  const { petName: name, zoom, wanderEnabled: wander } = draft;
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setName(project.config.petName);
-    setZoom(project.config.zoom);
-    setWander(project.config.wanderEnabled);
-    setErrors([]);
-  }, [project.id]);
 
   async function save() {
     const check = validatePetConfig({ petName: name, zoom, wanderEnabled: wander });
@@ -678,6 +732,7 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
       return;
     }
     setSaving(true);
+    onBusyChange(true);
     setErrors([]);
     try {
       const meta = await window.studio.updateConfig(project.id, check.config);
@@ -686,6 +741,7 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
       setErrors([err instanceof Error ? err.message : String(err)]);
     } finally {
       setSaving(false);
+      onBusyChange(false);
     }
   }
 
@@ -700,7 +756,7 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
     <section>
       <div className="eyebrow page-eyebrow">STEP · 04 — CONFIG · NAME / ZOOM / BEHAVIOR</div>
       <h1>配置「{project.displayName}」</h1>
-      <p className="lead">配置会保存到项目里，并随导出一起进入独立桌宠。</p>
+      <p className="lead">保存后的配置会随导出进入独立桌宠。未保存的修改会在本次会话中保留，关闭制作台前请保存。</p>
       <div className="card" style={{ maxWidth: 520 }}>
         <label className="field">
           <span className="field-label">宠物显示名称</span>
@@ -708,7 +764,8 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
             className="field-input"
             value={name}
             maxLength={24}
-            onChange={(e) => setName(e.target.value)}
+            disabled={saving}
+            onChange={(e) => onChange({ ...draft, petName: e.target.value })}
           />
           <span className="field-hint">1–24 个字符，显示在气泡和关于窗口里。</span>
         </label>
@@ -730,7 +787,8 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
             value={zoom}
             aria-describedby="pet-size-hint"
             style={{ '--size-progress': `${sliderProgress}%` } as React.CSSProperties}
-            onChange={(e) => setZoom(Number(e.target.value))}
+            disabled={saving}
+            onChange={(e) => onChange({ ...draft, zoom: Number(e.target.value) })}
           />
           <div className="size-scale" aria-hidden="true">
             <span>小 · 100%</span>
@@ -740,7 +798,7 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
         </div>
         <div className="field field--row">
           <label className="switch">
-            <input type="checkbox" checked={wander} onChange={(e) => setWander(e.target.checked)} />
+            <input type="checkbox" aria-label="允许闲置时自动游走" disabled={saving} checked={wander} onChange={(e) => onChange({ ...draft, wanderEnabled: e.target.checked })} />
             <span className="switch-track" />
           </label>
           <span>允许闲置时自动游走</span>
@@ -754,6 +812,7 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
         <button className="btn btn-primary" disabled={!dirty || saving} onClick={() => void save()}>
           {saving ? '保存中…' : '保存配置'}
         </button>
+        {dirty && <button className="btn" disabled={saving} onClick={() => { onChange(project.config); setErrors([]); }}>撤销修改</button>}
       </div>
     </section>
   );
@@ -766,7 +825,13 @@ function ConfigStep({ project, onSaved }: { project: ProjectMeta; onSaved: (m: P
  *  只是视觉估算，不准也不影响真实导出流程；完成时强制按 100% 聚形。 */
 const EXPECTED_EXPORT_EVENTS = 6;
 
-function ExportStep({ project }: { project: ProjectMeta }) {
+function ExportStep({ project, visible, hasDraft, onEditConfig, onBusyChange }: {
+  project: ProjectMeta;
+  visible: boolean;
+  hasDraft: boolean;
+  onEditConfig: () => void;
+  onBusyChange: (value: boolean) => void;
+}) {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<ExportProgressEvent[]>([]);
   const [result, setResult] = useState<{ zipPath: string; sha256: string } | null>(null);
@@ -774,10 +839,11 @@ function ExportStep({ project }: { project: ProjectMeta }) {
   const [exportRunId, setExportRunId] = useState(0);
 
   useEffect(() => {
+    if (!running) return;
     return window.studio.onExportProgress((e) => {
       setProgress((p) => [...p, e]);
     });
-  }, []);
+  }, [running]);
 
   const distribution = resolveDistribution(project.license, project.usageMode);
   const note = distributionNote(project.license, project.usageMode);
@@ -785,6 +851,7 @@ function ExportStep({ project }: { project: ProjectMeta }) {
   async function run() {
     setExportRunId((id) => id + 1);
     setRunning(true);
+    onBusyChange(true);
     setProgress([]);
     setResult(null);
     setError(null);
@@ -792,8 +859,11 @@ function ExportStep({ project }: { project: ProjectMeta }) {
       const res = await window.studio.exportProject(project.id);
       if (res.ok) setResult({ zipPath: res.zipPath, sha256: res.sha256 });
       else if (!res.cancelled) setError(res.error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRunning(false);
+      onBusyChange(false);
     }
   }
 
@@ -839,14 +909,18 @@ function ExportStep({ project }: { project: ProjectMeta }) {
         </div>
       )}
 
-      <button className="btn btn-primary" disabled={running} onClick={() => void run()}>
+      {hasDraft && <div className="info-panel" role="status">
+        <p>「{project.displayName}」有未保存的配置。请先保存或撤销修改，再导出。</p>
+        <button className="btn" onClick={onEditConfig}>返回配置</button>
+      </div>}
+      <button className="btn btn-primary" disabled={running || hasDraft} onClick={() => void run()}>
         {running ? '导出中，请稍候…' : '选择导出位置并导出'}
       </button>
 
       {/* 导出等待玩具：符号流点阵。出现在原进度日志卡片位置（导出按钮下方），
           running 时挂载，导出完成后保留展示聚形终态；进度只来自已有的
           ExportProgressEvent 数组条数估算，不新增 IPC。 */}
-      {(running || result) && (
+      {visible && (running || result) && (
         <div style={{ maxWidth: 600, marginTop: 16 }}>
           <GlyphField
             key={exportRunId}

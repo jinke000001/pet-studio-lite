@@ -17,13 +17,15 @@ interface SpriteProps {
   state: PetState;
   facing?: 'left' | 'right';
   zoom?: number;
+  /** 制作台逐帧检查；省略时桌宠仍按原有时钟自动播放。 */
+  frameIndex?: number;
 }
 
 /**
  * 图集精灵播放器：按状态行切帧。左行帧（framesLeft）优先，没有就 CSS
  * 翻转。渲染尺寸 = 单格 × displayScale × zoom，与窗口大小保持一致。
  */
-export function Sprite({ config, spritesheetUrl, state, facing = 'right', zoom = 1 }: SpriteProps) {
+export function Sprite({ config, spritesheetUrl, state, facing = 'right', zoom = 1, frameIndex }: SpriteProps) {
   const stateConfig = config.states[state] ?? config.states.idle!;
   const useLeftFrames = facing === 'left'
     && Array.isArray(stateConfig.framesLeft)
@@ -31,6 +33,7 @@ export function Sprite({ config, spritesheetUrl, state, facing = 'right', zoom =
   const frames = useLeftFrames ? stateConfig.framesLeft! : stateConfig.frames;
   const shouldFlip = facing === 'left' && !useLeftFrames;
   const fps = Math.max(0.1, stateConfig.fps);
+  const automatic = frameIndex === undefined;
 
   const [tick, setTick] = useState(0);
   const tickRef = useRef(0);
@@ -38,15 +41,16 @@ export function Sprite({ config, spritesheetUrl, state, facing = 'right', zoom =
   useEffect(() => {
     setTick(0);
     tickRef.current = 0;
-    if (frames.length <= 1) return;
+    if (!automatic || frames.length <= 1) return;
     const id = setInterval(() => {
       tickRef.current += 1;
       setTick(tickRef.current);
     }, 1000 / fps);
     return () => clearInterval(id);
-  }, [state, frames.length, fps, config, spritesheetUrl]);
+  }, [state, frames.length, fps, config, spritesheetUrl, automatic]);
 
-  const frameNumber = frames[tick % frames.length]!;
+  const position = frameIndex === undefined ? tick : Math.max(0, Math.floor(frameIndex));
+  const frameNumber = frames[position % frames.length]!;
   const cols = config.frame.cols;
   const col = frameNumber % cols;
   const row = Math.floor(frameNumber / cols);
