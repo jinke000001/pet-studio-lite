@@ -1,118 +1,69 @@
-**English** | [简体中文](./README.zh-CN.md)
+**English** | [简体中文使用教程](./README.zh-CN.md)
 
 # Pet Studio Lite
 
-一个把 Petdex 宠物包变成 **Windows 便携桌宠** 的制作台。不需要账号或任何 AI 服务；可按用户操作联网下载 Petdex 宠物，其他制作流程都在本地完成。
+A desktop workbench for **Windows 11 x64 and macOS** that turns Petdex v1/v2 packs into standalone **Windows x64 desktop pets**.
 
-**闭环**：导入宠物包 → 自动检查 → 动作预览 → 配置 → 导出 Windows x64 便携 ZIP → 解压双击 EXE 运行桌宠。
+Import → validate → preview → configure → export a ZIP → extract and run `PetLitePet.exe` on Windows.
 
----
+## Use the packaged workbench
 
-## 这是什么
+**No Node.js, Python, npm, Git, AI service or Mac is required to use the Windows workbench.**
 
-Pet Studio Lite 是一个支持 macOS 与 Windows 11 x64 的小组制作台。你可以导入 Petdex v1/v2 目录或 ZIP，检查、预览和配置，最后导出一个 **Windows 便携 ZIP**。
+| Computer | Trial package | Start |
+| --- | --- | --- |
+| Windows 11 x64 | Windows `.exe` installer | Copy to your computer, install, then launch from the desktop or Start menu |
+| Apple Silicon Mac | Mac `.dmg` | Copy to your computer, open, drag the app into Applications and launch |
 
-导出的桌宠 **完全独立**：不需要安装 Node.js、Python、Git，不联网，不依赖 Petdex / Codex / 任何命令行。
+Trial installers are currently provided by the maintainer. GitHub **Code → Download ZIP contains source code, not an installer**. T7 is only used to transfer the installer; it is not needed after installation. The current Mac trial is for Apple Silicon, not Intel, and is not Developer ID signed or notarized.
 
-## 我什么都不懂，怎么用？
+## Quick tutorial
 
-### 1. 启动制作台（macOS 或 Windows 11 x64）
+1. **Import:** paste a Petdex command such as `npx petdex@latest install boba` into the workbench's Petdex download field. The app reads the pet identifier; it does not execute npx. Review the candidate before confirming. You can also import a local folder or ZIP containing `pet.json` and a PNG/WebP spritesheet.
+2. **Check:** review file, format, dimensions and safety checks. Imported files are copied into the app's workspace; originals are preserved.
+3. **Preview:** inspect actions, pause, step through frames, change preview speed and facing, or open a real transparent desktop preview. Preview inspection settings do not change exported animation data.
+4. **Configure:** save a display name, size and automatic wandering preference. Save or discard pending edits before exporting.
+5. **Export:** choose a destination. The workbench creates a new Windows x64 ZIP without overwriting earlier exports. The packaged app includes its runtime template, so export requires no runtime download or external build tools.
+6. **Run on Windows:** extract the entire ZIP, then launch `PetLitePet.exe`. Keep the extracted files together. The exported pet runs offline. Both workbench platforms currently export Windows pets; the EXE does not run on macOS.
 
-使用打包好的制作台无需安装 Node.js、npm 或 Git。解压或安装后，直接打开 Pet Studio Lite。
+Drag to move, click for a response, or right-click for wandering, clones, size, repositioning and exit controls.
 
-会打开一个窗口，左侧是 5 个步骤：导入 → 检查 → 预览 → 配置 → 导出。跟着走就行。
+For detailed instructions, see the [Chinese tutorial](./README.zh-CN.md).
 
-### 2. 导入宠物包
+## Data, network and artwork
 
-直接把 Petdex 页面提供的完整命令（例如 `npx petdex@latest install boba`）粘贴到
-**「从 Petdex 下载」**。这段命令只用于识别宠物，制作台不会运行 npx 或命令中的代码；
-官方文件下载后会先显示宠物信息和动画预览，确认后才保存到工作台。也可以继续点
-**「选择宠物包目录」** 或 **「选择 ZIP 压缩包」** 导入已有文件。
+- Online Petdex imports contact official manifest and asset endpoints. Existing local packs can be processed and exported locally.
+- Projects are stored in the current computer's application user data; GitHub and T7 do not automatically sync them.
+- Format validation does not guarantee artwork quality. If fragments appear in a paused frame, compare it with the source spritesheet before attributing the issue to animation rendering.
+- Respect source artwork rights. Unknown or internal-test licensing produces an `internal-test-only` export; an export label does not grant distribution rights.
 
-宠物包长这样：
+## Current trial status
 
-```
-我的宠物/
-  pet.json          ← 宠物信息（名字、图集文件名、版本）
-  spritesheet.png   ← 图集（一张 PNG 或 WebP）
-```
+Version: **0.2.0-beta.2**. Mac source workflow regression passed 71/71 checks; packaged-app regression passed 14/14, including import, preview, export and restart persistence. Windows installation, uninstall, reinstall and user experience evidence is available. Full multi-display, upgrade, DPI, disconnected-network and long-running acceptance remains incomplete. This is an internal trial, not a fully accepted public release.
 
-导入会把包**复制**到制作台自己的工作区，不会动你的原始文件。如果包有问题（缺文件、尺寸不对、JSON 写错、路径不安全），会用中文告诉你哪里错了、怎么修，不会留下坏掉的半成品。
+## Develop from source
 
-### 3. 检查
-
-导入后自动进入检查。每一项检查都有 通过 / 失败 标记，失败会说明原因。
-
-### 4. 预览
-
-动作预览支持暂停、上一帧／下一帧、0.25×–2× 播放速度和左右朝向，可检查标准动作以及 v2 附加动作。这些检查设置不会改变导出的动作。
-
-- 上半部分：制作台内直接播放图集的各个动作（待机/行走/说话…）。
-- 点 **「打开桌宠预览」**：弹出一个**真实的透明桌宠窗口**（和最终导出的 Windows 桌宠共用运行核心）。可以拖动、单击、自动游走和调整尺寸。
-
-### 5. 配置
-
-- **宠物显示名称**：1–24 个字符。
-- **默认缩放**：100%–300%，每次 5%；新项目默认 200%。旧项目的 50%/75% 会安全迁移为 100%。
-- **允许闲置时自动游走**：开/关。
-
-配置会保存，并随导出一起进入桌宠。不合法的输入（比如超长名字）不会被保存。
-切换步骤或项目时，各项目的未保存草稿在本次会话中保留；关闭制作台前请保存。有草稿时需先保存或撤销修改才能导出。长来源名称会保留为完整项目名，新项目的默认宠物显示名称会缩短到有效长度。
-
-### 6. 导出
-
-导出过程中暂时锁定步骤和项目切换；完成后在同一项目内切换步骤仍可返回查看结果。
-
-点 **「选择导出位置并导出」**，选一个文件夹。制作台会生成一个 **新的、不覆盖旧文件** 的 ZIP，名字类似：
-
-```
-petlite-pet-pack-v1-win-x64-20260908-193000.zip
-```
-
-> 首次导出需要下载一次 Windows 版 Electron 运行时（约 100MB），可能花几分钟。之后就快了。
-
-#### 授权说明
-- `license: "authorized"`（已授权）→ 正常导出分发候选。
-- `license: "internal-test"`（内部测试）→ 导出但明确标记为内部测试包。
-- 没有声明授权 → 可以导出，但强制标记为 `internal-test-only`，不得对外分发。
-
-### 7. 发给 Windows 用户
-
-把 ZIP 发给对方。对方：
-1. 解压 ZIP。
-2. 双击 `PetLitePet.exe`。
-3. 桌宠出现在桌面上。
-
-ZIP 里有 `启动说明.txt`（同样这份说明）和 `manifest.json`（版本、来源哈希、授权状态）。
-
-**桌宠操作**：
-- 左键拖动并松手 = 移动宠物
-- 单击 = 宠物回应你一句
-- 自动行为 = 闲置时等待、思考和左右游走
-- 右键 = 自动游走 / 召唤分身（最多 8 只）/ 100%–300% 尺寸 / 回到屏幕右下角 / 关闭单只 / 退出全部
-
-## 隐私
-
-- 只有用户主动提交 Petdex 安装命令时，制作台才会连接 Petdex 官方清单和资源；不会启动 Petdex CLI，导出的桌宠始终离线。
-- 下载文件先进入本次会话的临时缓存，用于校验和预览；用户确认后才复制到制作台自己的工作区，取消或失败时会清理对应缓存。
-
-## 开发者
+Requires **Node.js >=22.18.0**. Run in the repository root. Initial runtime template preparation may require network access.
 
 ```bash
-npm install        # 安装依赖
-npm run dev        # 启动制作台（开发模式，带热更新）
-npm test           # 全部自动测试（包校验 + ZIP 安全 + 运行时逻辑）
-npm run typecheck  # TypeScript 类型检查
-npm run build      # 构建制作台
-npm run build:pet  # 构建桌宠运行时
-npm run smoke:electron  # 真实 Electron Petdex 单宠物烟测
-npm run smoke:multi     # 真实 Electron 多宠物烟测
-npm run fixtures   # 重新生成测试用宠物包
-npm run check:export <zip>  # 静态核验一个导出的 ZIP
+npm ci
+npm run dev
+npm test
+npm run test:studio-builder-config
+npm run typecheck
+npm run build
+npm run smoke:studio
+npm run check:export -- <exported.zip>
 ```
 
-仓库无 lint 工具（无 ESLint/Biome），这是事实陈述。
+Build a versioned candidate:
 
-Windows 成品验收见 `docs/acceptance/windows-light-kit.md`。
+```bash
+npm run package:mac      # On macOS: DMG for the host architecture
+npm run package:win      # On Windows: NSIS installer and ZIP
+npm run package:win:zip  # Windows ZIP without building an NSIS installer
+```
 
-本项目仅支持 Petdex。其他产品的旧项目文件仍保留，但不能继续预览或导出；请使用对应的独立工作台。
+Candidates are created in new directories under `deliverables/`. Windows installer builds must run on Windows; macOS builds must run on macOS. Do not copy `node_modules` across platforms.
+
+Only Petdex v1/v2 is supported. Historical reports under `docs/` describe their original candidate and date; they are not current usage instructions or proof for a different binary.
