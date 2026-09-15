@@ -26,7 +26,8 @@ function Start-TestPet {
   $info.FileName = $script:testExe; $info.UseShellExecute = $false
   $info.Arguments = '--user-data-dir="' + $script:userData + '" --enable-logging=file --log-file="' + (Join-Path $run 'runtime.log') + '"'
   foreach ($key in $script:isolatedEnv.Keys) { $info.EnvironmentVariables[$key] = $script:isolatedEnv[$key] }
-  $info.EnvironmentVariables['ELECTRON_RUN_AS_NODE'] = ''
+  # An empty entry can still select Electron's Node mode. GUI children must omit it.
+  $info.EnvironmentVariables.Remove('ELECTRON_RUN_AS_NODE')
   $process = [Diagnostics.Process]::Start($info)
   try {
     $entry = @{ id = $process.Id; ticks = [Math]::Floor($process.StartTime.ToUniversalTime().Ticks / 10000) }
@@ -97,9 +98,9 @@ try {
   Record 'window-response' 'pass' '两个窗口响应 WM_NULL；动画、渲染与拖拽仍需人工确认'
   $specs = @(
     @{ id = 'visual'; text = '确认两只角色均已正确显示，背景透明，无黑白框、串帧或缺图，动画持续播放' },
-    @{ id = 'drag'; text = '拖拽并分别向上/左/右投掷；观察跟手、边缘接触和松手后行为，无异常跳动或丢失' },
+    @{ id = 'drag'; text = '拖动到不同位置并松手；观察跟手、松手后的位置和游走恢复，无异常跳动或丢失' },
     @{ id = 'menu-size'; text = '右键打开尺寸面板，调整 100%-300%，确认尺寸和脚底锚点；测试游走开关、复位和点击反馈，最后关闭尺寸面板，保留两只宠物' },
-    @{ id = 'motion'; text = '开启自动游走确认连续运动；若是 Shimeji，把记事本底边靠近任务栏，确认侧边攀爬、顶边落点、移动跟随和最小化/关闭后坠落' }
+    @{ id = 'motion'; text = '开启自动游走确认连续运动、左右转向；拖动后确认可以恢复游走，关闭游走后确认停止移动' }
   )
   foreach ($spec in $specs) {
     $active = $spec.id

@@ -15,7 +15,6 @@ import { extractPetPackFromZip } from '../src/shared/zip';
 import { createZip } from '../src/shared/zipw';
 import { PetWindowHost } from '../src/pet/host';
 import { DEFAULT_PET_CONFIG, type PetRuntimeConfig } from '../src/shared/config';
-import { convertClassicShimejiDirectory } from '../src/main/classic-shimeji-import';
 
 const REPO = path.resolve(__dirname, '..');
 let passed = 0;
@@ -44,7 +43,6 @@ async function main(): Promise<void> {
   async function importLikeMain(sourcePath: string) {
     let packDir = sourcePath;
     let tempDir: string | null = null;
-    let classicTempRoot: string | null = null;
     const isZip = sourcePath.toLowerCase().endsWith('.zip');
     try {
       let zipSha256: string | undefined;
@@ -55,14 +53,6 @@ async function main(): Promise<void> {
         packDir = tempDir;
       }
       let result = await validatePetPack(packDir, { probe: sharpImageProbe });
-      const hasPetJson = await fs.stat(path.join(packDir, 'pet.json')).then(() => true, () => false);
-      if (!result.ok && !hasPetJson) {
-        classicTempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'pet-smoke-classic-'));
-        const convertedDir = path.join(classicTempRoot, 'converted');
-        await convertClassicShimejiDirectory(packDir, convertedDir);
-        result = await validatePetPack(convertedDir, { probe: sharpImageProbe });
-        packDir = convertedDir;
-      }
       if (!result.ok) return { ok: false as const, errors: result.errors };
       const meta = await store.importValidatedPack(result.pack, { type: isZip ? 'zip' : 'dir', path: sourcePath, zipSha256 });
       const imported = await validatePetPack(store.projectDir(meta.id), { probe: sharpImageProbe });
@@ -70,7 +60,6 @@ async function main(): Promise<void> {
       return { ok: true as const, meta, pack: imported.pack };
     } finally {
       if (tempDir) await fs.rm(tempDir, { recursive: true, force: true });
-      if (classicTempRoot) await fs.rm(classicTempRoot, { recursive: true, force: true });
     }
   }
 
@@ -125,13 +114,6 @@ async function main(): Promise<void> {
     badRes.ok ? '' : badRes.errors.join('；'));
   check('损坏导入不留半成品项目', (await store.load()).index.projects.length === before);
 
-  // 6. 经典 Shimeji 目录自动转换并保留安全行为计划
-  const classicRes = await importLikeMain(path.join(REPO, 'assets/fixtures/classic-shimeji-test'));
-  check('内置经典 Shimeji 测试宠物可通过制作台同路径自动转换导入', classicRes.ok,
-    classicRes.ok ? '' : classicRes.errors.join('；'));
-  check('经典测试宠物带有可执行的安全行为计划',
-    classicRes.ok && !!classicRes.pack.classicBehaviorPlan?.some((behavior) => behavior.kind === 'wander'));
-
   // ── B. 预览窗口反复打开/关闭/切换 ─────────────────────────────────────
   console.log('\n[B. 预览窗口生命周期]');
   const preloadFile = path.join(REPO, 'out', 'preload', 'petwin.js');
@@ -145,7 +127,6 @@ async function main(): Promise<void> {
     preview: true,
     petdexVersion: pack.version,
     license: pack.license,
-    classicBehaviorPlan: pack.classicBehaviorPlan,
   });
 
   let closedEvents = 0;
@@ -216,18 +197,6 @@ async function main(): Promise<void> {
     petB.close();
     await sleep(300);
     check('并存宠物可独立关闭并清理宿主路由', closedEvents === 6, `closedEvents=${closedEvents}`);
-
-    if (classicRes.ok) {
-      const classic = await openPreview(classicRes.pack, 'Shimeji 验收豆');
-      const classicPayload = await classic.window!.webContents.executeJavaScript('window.pet.getPayload()');
-      check('经典测试宠物行为计划经真实 preload/IPC 到达 renderer',
-        Array.isArray(classicPayload.classicBehaviorPlan)
-        && classicPayload.classicBehaviorPlan.some((behavior: { kind: string }) => behavior.kind === 'wander'));
-      check('经典测试宠物真实 renderer 已渲染透明精灵',
-        await classic.window!.webContents.executeJavaScript("!!document.querySelector('.sprite')"));
-      classic.close();
-      await sleep(300);
-    }
 
     // IPC 通道没有随开关次数累积（on 通道可公开计数）
     check('pet:drag:begin 监听器没有累积', ipcMain.listenerCount('pet:drag:begin') === 1,

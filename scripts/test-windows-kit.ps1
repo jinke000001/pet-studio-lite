@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+& "$PSScriptRoot/test-windows-kit-start.ps1"
 . "$PSScriptRoot/windows-kit/core.ps1"
 function Assert($Condition, $Message) { if (-not $Condition) { throw $Message } }
 $items = @(New-Check 'files'; New-Check 'visual')

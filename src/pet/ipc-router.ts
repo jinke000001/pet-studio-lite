@@ -17,7 +17,6 @@ export interface PetIpcLike {
 /** 桌宠宿主暴露给 IPC 路由的最小接口。 */
 export interface PetIpcTarget {
   getPayload(): Promise<unknown>;
-  getDesktopTerrain(): unknown;
   dragBegin(p: { x: number; y: number } | null): void;
   dragMove(p: { x: number; y: number } | null): void;
   dragEnd(): void;
@@ -39,7 +38,6 @@ const registeredIpc = new WeakSet<PetIpcLike>();
 export const PET_IPC_HANDLE_CHANNELS = [
   'pet:payload',
   'pet:window:bounds',
-  'pet:shimeji:terrain',
   'pet:size-control:state',
 ] as const;
 export const PET_IPC_ON_CHANNELS = [
@@ -84,7 +82,6 @@ export function registerPetIpc(ipc: PetIpcLike, resolveTarget: ResolvePetIpcTarg
   ipc.on('pet:drag:end', (event: unknown) => targetFor(event, 'pet', resolveTarget)?.dragEnd());
 
   ipc.handle('pet:window:bounds', (event: unknown) => targetFor(event, 'pet', resolveTarget)?.getBoundsInfo() ?? null);
-  ipc.handle('pet:shimeji:terrain', (event: unknown) => targetFor(event, 'pet', resolveTarget)?.getDesktopTerrain() ?? null);
   ipc.on('pet:window:moveTo', (event: unknown, raw: unknown) => {
     const p = parsePoint(raw);
     if (p) targetFor(event, 'pet', resolveTarget)?.moveTo(p.x, p.y);

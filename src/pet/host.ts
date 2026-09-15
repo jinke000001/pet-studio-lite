@@ -5,14 +5,6 @@ import { FlushableDebouncer } from '../shared/debounce';
 import type { PetWindowPayload } from '../shared/types';
 import { registerPetIpc, type PetIpcSenderKind, type PetIpcTarget } from './ipc-router';
 import { buildPetContextMenu } from './menu';
-import { buildDesktopTerrain, type DesktopTerrain, type DesktopWindowSnapshot } from '../shared/shimeji/desktop-terrain';
-import {
-  clampWindowPositionByActor,
-  deriveBottomCenteredActorLayout,
-  type DesktopActorInsets,
-} from '../shared/shimeji/desktop-actor-layout';
-import { SharedWindowSnapshotSource } from './window-snapshot-monitor';
-import { captureDesktopWindows } from './windows-window-probe';
 
 /**
  * 桌宠窗口宿主：工作室预览与导出的独立运行时共用，保证"预览到的就是
@@ -57,20 +49,6 @@ export interface PetHostOptions {
 }
 
 const hostsByPetSenderId = new Map<number, PetWindowHost>();
-let sharedProbeErrorReported = false;
-const sharedDesktopWindows = new SharedWindowSnapshotSource(async () => {
-  try {
-    const windows = await captureDesktopWindows();
-    sharedProbeErrorReported = false;
-    return windows;
-  } catch (error) {
-    if (!sharedProbeErrorReported) {
-      sharedProbeErrorReported = true;
-      console.warn('[shimeji] window probe failed:', error instanceof Error ? error.message : String(error));
-    }
-    throw error;
-  }
-}, { intervalMs: 1_000 });
 
 function resolvePetIpcTarget(senderId: number, kind: PetIpcSenderKind): PetWindowHost | null {
   if (kind === 'pet') return hostsByPetSenderId.get(senderId) ?? null;
@@ -100,10 +78,6 @@ export class PetWindowHost implements PetIpcTarget {
   private wanderEnabled = true;
   private dragOrigin: { mouseX: number; mouseY: number; winX: number; winY: number } | null = null;
   private displayMetricsListener: ((event: Electron.Event, display: Electron.Display, changedMetrics: string[]) => void) | null = null;
-  private desktopTerrain: DesktopTerrain | null = null;
-  private terrainUnsubscribe: (() => void) | null = null;
-  private actorInsets: DesktopActorInsets = { left: 0, top: 0, right: 0, bottom: 0 };
-  private spriteLayout: PetWindowPayload['sprite'] | null = null;
 
   constructor(readonly opts: PetHostOptions) {}
 
@@ -115,29 +89,6 @@ export class PetWindowHost implements PetIpcTarget {
 
   getPayload(): Promise<PetWindowPayload> {
     return this.opts.getPayload();
-  }
-
-  getDesktopTerrain(): DesktopTerrain | null {
-    return this.desktopTerrain;
-  }
-
-  private publishDesktopTerrain(windows: readonly DesktopWindowSnapshot[]): void {
-    if (!this.win || this.win.isDestroyed()) return;
-    const workArea = screen.getDisplayMatching(this.win.getBounds()).workArea;
-    this.desktopTerrain = buildDesktopTerrain(workArea, windows);
-    this.win.webContents.send('pet:shimeji:terrain', this.desktopTerrain);
-  }
-
-  private prepareDesktopTerrainMonitor(): void {
-    if (process.platform !== 'win32' || !this.win) return;
-    this.publishDesktopTerrain(sharedDesktopWindows.snapshot);
-    this.terrainUnsubscribe = sharedDesktopWindows.subscribe((windows) => this.publishDesktopTerrain(windows));
-  }
-
-  private stopDesktopTerrainMonitor(): void {
-    this.terrainUnsubscribe?.();
-    this.terrainUnsubscribe = null;
-    this.desktopTerrain = null;
   }
 
   getSizeControlState(): { zoom: number; min: number; max: number; step: number; persistent: boolean } {
@@ -181,41 +132,10 @@ export class PetWindowHost implements PetIpcTarget {
 
   moveTo(x: number, y: number): void {
     if (!this.win) return;
-    const [w, h] = this.win.getSize();
-    const requested = { x: Math.round(x), y: Math.round(y), width: w, height: h };
-    const actorBounds = {
-      x: requested.x + this.actorInsets.left,
-      y: requested.y + this.actorInsets.top,
-      width: requested.width - this.actorInsets.left - this.actorInsets.right,
-      height: requested.height - this.actorInsets.top - this.actorInsets.bottom,
-    };
-    const wa = screen.getDisplayMatching(actorBounds).workArea;
-    const clamped = clampWindowPositionByActor(requested, this.actorInsets, wa);
-    this.win.setPosition(clamped.x, clamped.y);
-  }
-
-  private updateActorInsets(size: number): void {
-    const sprite = this.spriteLayout;
-    if (!sprite) {
-      this.actorInsets = { left: 0, top: 0, right: 0, bottom: 0 };
-      return;
-    }
-    const renderedScale = sprite.displayScale * this.zoom;
-    this.actorInsets = deriveBottomCenteredActorLayout(
-      { x: 0, y: 0, width: size, height: size },
-      {
-        width: sprite.frame.width * renderedScale,
-        height: sprite.frame.height * renderedScale,
-        contentInsets: sprite.contentInsets
-          ? {
-            left: sprite.contentInsets.left * renderedScale,
-            top: sprite.contentInsets.top * renderedScale,
-            right: sprite.contentInsets.right * renderedScale,
-            bottom: sprite.contentInsets.bottom * renderedScale,
-          }
-          : undefined,
-      },
-    ).insets;
+    const current = this.win.getBounds();
+    const workArea = screen.getDisplayMatching(current).workArea;
+    const bounds = clampBoundsToWorkArea({ ...current, x: Math.round(x), y: Math.round(y) }, workArea);
+    this.win.setPosition(bounds.x, bounds.y);
   }
 
   /**
@@ -229,7 +149,6 @@ export class PetWindowHost implements PetIpcTarget {
     this.zoom = normalized;
     if (this.win && !this.win.isDestroyed()) {
       const size = windowSizeFor(this.zoom);
-      this.updateActorInsets(size);
       const prev = this.win.getBounds();
       const display = screen.getDisplayMatching(prev);
       const bounds = computeAnchoredZoomBounds(prev, size, display.workArea);
@@ -333,9 +252,7 @@ export class PetWindowHost implements PetIpcTarget {
     const payload = await this.opts.getPayload();
     this.zoom = payload.config.zoom;
     this.wanderEnabled = payload.config.wanderEnabled;
-    this.spriteLayout = payload.sprite;
     const size = windowSizeFor(this.zoom);
-    this.updateActorInsets(size);
 
     const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const requestedPos = this.opts.initialPosition ?? defaultPosition(cursorDisplay, size);
@@ -361,7 +278,6 @@ export class PetWindowHost implements PetIpcTarget {
     this.win = win;
     const petSenderId = win.webContents.id;
     hostsByPetSenderId.set(petSenderId, this);
-    this.prepareDesktopTerrainMonitor();
 
     win.setAlwaysOnTop(true, 'screen-saver');
     if (process.platform === 'darwin') {
@@ -378,10 +294,8 @@ export class PetWindowHost implements PetIpcTarget {
       const display = screen.getDisplayMatching(current);
       const next = computeAnchoredZoomBounds(current, windowSizeFor(this.zoom), display.workArea);
       this.win.setBounds(next);
-      // 复用缩放同步通道通知 renderer 以新原生 bounds 重建物理会话；否则
-      // DPI/工作区改变后旧 actor 会在下一帧把窗口推回过期坐标。
+      // 通知 renderer 同步当前缩放。
       this.win.webContents.send('pet:zoom', this.zoom);
-      if (this.terrainUnsubscribe) this.publishDesktopTerrain(sharedDesktopWindows.snapshot);
     };
     screen.on('display-metrics-changed', this.displayMetricsListener);
 
@@ -400,7 +314,6 @@ export class PetWindowHost implements PetIpcTarget {
 
     win.on('closed', () => {
       positionSaver.flush();
-      this.stopDesktopTerrainMonitor();
       this.closeSizeControl();
       if (this.displayMetricsListener) {
         screen.removeListener('display-metrics-changed', this.displayMetricsListener);
@@ -437,7 +350,6 @@ export class PetWindowHost implements PetIpcTarget {
   }
 
   close(): void {
-    this.stopDesktopTerrainMonitor();
     if (this.displayMetricsListener) {
       screen.removeListener('display-metrics-changed', this.displayMetricsListener);
       this.displayMetricsListener = null;

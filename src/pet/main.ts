@@ -77,7 +77,6 @@ async function main() {
     preview: false,
     petdexVersion: pack.version,
     license: pack.license,
-    classicBehaviorPlan: pack.classicBehaviorPlan,
   };
 
   const hosts = new Set<PetWindowHost>();

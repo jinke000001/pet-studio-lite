@@ -1,5 +1,9 @@
 import zlib from 'node:zlib';
+import { promisify } from 'node:util';
+
 import { inspectZip, readZipEntry, ZIP_LIMITS_RELAXED, type ZipLimits } from './zip';
+
+const deflateRaw = promisify(zlib.deflateRaw);
 
 /**
  * 最小 ZIP 写入器（store/deflate），用途：
@@ -30,16 +34,26 @@ export interface ZipOutEntry {
   compress?: boolean;    // 默认 true（deflate）
 }
 
+interface EncodedEntry {
+  entry: ZipOutEntry;
+  payload: Buffer;
+  method: 0 | 8;
+}
+
 export function createZip(entries: ZipOutEntry[]): Buffer {
+  return assembleZip(entries.map((entry) => {
+    const compress = entry.compress !== false && entry.data.length > 0;
+    return { entry, payload: compress ? zlib.deflateRawSync(entry.data, { level: 9 }) : entry.data, method: compress ? 8 : 0 };
+  }));
+}
+
+function assembleZip(entries: EncodedEntry[]): Buffer {
   const chunks: Buffer[] = [];
   const central: Buffer[] = [];
   let offset = 0;
 
-  for (const e of entries) {
+  for (const { entry: e, payload, method } of entries) {
     const nameBuf = Buffer.from(e.name, 'utf8');
-    const compress = e.compress !== false && e.data.length > 0;
-    const payload = compress ? zlib.deflateRawSync(e.data, { level: 9 }) : e.data;
-    const method = compress ? 8 : 0;
     const crc = crc32(e.data);
 
     const local = Buffer.alloc(30);
@@ -96,5 +110,13 @@ export async function appendToZip(zipBuf: Buffer, additions: ZipOutEntry[], limi
     out.push({ name: e.name, data: await readZipEntry(zipBuf, e, limits) });
   }
   out.push(...additions);
-  return createZip(out);
+  // Windows runtime archives are large: compress off the main event loop so
+  // progress IPC and the workbench remain responsive during consecutive exports.
+  const encoded: EncodedEntry[] = [];
+  for (const entry of out) {
+    const compress = entry.compress !== false && entry.data.length > 0;
+    const payload = compress ? await deflateRaw(entry.data, { level: 9 }) : entry.data;
+    encoded.push({ entry, payload, method: compress ? 8 : 0 });
+  }
+  return assembleZip(encoded);
 }

@@ -15,7 +15,7 @@ for (const name of ['accept.ps1', 'core.ps1', 'native.ps1']) {
 }
 const bundle = await build({ entryPoints: [path.join(repo, 'scripts/windows-kit/validate.mts')], bundle: true, platform: 'node', format: 'cjs', target: 'node20', write: false });
 files.push({ name: 'validate.cjs', data: Buffer.from(bundle.outputFiles![0]!.contents) });
-files.push({ name: 'README.md', data: Buffer.from((await fs.readFile(path.join(repo, 'docs/acceptance/windows-light-kit.md'), 'utf8')).replace('[原验收说明](./shimeji-windows.md)', '原候选内的 Shimeji-Windows-验收说明.md')) });
+files.push({ name: 'README.md', data: Buffer.from(await fs.readFile(path.join(repo, 'docs/acceptance/windows-light-kit.md'), 'utf8')) });
 for (const file of files) await fs.writeFile(path.join(output, file.name), file.data, { flag: 'wx' });
 const bytes = createZip(files);
 const entries = inspectZip(bytes).entries;

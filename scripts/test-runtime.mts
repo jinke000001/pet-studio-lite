@@ -46,7 +46,7 @@ import { sharpImageProbe } from '../src/main/image-probe.ts';
 import { buildManifest, resolveDistribution, distributionNote } from '../src/shared/manifest.ts';
 import { buildArtifactIntegrity, reserveOutputPath, buildRuntimeConfig } from '../src/main/export-win.ts';
 import { registerPetIpc, PET_IPC_HANDLE_CHANNELS, PET_IPC_ON_CHANNELS, type PetIpcTarget } from '../src/pet/ipc-router.ts';
-import { ClassicPetBehaviorScheduler, PetBehaviorScheduler, DEFAULT_BEHAVIOR_TIMINGS, stopWalkingState } from '../src/shared/pet-behavior.ts';
+import { PetBehaviorScheduler, DEFAULT_BEHAVIOR_TIMINGS, stopWalkingState } from '../src/shared/pet-behavior.ts';
 import { parsePersistedPetState, applyPersistedPetState, PetStateStore } from '../src/shared/pet-state.ts';
 import { FlushableDebouncer } from '../src/shared/debounce.ts';
 import { ExportRegistry, resolveRevealTarget } from '../src/shared/export-registry.ts';
@@ -241,7 +241,7 @@ async function storeTests(tmp: string): Promise<void> {
   const srcDir = path.join(FIXTURES, 'pack-v1');
   const srcHashBefore = await hashDir(srcDir);
 
-  for (const [index, displayName] of ['a-long-classic-shimeji-archive-name-20260912', 'a'.repeat(23) + '🐾'].entries()) {
+  for (const [index, displayName] of ['a-long-petdex-archive-name-20260912', 'a'.repeat(23) + '🐾'].entries()) {
     const source = path.join(tmp, `long-name-${index}`);
     await fs.cp(srcDir, source, { recursive: true });
     const json = JSON.parse(await fs.readFile(path.join(source, 'pet.json'), 'utf8'));
@@ -609,7 +609,6 @@ function petIpcRouterTests(): void {
     return {
       calls,
       getPayload: () => { calls.push(`payload:${tag}`); return Promise.resolve({ tag }); },
-      getDesktopTerrain: () => ({ tag }),
       // 与真实宿主一致：null（非法坐标被路由层丢弃）时不产生行为
       dragBegin: (p) => { if (p) calls.push(`dragBegin:${tag}`); },
       dragMove: (p) => { if (p) calls.push(`dragMove:${tag}`); },
@@ -651,8 +650,6 @@ function petIpcRouterTests(): void {
   const payloadA = ipc.handlers.get('pet:payload')!({ sender: { id: 11 } } as never) as Promise<{ tag: string }>;
   const payloadB = ipc.handlers.get('pet:payload')!({ sender: { id: 12 } } as never) as Promise<{ tag: string }>;
   check('两只宠物的 payload 按发送窗口隔离', hostA.calls.includes('payload:A') && hostB.calls.includes('payload:B'));
-  const desktopTerrain = ipc.handlers.get('pet:shimeji:terrain')!({ sender: { id: 12 } } as never) as { tag: string };
-  check('桌面地形查询委托给发送方所属宿主', desktopTerrain.tag === 'B');
   void Promise.all([payloadA, payloadB]).then(([a, b]) => check('并存宠物各自返回自己的数据', a.tag === 'A' && b.tag === 'B'));
 
   ipc.listeners.get('pet:drag:begin')![0]!({ sender: { id: 11 } } as never, { x: 1, y: 2 } as never);
@@ -778,31 +775,7 @@ function behaviorTests(): void {
       [...kinds].every((k) => k === 'waiting' || k === 'review' || k === 'wander') && kinds.size > 0);
   }
 
-  const classicPlan = [
-    { name: 'Stand', kind: 'waiting' as const, weight: 10, durationMs: 1_000 },
-    { name: 'Walk', kind: 'wander' as const, weight: 30, durationMs: 3_000 },
-  ];
-  {
-    const s = new ClassicPetBehaviorScheduler(classicPlan, () => 0, 0);
-    check('经典计划启动后保留最短闲置期',
-      s.decide(3_999, { canAct: true, wanderEnabled: true }) === null);
-    const d = s.decide(4_001, { canAct: true, wanderEnabled: true });
-    check('经典计划按权重选中 waiting 并保留动作时长',
-      d?.kind === 'waiting' && d.durationMs === 1_000);
-    check('经典计划动作之间保留防重叠间隔',
-      s.decide(4_002, { canAct: true, wanderEnabled: true }) === null);
-  }
-  {
-    const s = new ClassicPetBehaviorScheduler(classicPlan, () => 0.99, 0);
-    const d = s.decide(4_001, { canAct: true, wanderEnabled: true });
-    check('经典计划可按权重选中 wander 并保留动作时长',
-      d?.kind === 'wander' && d.durationMs === 3_000);
-  }
-  {
-    const s = new ClassicPetBehaviorScheduler(classicPlan, () => 0.99, 0);
-    const d = s.decide(4_001, { canAct: true, wanderEnabled: false });
-    check('关闭自动游走后经典计划过滤 wander 但保留 waiting', d?.kind === 'waiting');
-  }
+
 }
 
 // --- 窗口生命周期策略（macOS 常驻 / 其他平台退出） + activate 决策 -------------------------
@@ -1308,10 +1281,6 @@ async function uxWiringTests(): Promise<void> {
   check('宿主在窗口关闭时 flush 待写位置', /'closed'[\s\S]{0,300}?positionSaver\.flush\(\)/.test(hostSrc));
   check('缩放用单次 setBounds 原子更新尺寸与位置',
     hostSrc.includes('this.win.setBounds(bounds)') && !hostSrc.includes('this.win.setSize(bounds.width, bounds.height)'));
-  check('宿主移动夹紧使用可见角色 actor 而不是整个透明窗口',
-    hostSrc.includes('deriveBottomCenteredActorLayout')
-    && hostSrc.includes('clampWindowPositionByActor')
-    && hostSrc.includes('this.actorInsets'));
   check('启动时夹紧历史越界坐标',
     hostSrc.includes('clampBoundsToWorkArea(requestedBounds, initialDisplay.workArea)'));
   check('监听 Windows DPI/workArea 动态变化并重新夹紧',
@@ -1331,34 +1300,13 @@ async function uxWiringTests(): Promise<void> {
   const preloadSrc = await fs.readFile(path.join(REPO, 'src', 'preload', 'petwin.ts'), 'utf8');
   check('窄桥暴露游走开关监听', preloadSrc.includes('onWanderChanged'));
   check('窄桥暴露回到右下角监听', preloadSrc.includes('onGoHome'));
-  check('窄桥只读暴露 Shimeji 初始地形与更新监听',
-    preloadSrc.includes('getDesktopTerrain') && preloadSrc.includes('onDesktopTerrain'));
 
   const petAppSrc = await fs.readFile(path.join(REPO, 'src', 'renderer', 'pet', 'PetWindowApp.tsx'), 'utf8');
   check('渲染器注册游走开关监听', petAppSrc.includes('onWanderChanged(applyWanderEnabled)'));
   check('关闭游走立即停止游走并只收 walking（不影响等待/思考）',
     /applyWanderEnabled[\s\S]{0,250}?cancelWander\(\)[\s\S]{0,120}?stopWalkingState/.test(petAppSrc));
   check('渲染器复位用共享几何 + 受控移动', petAppSrc.includes('computeWorkAreaHomePosition') && petAppSrc.includes('onGoHome'));
-  check('渲染器用共享 Shimeji 会话驱动窗口位置',
-    petAppSrc.includes('DesktopRuntimeSession') && petAppSrc.includes('onDesktopTerrain'));
-  check('渲染器在可见精灵碰撞坐标与原生窗口坐标之间换算',
-    petAppSrc.includes('deriveBottomCenteredActorLayout')
-    && petAppSrc.includes('windowPositionForActor'));
-  check('渲染器对地形快照造成的大幅位移做连续追赶',
-    petAppSrc.includes('approachWindowPosition'));
-  check('渲染器把拖拽释放速度交给共享 Shimeji 会话',
-    petAppSrc.includes('PointerVelocityTracker') && petAppSrc.includes('.release(velocity)'));
-  check('拖到工作区外松手前先夹紧物理 actor，避免无限坠落',
-    (petAppSrc.match(/clampBoundsToWorkArea\(/g)?.length ?? 0) >= 2);
-  check('渲染器收到经典计划后改用安全加权调度器并沿用转换时长',
-    petAppSrc.includes('new ClassicPetBehaviorScheduler(p.classicBehaviorPlan')
-    && petAppSrc.includes('startWander(decision.durationMs || undefined)'));
-  check('Windows 宿主启动并在关闭时停止窗口快照监控',
-    hostSrc.includes('SharedWindowSnapshotSource') && hostSrc.includes('stopDesktopTerrainMonitor'));
-
   const studioMainSrc = await fs.readFile(path.join(REPO, 'src', 'main', 'index.ts'), 'utf8');
-  check('制作台在缺少 pet.json 时进入经典 Shimeji 安全转换链路',
-    studioMainSrc.includes('convertClassicShimejiDirectory') && studioMainSrc.includes('!hasPetJson'));
   check('导出成功登记产物路径', studioMainSrc.includes('exportRegistry.record('));
   check('打开所在文件夹走登记册校验', studioMainSrc.includes('resolveRevealTarget('));
 

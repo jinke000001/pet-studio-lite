@@ -1,7 +1,6 @@
 import type { PetSpriteConfig, LicenseStatus, PetdexVersion } from './petpack';
 import type { PetRuntimeConfig } from './config';
 import type { ProjectMeta, ProjectsIndex, UsageMode } from './projects';
-import type { ClassicRuntimeBehavior } from './shimeji/runtime-plan';
 
 export type { ProjectMeta, ProjectsIndex, UsageMode, PetRuntimeConfig, PetSpriteConfig, LicenseStatus, PetdexVersion };
 
@@ -43,7 +42,6 @@ export interface CheckItem {
 
 /** 制作台内预览需要的数据（图集 data URL + 精灵配置）。 */
 export interface PreviewPayload {
-  sourceFormat?: import('./petpack').PetSourceFormat | null;
   sprite: PetSpriteConfig;
   spritesheetDataUrl: string;
   config: PetRuntimeConfig;
@@ -77,5 +75,4 @@ export interface PetWindowPayload {
   preview: boolean;
   petdexVersion: PetdexVersion;
   license: LicenseStatus;
-  classicBehaviorPlan?: ClassicRuntimeBehavior[] | null;
 }

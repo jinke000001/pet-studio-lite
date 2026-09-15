@@ -1,8 +1,0 @@
-<Mascot><BehaviorList>
-  <Behavior Name="Stand" Frequency="35" />
-  <Behavior Name="Walk" Frequency="65" />
-  <Behavior Name="Fall" Frequency="0" />
-  <Behavior Name="Dragged" Frequency="0" />
-  <Behavior Name="Thrown" Frequency="0" />
-  <Behavior Name="ChaseMouse" Frequency="0" />
-</BehaviorList></Mascot>

@@ -2,7 +2,7 @@
 
 # Pet Studio Lite
 
-一个把 Petdex 或经典 Shimeji 角色包变成 **Windows 便携桌宠** 的制作台。不需要账号或任何 AI 服务；可按用户操作联网下载 Petdex 宠物，其他制作流程都在本地完成。
+一个把 Petdex 宠物包变成 **Windows 便携桌宠** 的制作台。不需要账号或任何 AI 服务；可按用户操作联网下载 Petdex 宠物，其他制作流程都在本地完成。
 
 **闭环**：导入宠物包 → 自动检查 → 动作预览 → 配置 → 导出 Windows x64 便携 ZIP → 解压双击 EXE 运行桌宠。
 
@@ -10,7 +10,7 @@
 
 ## 这是什么
 
-Pet Studio Lite 是一个 macOS 上的"制作台"应用。你可以给它 Petdex 包，也可以给它包含 `actions.xml`、`behaviors.xml` 和 PNG 帧的经典 Shimeji 单角色目录或 ZIP；它会安全转换、检查、预览、配置，最后导出一个 **Windows 便携 ZIP**。
+Pet Studio Lite 是一个 macOS 上的"制作台"应用。你可以导入 Petdex v1/v2 目录或 ZIP，检查、预览和配置，最后导出一个 **Windows 便携 ZIP**。
 
 导出的桌宠 **完全独立**：不需要安装 Node.js、Python、Git，不联网，不依赖 Petdex / Codex / 任何命令行。
 
@@ -41,15 +41,6 @@ npm run dev
   spritesheet.png   ← 图集（一张 PNG 或 WebP）
 ```
 
-经典 Shimeji 也可直接导入：
-
-```
-我的 Shimeji/
-  conf/actions.xml
-  conf/behaviors.xml
-  img/shime1.png ...
-```
-
 导入会把包**复制**到制作台自己的工作区，不会动你的原始文件。如果包有问题（缺文件、尺寸不对、JSON 写错、路径不安全），会用中文告诉你哪里错了、怎么修，不会留下坏掉的半成品。
 
 ### 3. 检查
@@ -58,10 +49,10 @@ npm run dev
 
 ### 4. 预览
 
-动作预览支持暂停、上一帧／下一帧、0.25×–2× 播放速度和左右朝向，可检查攀爬以及 v2 附加动作。这些检查设置不会改变导出的动作。
+动作预览支持暂停、上一帧／下一帧、0.25×–2× 播放速度和左右朝向，可检查标准动作以及 v2 附加动作。这些检查设置不会改变导出的动作。
 
 - 上半部分：制作台内直接播放图集的各个动作（待机/行走/说话…）。
-- 点 **「打开桌宠预览」**：弹出一个**真实的透明桌宠窗口**（和最终导出的 Windows 桌宠共用运行核心）。可以拖动、投掷、单击和调整尺寸；Windows 运行时还会读取普通应用窗口作为行走与攀爬地形。
+- 点 **「打开桌宠预览」**：弹出一个**真实的透明桌宠窗口**（和最终导出的 Windows 桌宠共用运行核心）。可以拖动、单击、自动游走和调整尺寸。
 
 ### 5. 配置
 
@@ -99,9 +90,9 @@ petlite-pet-pack-v1-win-x64-20260908-193000.zip
 ZIP 里有 `启动说明.txt`（同样这份说明）和 `manifest.json`（版本、来源哈希、授权状态）。
 
 **桌宠操作**：
-- 左键拖动并松手 = 移动或投掷
+- 左键拖动并松手 = 移动宠物
 - 单击 = 宠物回应你一句
-- 自动行为 = 在桌面底边和普通窗口上行走、攀爬与坠落
+- 自动行为 = 闲置时等待、思考和左右游走
 - 右键 = 自动游走 / 召唤分身（最多 8 只）/ 100%–300% 尺寸 / 回到屏幕右下角 / 关闭单只 / 退出全部
 
 ## 隐私
@@ -118,16 +109,14 @@ npm test           # 全部自动测试（包校验 + ZIP 安全 + 运行时逻�
 npm run typecheck  # TypeScript 类型检查
 npm run build      # 构建制作台
 npm run build:pet  # 构建桌宠运行时
-npm run smoke:electron  # 真实 Electron 单宠物/经典包烟测
+npm run smoke:electron  # 真实 Electron Petdex 单宠物烟测
 npm run smoke:multi     # 真实 Electron 多宠物烟测
-npm run export:shimeji-test  # 生成 Windows 统一验收测试包
-npm run refresh:windows-acceptance -- <zip>  # 非覆盖更新候选中的验收脚本与说明
 npm run fixtures   # 重新生成测试用宠物包
 npm run check:export <zip>  # 静态核验一个导出的 ZIP
-npm run check:windows-evidence -- <zip> <evidence-dir> --windows 11 --dpi 100 --manual core  # 复核 Windows 回传证据
-npm run check:windows-matrix -- <zip> <evidence-dir...>  # 汇总检查 Windows 10/11 完整验收矩阵
 ```
 
 仓库无 lint 工具（无 ESLint/Biome），这是事实陈述。
 
-Shimeji Windows 实机流程见 `docs/acceptance/shimeji-windows.md`。
+Windows 成品验收见 `docs/acceptance/windows-light-kit.md`。
+
+本项目仅支持 Petdex。其他产品的旧项目文件仍保留，但不能继续预览或导出；请使用对应的独立工作台。

@@ -56,6 +56,8 @@ async function main() {
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'petstudio-workflow-'));
   app.setPath('userData', path.join(work, 'userData'));
   app.on('web-contents-created', (_, contents) => {
+    contents.on('render-process-gone', (_, details) => { console.error('Renderer process exited:', JSON.stringify(details)); });
+    contents.on('unresponsive', () => { console.error('Renderer became unresponsive'); });
     contents.on('console-message', (_, level, message) => {
       if (level >= 3) rendererErrors.push(message);
     });
@@ -68,7 +70,7 @@ async function main() {
   await waitFor("!!document.querySelector('.import-actions')");
   const samples = process.env.STUDIO_SMOKE_SAMPLES
     ? JSON.parse(process.env.STUDIO_SMOKE_SAMPLES)
-    : ['pack-v1-webp', 'pack-v2-webp', 'classic-shimeji-test'].map(name => path.join(root, 'assets/fixtures', name));
+    : ['pack-v1-webp', 'pack-v2-webp'].map(name => path.join(root, 'assets/fixtures', name));
   picked = path.join(root, 'assets/fixtures/pack-bad-size');
   await js("document.querySelector('.import-actions button').click()");
   await waitFor("!!document.querySelector('.error-panel')");
@@ -77,6 +79,18 @@ async function main() {
   await js("document.querySelector('.import-actions button').click()");
   await pause(150);
   await check('Cancelling file selection clears stale errors', js("!document.querySelector('.error-panel')"));
+  const foreign = path.join(work, 'other-product');
+  await fs.cp(path.join(root, 'assets/fixtures/pack-v1-webp'), foreign, { recursive: true });
+  const foreignJson = path.join(foreign, 'pet.json');
+  const metadata = JSON.parse(await fs.readFile(foreignJson, 'utf8'));
+  metadata.sourceFormat = 'other-product';
+  const originalMetadata = JSON.stringify(metadata);
+  await fs.writeFile(foreignJson, originalMetadata);
+  picked = foreign;
+  await js("document.querySelector('.import-actions button').click()");
+  await waitFor("document.querySelector('.error-panel')?.textContent.includes('仅支持 Petdex')");
+  await check('Other product packages are rejected without creating a project', (await js('window.studio.getState()')).index.projects.length === 0);
+  await check('Rejected package source is preserved', await fs.readFile(foreignJson, 'utf8') === originalMetadata);
   const imported = [];
   for (const sample of samples) {
     await step(0);
@@ -112,7 +126,15 @@ async function main() {
     await click('打开桌宠预览');
     await waitFor("[...document.querySelectorAll('button')].some(b => b.textContent === '关闭桌宠预览')");
     const pet = BrowserWindow.getAllWindows().find(w => w.id !== win.id);
-    await check(`${path.basename(sample)} real transparent window renders`, pet && await pet.webContents.executeJavaScript("!!document.querySelector('.sprite')"));
+    // loadURL completion does not wait for the asynchronous payload IPC and
+    // React commit. Check readiness within a bound before inspecting pixels.
+    let spriteReady = false;
+    for (let attempt = 0; pet && attempt < 50; attempt++) {
+      spriteReady = await pet.webContents.executeJavaScript("!!document.querySelector('.sprite')");
+      if (spriteReady) break;
+      await pause(100);
+    }
+    await check(`${path.basename(sample)} real transparent window renders`, spriteReady);
     if (pet) {
       // DOM readiness precedes atlas decode/compositor paint. Inspect actual pixels.
       await pet.webContents.executeJavaScript(`(async () => {
@@ -150,10 +172,8 @@ async function main() {
       await check(`${path.basename(sample)} export result survives step navigation`, js(`document.querySelector('.success-panel')?.textContent === ${JSON.stringify(success)}`));
     }
   }
-  await check('Classic import keeps a meaningful source name', imported[2].displayName !== 'converted');
   await step(2);
   await waitFor("!!document.querySelector('.preview-stage .sprite')");
-  await check('Climbing animation is available for inspection', js("[...document.querySelectorAll('.chip')].some(e => e.textContent === '攀爬')"));
   await check('Frame inspection controls are present', js("!!document.querySelector('[aria-label=\"下一帧\"]')"));
 
   await step(3);
@@ -166,7 +186,7 @@ async function main() {
   await js(`document.querySelector('[title="${imported[0].id}"]').click()`);
   await pause(200);
   await check('Other projects do not inherit the draft', js("document.querySelector('.field-input').value !== '保留的草稿'"));
-  await js(`document.querySelector('[title="${imported[2].id}"]').click()`);
+  await js(`document.querySelector('[title="${imported[imported.length - 1].id}"]').click()`);
   await pause(200);
   await check('Returning to a project restores its own draft', js("document.querySelector('.field-input').value === '保留的草稿'"));
   faults.set('studio:config:set', () => { throw new Error('测试保存连接中断'); });
@@ -177,7 +197,7 @@ async function main() {
   await click('保存配置');
   await waitFor("document.querySelector('.notice')?.textContent.includes('配置已保存')");
   const saved = await js('window.studio.getState()');
-  await check('Saved config reaches disk', saved.index.projects.find(p => p.id === imported[2].id).config.petName === '已保存的配置');
+  await check('Saved config reaches disk', saved.index.projects.find(p => p.id === imported[imported.length - 1].id).config.petName === '已保存的配置');
 
   // Deterministic pending export: no download/build is needed for a navigation race.
   let finishExport;

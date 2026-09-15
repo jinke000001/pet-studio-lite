@@ -200,7 +200,7 @@ export async function inspectZipFile(file: string): Promise<{ buf: Buffer; entri
 
 /**
  * 从 ZIP 中安全提取宠物包到临时目录（调用方负责清理）。
- * 只提取 pet.json、图集图片与经典 Shimeji actions/behaviors XML，
+ * 只提取 pet.json 与图集图片，
  * 其余条目不落盘（白名单）。
  * 返回提取出的文件相对路径列表。
  */
@@ -211,13 +211,10 @@ export async function extractPetPackFromZip(zipFile: string, destDir: string): P
     const base = path.posix.basename(e.name).toLowerCase();
     return base === 'pet.json'
       || base.endsWith('.png')
-      || base.endsWith('.webp')
-      || base === 'actions.xml'
-      || base === 'behaviors.xml'
-      || base === 'behavior.xml';
+      || base.endsWith('.webp');
   });
   if (picked.length === 0) {
-    throw err('ZIP 里没有找到宠物包内容：需要 Petdex 文件或经典 Shimeji 图片与 XML');
+    throw err('ZIP 里没有找到宠物包内容：需要 pet.json 和 PNG/WebP 图集');
   }
   // 顶层前缀：所有被选条目共享的唯一首段目录（如果有）。
   const firstSegs = new Set(picked.map((e) => e.name.split('/')[0]));
@@ -244,12 +241,7 @@ export async function extractPetPackFromZip(zipFile: string, destDir: string): P
   }
   const basenames = written.map((file) => path.posix.basename(file).toLowerCase());
   const hasPetdex = basenames.includes('pet.json');
-  const hasClassic = basenames.includes('actions.xml')
-    && (basenames.includes('behaviors.xml') || basenames.includes('behavior.xml'))
-    && basenames.some((name) => name.endsWith('.png'));
-  if (!hasPetdex && !hasClassic) {
-    throw err('ZIP 里缺少 pet.json，且不是完整的经典 Shimeji 包');
-  }
+  if (!hasPetdex) throw err('ZIP 里缺少 pet.json：仅支持 Petdex 宠物包');
   return written;
 }
 

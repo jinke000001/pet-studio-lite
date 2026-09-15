@@ -73,8 +73,6 @@ async function main(): Promise<void> {
         check('v1 哈希已记录', res.pack.hashes.petJson.length === 64 && res.pack.hashes.spritesheet.length === 64);
         const cfg = petPackToSpriteConfig(res.pack);
         check('v1 状态映射含 idle/walking/talking', ['idle', 'walking', 'talking'].every((s) => s in cfg.states));
-        check('v1 为物理攀爬提供独立动画状态',
-          !!cfg.states.climbing && cfg.states.climbing.frames[0] === 8 * cfg.frame.cols);
         check('普通 Petdex v1 保留第 8 行 review 语义', cfg.states.review?.frames[0] === 8 * cfg.frame.cols);
         const url = await readSpritesheetDataUrl(res.pack);
         check('图集可读成 data URL', url.startsWith('data:image/png;base64,'));
@@ -92,74 +90,16 @@ async function main(): Promise<void> {
       }
     }
     {
-      const contentInsets = { left: 12, top: 47, right: 12, bottom: 13 };
-      const dir = await writePack(tmp, 'visible-content-insets', {
-        id: 'alpha-aware',
-        spriteVersionNumber: 1,
-        spritesheetPath: 'spritesheet.png',
-        contentInsets,
+      const dir = await writePack(tmp, 'foreign-product', {
+        id: 'foreign-product', spriteVersionNumber: 1,
+        spritesheetPath: 'spritesheet.png', sourceFormat: 'external-runtime',
       }, V1_SHEET);
+      const before = await fs.readFile(path.join(dir, 'pet.json'), 'utf8');
       const res = await validatePetPack(dir);
-      check('合法 contentInsets 在包边界通过校验',
-        res.ok && JSON.stringify(res.pack.contentInsets) === JSON.stringify(contentInsets),
-        res.ok ? '' : res.errors.join('；'));
-      if (res.ok) {
-        check('可见像素外框原样进入运行时 sprite 配置',
-          JSON.stringify(petPackToSpriteConfig(res.pack).contentInsets) === JSON.stringify(contentInsets));
-      }
-    }
-    {
-      const dir = await writePack(tmp, 'classic-source-format', {
-        id: 'classic-source',
-        spriteVersionNumber: 1,
-        spritesheetPath: 'spritesheet.png',
-        sourceFormat: 'classic-shimeji',
-      }, V1_SHEET);
-      const res = await validatePetPack(dir);
-      check('经典 Shimeji 来源格式通过加载边界', res.ok && res.pack.sourceFormat === 'classic-shimeji',
-        res.ok ? '' : res.errors.join('；'));
-      if (res.ok) {
-        const cfg = petPackToSpriteConfig(res.pack);
-        check('经典包 review 使用观察行且不再误播攀爬行',
-          cfg.states.review?.frames[0] === 3 * cfg.frame.cols
-          && cfg.states.climbing?.frames[0] === 8 * cfg.frame.cols);
-      }
+      check('其他产品格式不能作为 Petdex 导入或导出', !res.ok && hasErr(res.errors, '仅支持 Petdex'));
+      check('拒绝其他产品时保留原始文件', before === await fs.readFile(path.join(dir, 'pet.json'), 'utf8'));
     }
 
-    console.log('\n[可见像素外框]');
-    {
-      const dir = await writePack(tmp, 'bad-content-insets-negative', {
-        id: 'bad-insets',
-        spritesheetPath: 'spritesheet.png',
-        contentInsets: { left: -1, top: 0, right: 0, bottom: 0 },
-      }, V1_SHEET);
-      const res = await validatePetPack(dir);
-      check('contentInsets 负数被拒绝', !res.ok && hasErr(res.errors, 'contentInsets'));
-    }
-    {
-      const dir = await writePack(tmp, 'bad-content-insets-empty-width', {
-        id: 'bad-insets',
-        spritesheetPath: 'spritesheet.png',
-        contentInsets: { left: 96, top: 0, right: 96, bottom: 0 },
-      }, V1_SHEET);
-      const res = await validatePetPack(dir);
-      check('contentInsets 不得吞掉整格可见宽度', !res.ok && hasErr(res.errors, 'contentInsets'));
-    }
-    {
-      const dir = await writePack(tmp, 'bad-source-format', {
-        id: 'bad-source-format',
-        spritesheetPath: 'spritesheet.png',
-        sourceFormat: 'unknown-executable-format',
-      }, V1_SHEET);
-      const res = await validatePetPack(dir);
-      check('未知 sourceFormat 保持向前兼容且不得进入经典运行时分支',
-        res.ok
-        && res.pack.sourceFormat === null
-        && petPackToSpriteConfig(res.pack).states.review?.frames[0] === 8 * res.pack.cols,
-        res.ok ? '' : res.errors.join('；'));
-    }
-
-    // ── WebP 真实解码（sharp 探针，与制作台 main 用的是同一个） ──────────────
     console.log('\n[WebP 支持]');
     {
       const res = await validatePetPack(path.join(FIXTURES, 'pack-v1-webp'), { probe: sharpImageProbe });

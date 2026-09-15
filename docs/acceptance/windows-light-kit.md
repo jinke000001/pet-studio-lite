@@ -1,6 +1,6 @@
 # Windows 轻量半自动验收
 
-适用于 Pet Studio 导出的 Windows x64 **便携桌宠成品**（Petdex 或 Shimeji）。无需 Node、Python、npm、管理员权限或 AI。先完整解压成品和独立工具 ZIP，原候选不需要替换任何文件。
+适用于 Pet Studio 导出的 Windows x64 **便携桌宠成品**（Petdex）。无需 Node、Python、npm、管理员权限或 AI。先完整解压成品和独立工具 ZIP，原候选不需要替换任何文件。
 
 在工具文件夹打开 PowerShell，执行一条命令（把路径换成包含 PetLitePet.exe 的实际目录）：
 
@@ -18,7 +18,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\accept.ps1 -ProductDir "C:
 
 四态：`pass` / `fail` / `blocked` / `incomplete`。汇总优先级：失败 > 受阻 > 未完成 > 全部必需项通过。退出码分别是 0 / 1 / 2 / 3。自动交付检查限时 120 秒，窗口检查通常 15 秒，单次消息响应 500ms；超时不会算通过。
 
-这是一台电脑、一个 DPI 档位的轻量验收，JSON 为独立 schema 1，不冒充既有 schema 3 全矩阵证据。Windows 10/11 × 100%/125%/150%、混合 DPI 跨屏、1 小时长稳仍沿用 [原验收说明](./shimeji-windows.md)。工具未实现安装器验收，因为当前成品是便携 ZIP。
+这是一台电脑、一个 DPI 档位的轻量验收，JSON 为独立 schema 1，不冒充既有 schema 3 全矩阵证据。Windows 10/11 × 100%/125%/150%、混合 DPI 跨屏、1 小时长稳需要另行完成原生验收，不能用本工具的一轮结果替代。工具未实现安装器验收，因为当前成品是便携 ZIP。
 
 Mac 已测：素材/配置规则与指纹回归、独立复制、文件缺失/替换、版本错配、符号链接、PowerShell 四态/失败/跳过/超时/摘要及 JSON 汇总。Windows PowerShell 5.1、成品 Electron Node 模式、Win32 窗口与进程归属、DPI、实际显示/交互仍需 Windows 实机确认。
 

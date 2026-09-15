@@ -1,4 +1,4 @@
-# Win32 window enumeration reused from windows-shimeji-acceptance.ps1.
+# Win32 window enumeration for Petdex acceptance.
 Add-Type @'
 using System;
 using System.Collections.Generic;

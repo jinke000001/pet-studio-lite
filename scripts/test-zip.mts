@@ -14,8 +14,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
-import { inspectZip, extractPetPackFromZip, ZIP_LIMITS } from '../src/shared/zip.ts';
-import { createZip } from '../src/shared/zipw.ts';
+import { randomBytes } from 'node:crypto';
+import { inspectZip, readZipEntry, extractPetPackFromZip, ZIP_LIMITS } from '../src/shared/zip.ts';
+import { createZip, appendToZip } from '../src/shared/zipw.ts';
 import { validatePetPack } from '../src/shared/petpack.ts';
 import { sharpImageProbe } from '../src/main/image-probe.ts';
 
@@ -119,6 +120,22 @@ async function main(): Promise<void> {
   }
 
   try {
+    {
+      const large = randomBytes(4 * 1024 * 1024);
+      const original = createZip([{ name: 'runtime.bin', data: large }, { name: '说明.txt', data: Buffer.from('old') }]);
+      let eventLoopAdvanced = false;
+      const heartbeat = setInterval(() => { eventLoopAdvanced = true; }, 1);
+      let merged: Buffer;
+      try {
+        merged = await appendToZip(original, [{ name: '说明.txt', data: Buffer.from('new'), compress: false }]);
+      } finally { clearInterval(heartbeat); }
+      check('导出重压期间事件循环仍能响应', eventLoopAdvanced);
+      const entries = inspectZip(merged).entries;
+      check('异步重压保留运行时文件字节和 CRC', (await readZipEntry(merged, entries.find(e => e.name === 'runtime.bin')!)).equals(large));
+      check('追加说明覆盖同名条目且保留 UTF-8', entries.filter(e => e.name === '说明.txt').length === 1
+        && (await readZipEntry(merged, entries.find(e => e.name === '说明.txt')!)).toString() === 'new');
+    }
+
     // ── 合法 ZIP ──────────────────────────────────────────────────────────
     console.log('[合法 ZIP]');
     {

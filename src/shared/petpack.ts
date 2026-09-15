@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { parseClassicRuntimePlan, type ClassicRuntimeBehavior } from './shimeji/runtime-plan';
 
 /**
  * Petdex 宠物包（目录形式）的只读校验与加载。
@@ -31,18 +30,6 @@ export const PETDEX_VERSIONS: Record<PetdexVersion, { rows: number; sheetWidth: 
 };
 
 export type LicenseStatus = 'authorized' | 'internal-test' | 'unknown';
-export type PetSourceFormat = 'classic-shimeji';
-
-/**
- * 整套图集所有动画帧的稳定 alpha 外框，以源单格像素表示。
- * 使用全图并集而不是逐帧外框，避免动作切换时碰撞盒抖动。
- */
-export interface SpriteContentInsets {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
 
 export interface PetPackInfo {
   /** 包的绝对路径（已 realpath）。 */
@@ -69,12 +56,6 @@ export interface PetPackInfo {
   sheet: { width: number; height: number };
   /** pet.json 与图集的 SHA-256（导出 manifest 用）。 */
   hashes: { petJson: string; spritesheet: string };
-  /** 需要专用运行时状态映射的已知来源格式。 */
-  sourceFormat: PetSourceFormat | null;
-  /** 可选的稳定可见像素外框；旧包缺省时仍按完整单格碰撞。 */
-  contentInsets: SpriteContentInsets | null;
-  /** 经典 Shimeji 转换包的安全自动行为子集；普通 Petdex 包为 null。 */
-  classicBehaviorPlan: ClassicRuntimeBehavior[] | null;
 }
 
 export type ValidateResult =
@@ -208,29 +189,6 @@ function parseLicense(raw: unknown): LicenseStatus {
   return 'unknown';
 }
 
-function parseSourceFormat(raw: unknown): PetSourceFormat | null {
-  return raw === 'classic-shimeji' ? raw : null;
-}
-
-function parseContentInsets(raw: unknown): SpriteContentInsets | null {
-  if (raw === undefined || raw === null) return null;
-  if (typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error('contentInsets 必须是包含 left/top/right/bottom 的对象');
-  }
-  const obj = raw as Record<string, unknown>;
-  const values = ['left', 'top', 'right', 'bottom'].map((key) => obj[key]);
-  if (!values.every((value) => typeof value === 'number' && Number.isInteger(value) && value >= 0)) {
-    throw new Error('contentInsets 的 left/top/right/bottom 必须是非负整数');
-  }
-  const [left, top, right, bottom] = values as number[];
-  if (left! + right! >= PETDEX_FRAME.width || top! + bottom! >= PETDEX_FRAME.height) {
-    throw new Error('contentInsets 必须在单格内保留至少 1×1 的可见区域');
-  }
-  return { left: left!, top: top!, right: right!, bottom: bottom! };
-}
-
-// --- 主校验流程 ---------------------------------------------------------------
-
 export interface ValidateOptions {
   /** 可解码性探针；不传则只校验文件头结构。 */
   probe?: ImageProbe;
@@ -273,19 +231,9 @@ export async function validatePetPack(dir: string, opts: ValidateOptions = {}): 
   }
   const obj = raw as Record<string, unknown>;
   const petJsonHash = crypto.createHash('sha256').update(rawText, 'utf8').digest('hex');
-  let classicBehaviorPlan: ClassicRuntimeBehavior[] | null = null;
-  try {
-    classicBehaviorPlan = parseClassicRuntimePlan(obj['classicBehaviorPlan']);
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
+  if (obj['sourceFormat'] != null && obj['sourceFormat'] !== 'petdex') {
+    return fail(['此工作台仅支持 Petdex 宠物包；请在对应的独立工作台打开此项目。原始文件未修改。']);
   }
-  let contentInsets: SpriteContentInsets | null = null;
-  try {
-    contentInsets = parseContentInsets(obj['contentInsets']);
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-  }
-  const sourceFormat = parseSourceFormat(obj['sourceFormat']);
 
   // 版本声明（可选，声明了就必须合法）：spriteVersionNumber 优先，
   // version 为兼容别名；两者冲突或值不受支持都直接拒绝。
@@ -393,9 +341,6 @@ export async function validatePetPack(dir: string, opts: ValidateOptions = {}): 
       frame: { ...PETDEX_FRAME },
       sheet: sheetSize!,
       hashes: { petJson: petJsonHash, spritesheet: sheetHash },
-      sourceFormat,
-      contentInsets,
-      classicBehaviorPlan,
     },
   };
 }
@@ -420,7 +365,6 @@ export interface PetSpriteConfig {
   description?: string;
   frame: { width: number; height: number; cols: number };
   displayScale: number;
-  contentInsets?: SpriteContentInsets;
   states: Record<string, { frames: number[]; framesLeft?: number[]; fps: number }>;
 }
 
@@ -438,7 +382,6 @@ export function petPackToSpriteConfig(pack: PetPackInfo): PetSpriteConfig {
   const cols = pack.cols;
   const runRight = range(1 * cols, 8);
   const runLeft = range(2 * cols, 8);
-  const reviewRow = pack.sourceFormat === 'classic-shimeji' ? 3 : 8;
   const states: PetSpriteConfig['states'] = {
     idle:     { frames: range(0 * cols, 6), fps: 5.5 },
     walking:  { frames: runRight, framesLeft: runLeft, fps: 7 },
@@ -448,8 +391,7 @@ export function petPackToSpriteConfig(pack: PetPackInfo): PetSpriteConfig {
     failed:   { frames: range(5 * cols, 8), fps: 6.0 },
     waiting:  { frames: range(6 * cols, 6), fps: 4.0 },
     running:  { frames: range(7 * cols, 6), fps: 7.5 },
-    climbing: { frames: range(8 * cols, 6), fps: 7.0 },
-    review:   { frames: range(reviewRow * cols, 6), fps: 5.5 },
+    review:   { frames: range(8 * cols, 6), fps: 5.5 },
   };
   if (pack.rows > 9) {
     states['extra1'] = { frames: range(9 * cols, 8), fps: 6 };
@@ -463,7 +405,6 @@ export function petPackToSpriteConfig(pack: PetPackInfo): PetSpriteConfig {
     description: pack.description,
     frame: { width: pack.frame.width, height: pack.frame.height, cols: pack.cols },
     displayScale: 0.4,
-    ...(pack.contentInsets ? { contentInsets: { ...pack.contentInsets } } : {}),
     states,
   };
 }

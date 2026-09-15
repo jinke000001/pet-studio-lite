@@ -28,7 +28,6 @@ const STEPS: Array<{ id: Step; label: string; hint: string }> = [
 const STATE_LABELS: Record<string, string> = {
   idle: '待机',
   walking: '行走',
-  climbing: '攀爬',
   running: '奔跑',
   talking: '说话/挥手',
   jumping: '跳跃',
@@ -40,7 +39,7 @@ const STATE_LABELS: Record<string, string> = {
   extra2: '附加动作 2（v2，语义未公开）',
 };
 /** 展示顺序：先常见动作，再附加动作。 */
-const STATE_ORDER = ['idle', 'walking', 'running', 'climbing', 'talking', 'jumping', 'dragging', 'waiting', 'review', 'failed', 'extra1', 'extra2'];
+const STATE_ORDER = ['idle', 'walking', 'running', 'talking', 'jumping', 'dragging', 'waiting', 'review', 'failed', 'extra1', 'extra2'];
 
 const LICENSE_LABEL: Record<string, string> = {
   'authorized': '已授权',
@@ -437,12 +436,12 @@ function ImportStep(props: {
       <div className="eyebrow page-eyebrow">STEP · 01 — IMPORT · PETDEX PACK</div>
       <h1>导入宠物包</h1>
       <p className="lead">
-        选择 Petdex 宠物包，或带 actions.xml、behaviors.xml 和 PNG 帧的经典 Shimeji 角色目录 / ZIP。导入会转换并复制到制作台自己的工作区，
+        选择包含 pet.json 和图集的 Petdex 宠物包目录 / ZIP。导入会复制到制作台自己的工作区，
         不会修改你的原始文件。
       </p>
       <div className="import-actions">
         <button className="btn" disabled={unavailable} onClick={() => props.onImport('dir')}>
-          {props.busy === 'importing' ? '导入中…' : '选择宠物 / Shimeji 目录'}
+          {props.busy === 'importing' ? '导入中…' : '选择 Petdex 目录'}
         </button>
         <button className="btn" disabled={unavailable} onClick={() => props.onImport('zip')}>
           选择 ZIP 压缩包
@@ -702,9 +701,7 @@ function PreviewStep({ project, onBusyChange }: { project: ProjectMeta; onBusyCh
             </button>
           </div>
           <p className="field-hint">
-            {payload.sourceFormat === 'classic-shimeji'
-              ? '经典 Shimeji：这里展示转换后的动作，自动行为由 Pet Studio 调度，并非原包完整行为复现。'
-              : 'Petdex：拖动复用行走帧，攀爬复用思考行；附加动作仅供手动预览。'}
+            Petdex：拖动复用行走帧；v2 附加动作仅供手动预览。
           </p>
         </>
       )}

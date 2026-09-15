@@ -7,7 +7,7 @@ import type { PetSpriteConfig } from '../../shared/petpack';
  * running 保留给高速移动；extra1/extra2（v2）只在制作台动作预览手动播放。
  */
 export type PetState =
-  | 'idle' | 'walking' | 'climbing' | 'dragging' | 'talking' | 'jumping'
+  | 'idle' | 'walking' | 'dragging' | 'talking' | 'jumping'
   | 'failed' | 'waiting' | 'running' | 'review'
   | 'extra1' | 'extra2';
 
