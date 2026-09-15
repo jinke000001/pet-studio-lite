@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import fs from 'node:fs/promises';
 import { detectImageSize } from '../shared/petpack';
 
 /**
@@ -18,7 +19,11 @@ import { detectImageSize } from '../shared/petpack';
 export async function sharpImageProbe(absPath: string, head: Buffer): Promise<string | null> {
   const declared = detectImageSize(head);
   try {
-    const { info } = await sharp(absPath, { limitInputPixels: 64_000_000 })
+    // libvips may cache a file-backed WebP after decoding, keeping it locked on
+    // Windows. readFile closes its handle before decoding; a Buffer gives the
+    // decoder no source file to retain (also covers ZIP import/export snapshots).
+    const bytes = await fs.readFile(absPath);
+    const { info } = await sharp(bytes, { limitInputPixels: 64_000_000 })
       .raw()
       .toBuffer({ resolveWithObject: true });
     if (declared && (info.width !== declared.width || info.height !== declared.height)) {

@@ -1,6 +1,6 @@
 {
   "name": "pet-studio-lite",
-  "version": "0.2.0-beta.1",
+  "version": "0.2.0-beta.2",
   "description": "Pet Studio Lite — 宠物包导入/检查/预览/配置/导出 Windows 便携桌宠",
   "main": "out/main/index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "electron-vite build",
     "build:pet": "electron-vite build --config electron.vite.pet.config.ts && node scripts/check-pet-runtime-bundle.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:petpack && npm run test:zip && npm run test:petdex && npm run test:runtime && npm run test:export-snapshot && npm run test:runtime-build && npm run test:windows-kit && npm run test:offline-export && npm run test:petdex-download",
+    "test": "npm run test:petpack && npm run test:zip && npm run test:petdex && npm run test:runtime && npm run test:export-snapshot && npm run test:runtime-build && npm run test:windows-kit && npm run test:offline-export && npm run test:petdex-download && npm run test:image-probe",
     "test:petpack": "esbuild scripts/test-petpack.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petpack.bundle.mjs --packages=external && node scripts/test-petpack.bundle.mjs",
     "test:zip": "esbuild scripts/test-zip.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-zip.bundle.mjs --packages=external && node scripts/test-zip.bundle.mjs",
     "test:petdex": "esbuild scripts/test-petdex.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petdex.bundle.mjs --packages=external && node scripts/test-petdex.bundle.mjs",
@@ -29,7 +29,8 @@
     "package:win": "npm run build && npm run prepare:studio && esbuild scripts/package-studio.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/package-studio.bundle.mjs && node scripts/package-studio.bundle.mjs win",
     "package:mac": "npm run build && npm run prepare:studio && esbuild scripts/package-studio.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/package-studio.bundle.mjs && node scripts/package-studio.bundle.mjs mac",
     "test:petdex-download": "esbuild scripts/test-petdex-download.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/test-petdex-download.bundle.mjs && node scripts/test-petdex-download.bundle.mjs",
-    "package:win:zip": "npm run build && npm run prepare:studio && esbuild scripts/package-studio.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/package-studio.bundle.mjs && node scripts/package-studio.bundle.mjs win-zip"
+    "package:win:zip": "npm run build && npm run prepare:studio && esbuild scripts/package-studio.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/package-studio.bundle.mjs && node scripts/package-studio.bundle.mjs win-zip",
+    "test:image-probe": "esbuild scripts/test-image-probe.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/test-image-probe.bundle.mjs && node scripts/test-image-probe.bundle.mjs"
   },
   "engines": {
     "node": ">=22.18.0"

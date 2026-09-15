@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, '..');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let win;
 let picked = null;
+let cancelCompletion = null;
 const faults = new Map();
 const checks = [];
 const rendererErrors = [];
@@ -16,7 +17,9 @@ setTimeout(() => { console.error('Workbench regression exceeded time budget'); a
 const originalHandle = ipcMain.handle.bind(ipcMain);
 ipcMain.handle = (channel, handler) => originalHandle(channel, (...args) => {
   const fault = faults.get(channel);
-  return fault ? fault(...args) : handler(...args);
+  const result = fault ? fault(...args) : handler(...args);
+  if (channel === 'studio:petdex:cancel') cancelCompletion = result;
+  return result;
 });
 dialog.showOpenDialog = async () => picked
   ? { canceled: false, filePaths: [picked] }
@@ -239,6 +242,55 @@ async function main() {
   await waitFor("!!document.querySelector('.import-actions')");
   await step(3);
   await check('Reopening the workbench preserves saved config', js("document.querySelector('.field-input').value === '已保存的配置'"));
+  // Control only HTTP responses; candidate decoding, UI, IPC and cleanup are real.
+  // Regress the Windows RETURN's WebP handle leak in the complete import flow.
+  const originalFetch = globalThis.fetch;
+  const sprite = await fs.readFile(path.join(root, 'assets/fixtures/pack-v2-webp/spritesheet.webp'));
+  const petJson = await fs.readFile(path.join(root, 'assets/fixtures/pack-v2-webp/pet.json'));
+  globalThis.fetch = async url => {
+    if (String(url) === 'https://petdex.dev/api/manifest/v2') return new Response(JSON.stringify({
+      v: 2, total: 1, assetBase: 'https://assets.petdex.dev',
+      fields: ['slug', 'displayName', 'kind', 'submittedBy', 'spritesheet', 'petJson', 'zip', 'spriteVersionNumber'],
+      pets: [['demo-fish', '演示鱼', 'creature', null, 'pets/demo-fish/sprite.webp', 'pets/demo-fish/pet.json', null, 2]],
+    }));
+    if (String(url) === 'https://assets.petdex.dev/pets/demo-fish/pet.json') return new Response(petJson);
+    if (String(url) === 'https://assets.petdex.dev/pets/demo-fish/sprite.webp') return new Response(sprite);
+    throw new Error(`Unexpected download URL: ${url}`);
+  };
+  try {
+    for (let cycle = 1; cycle <= 3; cycle++) {
+      await step(0);
+      await input('#petdex-command', 'npx petdex@latest install demo-fish');
+      await click('下载并读取信息');
+      await waitFor("!!document.querySelector('.petdex-candidate-preview .sprite')");
+      await check(`Download ${cycle}: candidate sprite decodes`, js(`(async () => {
+        const el = document.querySelector('.petdex-candidate-preview .sprite');
+        const image = new Image(); image.src = getComputedStyle(el).backgroundImage.slice(5, -2);
+        await image.decode(); return image.naturalWidth > 0;
+      })()`));
+      if (cycle === 1) await fs.writeFile(path.join(work, 'download-candidate.png'), (await win.webContents.capturePage()).toPNG());
+      await click('确认导入');
+      await waitFor("document.querySelector('h1')?.textContent.startsWith('检查')");
+      const state = await js('window.studio.getState()');
+      const current = state.index.projects.find(p => p.id === state.index.currentProjectId);
+      await check(`Download ${cycle}: confirmation removes temporary source`, await fs.stat(current.sourcePath).then(() => false, e => e.code === 'ENOENT'));
+      const cache = path.dirname(current.sourcePath);
+      await check(`Download ${cycle}: no previous candidate residue`, (await fs.readdir(cache)).length === 0);
+      await check(`Download ${cycle}: copied project still passes validation`, (await js(`window.studio.recheck(${JSON.stringify(current.id)})`)).ok);
+      await step(0);
+      await input('#petdex-command', 'npx petdex@latest install demo-fish');
+      await click('下载并读取信息');
+      await waitFor("!!document.querySelector('.petdex-candidate')");
+      cancelCompletion = null;
+      await click('暂不导入');
+      await waitFor("!document.querySelector('.petdex-candidate')");
+      // React hides the candidate optimistically, before filesystem cleanup ends.
+      // Assert after the actual production IPC finishes, not after UI removal.
+      if (!cancelCompletion) throw new Error('Cancel IPC was not invoked');
+      await cancelCompletion;
+      await check(`Download ${cycle}: cancellation removes temporary source`, (await fs.readdir(cache)).length === 0);
+    }
+  } finally { globalThis.fetch = originalFetch; }
   await check('No unexpected renderer errors', rendererErrors.filter(e => !e.includes('测试')).length === 0);
   await fs.writeFile(path.join(work, 'summary.json'), JSON.stringify({ checks, samples, rendererErrors }, null, 2));
   console.log(`Evidence: ${work}`);

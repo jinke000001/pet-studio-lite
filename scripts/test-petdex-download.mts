@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { downloadPetdexPack, type PetdexDownloadOptions } from '../src/main/petdex-download.ts';
+import { sharpImageProbe } from '../src/main/image-probe';
 
 const MANIFEST_URL = 'https://petdex.dev/api/manifest/v2';
 const MANIFEST_REDIRECT = 'https://assets.petdex.dev/manifests/petdex-v2.json';
@@ -203,7 +204,7 @@ try {
   });
 
   if (process.env['PETDEX_REMOTE_TEST'] === '1') {
-    await test('真实下载官方 boba 并可由 sharp 解码', async () => {
+    await test('真实下载官方 boba，完整解码后立即清理且不保留文件句柄', async () => {
       const { default: sharp } = await import('sharp');
       const result = await downloadPetdexPack(
         'npx petdex@latest install boba',
@@ -212,8 +213,12 @@ try {
       const pet = JSON.parse(await fs.readFile(path.join(result.sourcePath, 'pet.json'), 'utf8')) as {
         spritesheetPath: string;
       };
-      const metadata = await sharp(path.join(result.sourcePath, pet.spritesheetPath)).metadata();
-      assert.ok(metadata.width && metadata.height);
+      const file = path.join(result.sourcePath, pet.spritesheetPath);
+      const bytes = await fs.readFile(file);
+      assert.equal(await sharpImageProbe(file, bytes.subarray(0, 64)), null);
+      assert.equal(sharp.cache().files.current, 0);
+      await fs.rm(result.sourcePath, { recursive: true });
+      await assertCacheEmpty(path.join(tmp, 'remote'));
     });
   }
 } finally {
