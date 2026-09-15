@@ -47,7 +47,7 @@ try {
   await write('resources/app/package.json', '{"version":"9.9.9"}');
   await assert.rejects(inspectDelivery(product), /版本/);
   await write('resources/app/package.json', '{"version":"0.1.0"}');
-  await fs.symlink(fixture, path.join(product, 'resources', 'external'));
+  await fs.symlink(fixture, path.join(product, 'resources', 'external'), 'junction');
   await assert.rejects(inspectDelivery(product), /符号链接/);
   await fs.unlink(path.join(product, 'resources/external'));
   await fs.unlink(path.join(product, 'libEGL.dll'));

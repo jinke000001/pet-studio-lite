@@ -143,13 +143,19 @@ try {
     Record $item $status '用户手动确认'
   }
   if (Test-Path -LiteralPath $launchedPidFile) {
-    $recordedLaunchPids = @(Get-Content -LiteralPath $launchedPidFile -Encoding Ascii | Select-Object -Unique)
-    foreach ($line in $recordedLaunchPids) {
+    # Get-Content strings carry PSDrive/PSProvider metadata in Windows PS 5.1.
+    # Keep only plain integers before ConvertTo-Json can traverse that graph.
+    $recordedLaunchPids = @([IO.File]::ReadAllLines($launchedPidFile) | ForEach-Object {
+      if ([string]::IsNullOrWhiteSpace($_)) { return }
       $recordedId = 0
-      if ([int]::TryParse($line.Trim(), [ref]$recordedId)) {
-        $recordedProcess = Get-Process -Id $recordedId -ErrorAction SilentlyContinue
-        if ($null -ne $recordedProcess -and -not $recordedProcess.HasExited) { $runningRecordedPids += $recordedId }
+      if (-not [int]::TryParse($_.Trim(), [ref]$recordedId) -or $recordedId -le 0) {
+        throw 'Invalid PID in isolated-launched-pids.txt'
       }
+      $recordedId
+    } | Select-Object -Unique)
+    foreach ($recordedId in $recordedLaunchPids) {
+      $recordedProcess = Get-Process -Id $recordedId -ErrorAction SilentlyContinue
+      if ($null -ne $recordedProcess -and -not $recordedProcess.HasExited) { $runningRecordedPids += $recordedId }
     }
   }
   $exitStatus = if ($runningRecordedPids.Count -eq 0) { 'pass' } else { 'incomplete' }
