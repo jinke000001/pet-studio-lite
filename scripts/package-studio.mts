@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { build, Platform, Arch } from 'electron-builder';
 import { readRuntimeTemplate } from '../src/main/runtime-template';
+import { studioBuilderConfig } from './studio-builder-config.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const target = process.argv[2];
@@ -42,15 +43,8 @@ try {
   const artifacts = await build({
     projectDir: root,
     targets: (windows ? Platform.WINDOWS : Platform.MAC).createTarget(target === 'win' ? ['nsis', 'zip'] : target === 'win-zip' ? ['zip'] : ['dmg'], arch === 'x64' ? Arch.x64 : Arch.arm64),
-    config: {
-      extends: path.join(root, 'electron-builder.yml'),
-      directories: { app: stage, output: path.join(stage, 'dist'), buildResources: path.join(root, 'build-resources') },
-      extraResources: [{ from: path.join(root, 'build-resources/runtime-template'), to: 'runtime-template', filter: ['win-x64.zip', 'win-x64.zip.json'] }],
-      npmRebuild: false,
-      electronVersion: JSON.parse(await fs.readFile(path.join(root, 'node_modules/electron/package.json'), 'utf8')).version,
-      win: { artifactName: '${productName}-${version}-${arch}.${ext}' },
-      publish: null,
-    }, publish: 'never',
+    config: studioBuilderConfig(root, stage, JSON.parse(await fs.readFile(path.join(root, 'node_modules/electron/package.json'), 'utf8')).version),
+    publish: 'never',
   });
   const files = [];
   for (const file of artifacts) {

@@ -263,6 +263,11 @@ async function main() {
       await input('#petdex-command', 'npx petdex@latest install demo-fish');
       await click('下载并读取信息');
       await waitFor("!!document.querySelector('.petdex-candidate-preview .sprite')");
+      // Windows can occlude the workbench after preview/theme captures. Chromium
+      // defers Image.decode() in a hidden page; make the visual check visible.
+      win.show();
+      win.focus();
+      await waitFor("document.visibilityState === 'visible'");
       await check(`Download ${cycle}: candidate sprite decodes`, js(`(async () => {
         const el = document.querySelector('.petdex-candidate-preview .sprite');
         const image = new Image(); image.src = getComputedStyle(el).backgroundImage.slice(5, -2);
