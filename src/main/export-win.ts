@@ -2,10 +2,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { spawn } from 'node:child_process';
 import type { ProjectMeta } from '../shared/types';
 import { prepareExportPack } from './export-pack';
-import { preparePetRuntime } from './prepare-pet-runtime';
+import { readRuntimeTemplate } from './runtime-template';
 import { sharpImageProbe } from './image-probe';
 import type { PetRuntimeConfig } from '../shared/config';
 import { buildManifest, distributionNote, type ExportManifest } from '../shared/manifest';
@@ -16,7 +15,7 @@ import { inspectZip, readZipEntry, ZIP_LIMITS_RELAXED } from '../shared/zip';
  * Windows x64 便携 ZIP 导出编排。
  *
  * 流程：准备导出临时目录（宠物运行时构建产物 + 宠物包副本 +
- * manifest + 启动说明）→ electron-builder 打 win zip → 把 manifest /
+ * manifest + 启动说明）→ 读取随包校验的 Windows 运行时模板 → 把 manifest /
  * 启动说明并入 ZIP 顶层 → 复制到用户选择的目录（非覆盖命名）→
  * 静态核验 → 清理临时目录。产物性质由 resolveDistribution 决定：
  * 仅 authorized + general 生成 candidate，其余一律 internal-test-only。
@@ -27,6 +26,7 @@ import { inspectZip, readZipEntry, ZIP_LIMITS_RELAXED } from '../shared/zip';
 
 export interface ExportDeps {
   repoRoot: string;
+  runtimeTemplatePath?: string;
   productVersion: string;
   onProgress: (phase: string, message: string) => void;
 }
@@ -105,7 +105,8 @@ export async function reserveOutputPath(dir: string, baseName: string): Promise<
       await fs.stat(candidate);
       candidate = path.join(dir, `${baseName}-${n}.zip`);
       n++;
-    } catch {
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       return candidate;
     }
   }
@@ -124,23 +125,6 @@ function timestampSlug(): string {
   ].join('');
 }
 
-function run(cmd: string, args: string[], cwd: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, {
-      cwd,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let out = '';
-    child.stdout.on('data', (d) => { out += d; });
-    child.stderr.on('data', (d) => { out += d; });
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`命令失败（exit ${code}）：${cmd} ${args.join(' ')}\n${out.slice(-2000)}`));
-    });
-  });
-}
-
 export async function exportWindowsZip(
   meta: ProjectMeta,
   projectDir: string,
@@ -155,24 +139,9 @@ export async function exportWindowsZip(
     const packDir = path.join(extraDir, 'petpack');
     await prepareExportPack(meta, projectDir, packDir, sharpImageProbe);
 
-    // 2. 准备运行时构建产物（out-pet）
-    deps.onProgress('prepare', '准备宠物运行时…');
-    const outPet = await preparePetRuntime(deps.repoRoot, async () => {
-      deps.onProgress('prepare', '正在构建最新桌宠运行时…');
-      await run('npm', ['run', 'build:pet'], deps.repoRoot);
-    });
-
-    // 3. 组装 app 目录
-    const appDir = path.join(staging, 'app');
-    await fs.mkdir(appDir, { recursive: true });
-    await fs.cp(outPet, appDir, { recursive: true });
-    await fs.writeFile(path.join(appDir, 'package.json'), JSON.stringify({
-      name: 'pet-lite-pet',
-      version: deps.productVersion,
-      description: 'Pet Studio Lite 导出的独立桌宠',
-      main: 'main/main.js',
-      private: true,
-    }, null, 2), 'utf8');
+    deps.onProgress('prepare', '校验内置 Windows 运行时…');
+    const templatePath = deps.runtimeTemplatePath ?? path.join(deps.repoRoot, 'build-resources/runtime-template/win-x64.zip');
+    const builtBytes = await readRuntimeTemplate(templatePath, deps.repoRoot, deps.productVersion);
 
     // 4. 宠物包副本 + manifest + 启动说明
     const manifest = buildManifest({
@@ -193,43 +162,8 @@ export async function exportWindowsZip(
     await fs.writeFile(path.join(extraDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
     await fs.writeFile(path.join(extraDir, '启动说明.txt'), readmeText(meta, manifest), 'utf8');
 
-    // 5. electron-builder 打 win x64 zip
-    deps.onProgress('build-runtime', '打包 Windows 运行时（首次需下载 Electron 运行时，可能较慢）…');
-    const builderConfig = {
-      appId: 'com.petstudio.lite.pet',
-      productName: 'PetLitePet',
-      directories: { app: appDir, output: path.join(staging, 'dist') },
-      files: ['**/*'],
-      asar: false,
-      // 只保留中英文 locale 资源（运行时 UI 文案是内置中文，其余 ~50 个
-      // locale 是纯死重）。不改运行时、不引入在线依赖。
-      electronLanguages: ['en-US', 'zh-CN'],
-      win: { target: [{ target: 'zip', arch: ['x64'] }] },
-      artifactName: 'petlite-pet-win-x64.${ext}',
-      extraResources: [
-        { from: path.join(extraDir, 'petpack'), to: 'petpack' },
-        { from: path.join(extraDir, 'manifest.json'), to: 'manifest.json' },
-      ],
-      electronDownload: { mirror: process.env['ELECTRON_MIRROR'] ?? undefined },
-      publish: null,
-    };
-    const builderConfigPath = path.join(staging, 'builder.json');
-    await fs.writeFile(builderConfigPath, JSON.stringify(builderConfig, null, 2), 'utf8');
-    // 用系统 node 跑 electron-builder（制作台由 npm 启动，node 必在 PATH）。
-    // 不能用 process.execPath —— 那是 Electron 二进制，会把参数解析搞乱。
-    await run(
-      process.env['npm_node_execpath'] ?? 'node',
-      [path.join(deps.repoRoot, 'node_modules', 'electron-builder', 'cli.js'), '--win', 'zip', '--x64', '--config', builderConfigPath],
-      deps.repoRoot,
-    );
-
-    // 6. 把 manifest / 启动说明 / 可复算的运行时身份并入 ZIP 顶层
-    deps.onProgress('assemble', '写入启动说明与 manifest…');
-    const distDir = path.join(staging, 'dist');
-    const zips = (await fs.readdir(distDir)).filter((f) => f.endsWith('.zip'));
-    if (zips.length !== 1) throw new Error(`打包产物异常：dist 里应有且仅有一个 ZIP（实际 ${zips.length} 个）`);
-    const builtZip = path.join(distDir, zips[0]!);
-    const builtBytes = await fs.readFile(builtZip);
+    deps.onProgress('build-runtime', '组装 Windows 桌宠…');
+    const builtZip = path.join(staging, 'pet.zip');
     const builtEntries = inspectZip(builtBytes, ZIP_LIMITS_RELAXED).entries;
     const executableEntries = builtEntries.filter((entry) => entry.name === PET_EXE_NAME);
     if (executableEntries.length !== 1) {
@@ -240,6 +174,10 @@ export async function exportWindowsZip(
     const artifactIntegrity = buildArtifactIntegrity(PET_EXE_NAME, executableBytes, manifestBytes);
     const integrityBytes = Buffer.from(JSON.stringify(artifactIntegrity, null, 2), 'utf8');
     const merged = await appendToZip(builtBytes, [
+      { name: 'resources/manifest.json', data: manifestBytes, compress: false },
+      ...await Promise.all(['pet.json', meta.spritesheetFile, 'config.json'].map(async name => ({
+        name: `resources/petpack/${name}`, data: await fs.readFile(path.join(packDir, name)),
+      }))),
       { name: '启动说明.txt', data: Buffer.from(readmeText(meta, manifest), 'utf8'), compress: false },
       { name: 'manifest.json', data: manifestBytes, compress: false },
       { name: 'runtime-integrity.json', data: integrityBytes, compress: false },
@@ -265,7 +203,7 @@ export async function exportWindowsZip(
     // 8. 非覆盖复制到目标目录
     const baseName = `petlite-pet-${meta.slug}-win-x64-${timestampSlug()}`;
     const finalPath = await reserveOutputPath(outputDir, baseName);
-    await fs.copyFile(builtZip, finalPath);
+    await fs.copyFile(builtZip, finalPath, fs.constants.COPYFILE_EXCL);
     const sha256 = crypto.createHash('sha256').update(await fs.readFile(finalPath)).digest('hex');
 
     deps.onProgress('done', '导出完成');

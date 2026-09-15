@@ -377,9 +377,8 @@ function CommandLine({ cmd }: { cmd: string }) {
 
 /**
  * 新手帮助：如何从 Petdex 获取宠物包。
- * 命令与保存位置以 Petdex 官方 CLI（npm: petdex）实际行为为准：
- * `petdex install <名字>` 会把宠物包放到 ~/.petdex/pets/<名字>/。制作台
- * 现在可代为执行严格白名单化的下载，并在用户确认后导入工作区副本。
+ * 制作台只从粘贴文本中识别宠物，不运行 npx 或 Petdex CLI；官方文件先进入
+ * 本次会话缓存供预览，用户确认后才复制到工作区。
  */
 function PetdexHelp() {
   const [open, setOpen] = useState(false);
@@ -392,21 +391,16 @@ function PetdexHelp() {
       {open && (
         <div className="help-body">
           <ol className="help-steps">
-            <li>安装 <strong>Node.js 20 或更高版本</strong>（官网 nodejs.org，安装后重新打开终端）。</li>
-            <li>在 Petdex 宠物页面复制完整安装命令。</li>
+            <li>无需安装 Node.js、npm 或 Git。</li>
+            <li>在 Petdex 宠物页面复制官方安装命令。</li>
             <li>
               把命令粘贴到本页「从 Petdex 下载」输入框，例如：
               <CommandLine cmd="npx petdex@latest install boba" />
             </li>
             <li>
-              下载完成后核对名称、版本、授权与预览，再点「确认导入」。原包仍保留在
-              <code>~/.petdex/pets/</code>。
+              制作台会下载官方文件并先显示名称、版本、授权与动画预览；核对后再点「确认导入」。
             </li>
           </ol>
-          <p className="muted">
-            高频用户可全局安装一次，之后直接用 <code>petdex</code> 命令：
-          </p>
-          <CommandLine cmd="npm install -g petdex" />
           <p className="muted">
             如果已经有本地宠物包，也可以继续使用上方的目录或 ZIP 导入。
           </p>
@@ -454,7 +448,7 @@ function ImportStep(props: {
             <div className="eyebrow">PETDEX · DIRECT IMPORT</div>
             <h2>从 Petdex 下载</h2>
           </div>
-          <span className="petdex-location">保存至 ~/.petdex/pets</span>
+          <span className="petdex-location">先预览，确认后保存</span>
         </div>
         <form className="petdex-command-form" onSubmit={(event) => {
           event.preventDefault();
@@ -479,7 +473,7 @@ function ImportStep(props: {
             </button>
           </div>
           <div id="petdex-command-hint" className="field-hint">
-            仅支持 Petdex 官方安装命令。制作台不会执行其中的其他代码。
+            安装命令只用于识别宠物；制作台不会运行 npx 或命令中的代码。
           </div>
         </form>
 
@@ -509,7 +503,7 @@ function ImportStep(props: {
                 <div><dt>授权</dt><dd>{LICENSE_LABEL[props.petdexCandidate.license]}</dd></div>
                 <div><dt>目录</dt><dd>{props.petdexCandidate.slug}</dd></div>
               </dl>
-              <p className="field-hint">确认后才会复制到制作台项目；Petdex 原包不会移动或删除。</p>
+              <p className="field-hint">当前文件仅用于预览；确认后才会复制到制作台项目。</p>
               <div className="petdex-candidate-actions">
                 <button className="btn" type="button" disabled={confirming} onClick={() => props.onCancelPetdex(props.petdexCandidate!)}>
                   暂不导入

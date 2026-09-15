@@ -10,27 +10,23 @@
 
 ## 这是什么
 
-Pet Studio Lite 是一个 macOS 上的"制作台"应用。你可以导入 Petdex v1/v2 目录或 ZIP，检查、预览和配置，最后导出一个 **Windows 便携 ZIP**。
+Pet Studio Lite 是一个支持 macOS 与 Windows 11 x64 的小组制作台。你可以导入 Petdex v1/v2 目录或 ZIP，检查、预览和配置，最后导出一个 **Windows 便携 ZIP**。
 
 导出的桌宠 **完全独立**：不需要安装 Node.js、Python、Git，不联网，不依赖 Petdex / Codex / 任何命令行。
 
 ## 我什么都不懂，怎么用？
 
-### 1. 启动制作台（需要 macOS）
+### 1. 启动制作台（macOS 或 Windows 11 x64）
 
-制作台是开发/制作工具，需要 Node.js 环境运行（仅制作台需要；导出的桌宠不需要）。
-
-```bash
-npm install
-npm run dev
-```
+使用打包好的制作台无需安装 Node.js、npm 或 Git。解压或安装后，直接打开 Pet Studio Lite。
 
 会打开一个窗口，左侧是 5 个步骤：导入 → 检查 → 预览 → 配置 → 导出。跟着走就行。
 
 ### 2. 导入宠物包
 
 直接把 Petdex 页面提供的完整命令（例如 `npx petdex@latest install boba`）粘贴到
-**「从 Petdex 下载」**，下载完成后核对宠物信息并确认导入。也可以继续点
+**「从 Petdex 下载」**。这段命令只用于识别宠物，制作台不会运行 npx 或命令中的代码；
+官方文件下载后会先显示宠物信息和动画预览，确认后才保存到工作台。也可以继续点
 **「选择宠物包目录」** 或 **「选择 ZIP 压缩包」** 导入已有文件。
 
 宠物包长这样：
@@ -92,8 +88,8 @@ ZIP 里有 `启动说明.txt`（同样这份说明）和 `manifest.json`（版�
 
 ## 隐私
 
-- 只有用户主动提交 Petdex 安装命令时，制作台才会启动官方 CLI 联网下载；导出的桌宠始终离线。
-- 下载保留在 `~/.petdex/pets`。用户确认后，制作台只读复制宠物包到自己的目录（`~/Library/Application Support/pet-studio-lite`），不会移动或删除原包，也不读取 `~/.nom`。
+- 只有用户主动提交 Petdex 安装命令时，制作台才会连接 Petdex 官方清单和资源；不会启动 Petdex CLI，导出的桌宠始终离线。
+- 下载文件先进入本次会话的临时缓存，用于校验和预览；用户确认后才复制到制作台自己的工作区，取消或失败时会清理对应缓存。
 
 ## 开发者
 

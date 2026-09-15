@@ -3,12 +3,19 @@ productName: Pet Studio Lite
 directories:
   output: release
   buildResources: build-resources
-afterPack: ./scripts/sign-adhoc.cjs
+afterPack: ./scripts/after-pack.cjs
 files:
   - out/**/*
   - package.json
 asarUnpack:
-  - resources/**
+  - node_modules/sharp/**
+  - node_modules/@img/**
+extraResources:
+  - from: build-resources/runtime-template
+    to: runtime-template
+    filter:
+      - win-x64.zip
+      - win-x64.zip.json
 
 mac:
   category: public.app-category.utilities
@@ -22,18 +29,15 @@ mac:
   identity: "-"
 
 dmg:
-  # Stable filename (no version) so releases/latest/download/<file> URLs in
-  # the README keep working across version bumps. The actual version is
-  # still visible inside the dmg metadata + app About dialog + GitHub
-  # release page.
-  artifactName: ${productName}-${arch}.${ext}
+  artifactName: ${productName}-${version}-${arch}.${ext}
 
 win:
+  signAndEditExecutable: false
   target:
     - target: nsis
       arch:
         - x64
-  artifactName: ${productName}-setup.${ext}
+  artifactName: ${productName}-${version}-setup.${ext}
 
 nsis:
   oneClick: false

@@ -12,3 +12,4 @@ scripts/*.bundle.mjs
 scripts/*.bundle.cjs
 out-pet/
 deliverables/*.zip
+build-resources/runtime-template/

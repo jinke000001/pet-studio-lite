@@ -1,6 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import fs from 'node:fs/promises';
+import { rmSync } from 'node:fs';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { ProjectsStore, packFingerprint } from '../shared/projects';
@@ -14,17 +16,19 @@ import type { ImportResult, PetdexPrepareResult, PreviewPayload, StudioState } f
 import { PetWindowHost } from '../pet/host';
 import { exportWindowsZip } from './export-win';
 import { sharpImageProbe } from './image-probe';
-import { findNpxExecutable, parsePetdexInstallCommand, PetdexCandidateRegistry, resolvePetdexPetDirectory, runPetdexInstall } from './petdex-install';
+import { parsePetdexInstallCommand, PetdexCandidateRegistry } from './petdex-install';
+import { downloadPetdexPack } from './petdex-download';
 
 /**
  * Pet Studio Lite 制作台 main process。
  *
- * 无账号、无遥测。除用户主动发起的 Petdex 命令导入外，不读 ~/.nom /
- * ~/.codex / ~/.petdex 的状态；所有导入来源均只读复制，一切自有数据只写
- * 自己的 userData（app.setName('pet-studio-lite')）。
+ * 无账号、无遥测。在线导入只读取官方 Petdex 素材，下载到本次会话的临时目录；
+ * 本地导入来源只读复制。项目只写自己的 userData，不读写其他工具的数据。
  */
 
 app.setName('pet-studio-lite'); // 独立 userData 命名空间，须在读取 userData 之前
+const gotStudioLock = app.requestSingleInstanceLock();
+if (!gotStudioLock) app.exit(0);
 const store = new ProjectsStore(path.join(app.getPath('userData'), 'studio-data'));
 let studioWindow: BrowserWindow | null = null;
 let petPreview: PetWindowHost | null = null;
@@ -33,6 +37,19 @@ let previewProjectId: string | null = null;
 let exportInFlight = false;
 let petdexInstallInFlight = false;
 const pendingPetdexCandidates = new PetdexCandidateRegistry();
+let downloadRoot: string | null = null;
+let pendingDownload: { token: string; sourcePath: string } | null = null;
+async function discardPendingDownload(): Promise<void> {
+  const pending = pendingDownload;
+  pendingDownload = null;
+  if (!pending) return;
+  pendingPetdexCandidates.cancel(pending.token);
+  await fs.rm(pending.sourcePath, { recursive: true, force: true }).catch(error => console.warn('Candidate cleanup failed:', error));
+}
+app.on('will-quit', () => {
+  try { if (downloadRoot) rmSync(downloadRoot, { recursive: true, force: true }); }
+  catch (error) { console.warn('Download cache cleanup failed:', error); }
+});
 /** 本次会话内导出生成的 ZIP 登记册（"打开所在文件夹"的唯一合法目标来源）。 */
 const exportRegistry = new ExportRegistry();
 
@@ -108,6 +125,7 @@ function createWindow(): BrowserWindow {
 
   studioWindow.on('closed', () => {
     studioWindow = null;
+    if (process.platform !== 'darwin') petPreview?.close();
   });
   return studioWindow;
 }
@@ -138,12 +156,13 @@ function registerIpc(): void {
   ipcMain.handle('studio:petdex:prepare', async (_, rawCommand: unknown): Promise<PetdexPrepareResult> => {
     if (petdexInstallInFlight) return { ok: false, errors: ['已有 Petdex 下载任务进行中，请等待完成'] };
     petdexInstallInFlight = true;
+    let candidatePath: string | null = null;
     try {
-      parsePetdexInstallCommand(rawCommand); // 先拒绝非法输入，再探测本机可执行文件。
-      const executable = await findNpxExecutable();
-      const { slug } = await runPetdexInstall(rawCommand, { executable });
-      const petsRoot = path.join(os.homedir(), '.petdex', 'pets');
-      const sourcePath = await resolvePetdexPetDirectory(petsRoot, slug);
+      parsePetdexInstallCommand(rawCommand);
+      await discardPendingDownload();
+      downloadRoot ??= await fs.mkdtemp(path.join(os.tmpdir(), 'petstudio-download-'));
+      const { slug, sourcePath } = await downloadPetdexPack(rawCommand, downloadRoot);
+      candidatePath = sourcePath;
       const result = await validatePetPack(sourcePath, { probe: decodeProbe });
       if (!result.ok) return { ok: false, errors: result.errors };
 
@@ -153,6 +172,8 @@ function registerIpc(): void {
         sourcePath,
         fingerprint: packFingerprint(result.pack.hashes),
       });
+      pendingDownload = { token, sourcePath };
+      candidatePath = null;
       return {
         ok: true,
         candidate: {
@@ -170,18 +191,24 @@ function registerIpc(): void {
     } catch (err) {
       return { ok: false, errors: [err instanceof Error ? err.message : String(err)] };
     } finally {
+      if (candidatePath) await fs.rm(candidatePath, { recursive: true, force: true }).catch(error => console.warn('Candidate cleanup failed:', error));
       petdexInstallInFlight = false;
     }
   });
 
   ipcMain.handle('studio:petdex:confirm', async (_, rawToken: unknown): Promise<ImportResult> => {
+    if (petdexInstallInFlight) return { ok: false, errors: ['已有 Petdex 操作进行中，请等待完成'] };
+    petdexInstallInFlight = true;
+    let shouldDiscard = false;
     try {
       const token = requireString(rawToken, 'Petdex 候选令牌', 128);
+      shouldDiscard = token === pendingDownload?.token;
       const pending = pendingPetdexCandidates.take(token);
-
-      const petsRoot = path.join(os.homedir(), '.petdex', 'pets');
-      const currentPath = await resolvePetdexPetDirectory(petsRoot, pending.slug);
-      if (currentPath !== pending.sourcePath) return { ok: false, errors: ['下载候选目录已发生变化，请重新下载'] };
+      const stat = await fs.lstat(pending.sourcePath);
+      const currentPath = await fs.realpath(pending.sourcePath);
+      if (stat.isSymbolicLink() || currentPath !== pending.sourcePath) {
+        return { ok: false, errors: ['下载候选目录已发生变化，请重新下载'] };
+      }
       const result = await validatePetPack(currentPath, { probe: decodeProbe });
       if (!result.ok) return { ok: false, errors: result.errors };
       if (packFingerprint(result.pack.hashes) !== pending.fingerprint) {
@@ -191,12 +218,20 @@ function registerIpc(): void {
       return { ok: true, project: meta };
     } catch (err) {
       return { ok: false, errors: [err instanceof Error ? err.message : String(err)] };
+    } finally {
+      if (shouldDiscard) await discardPendingDownload();
+      petdexInstallInFlight = false;
     }
   });
 
-  ipcMain.handle('studio:petdex:cancel', (_, rawToken: unknown) => {
+  ipcMain.handle('studio:petdex:cancel', async (_, rawToken: unknown) => {
+    if (petdexInstallInFlight) return;
     const token = requireString(rawToken, 'Petdex 候选令牌', 128);
     pendingPetdexCandidates.cancel(token);
+    if (token !== pendingDownload?.token) return;
+    petdexInstallInFlight = true;
+    try { await discardPendingDownload(); }
+    finally { petdexInstallInFlight = false; }
   });
 
   ipcMain.handle('studio:select', async (_, rawId: unknown) => {
@@ -270,11 +305,11 @@ function registerIpc(): void {
       preloadFile: path.join(__dirname, '../preload/petwin.js'),
       rendererUrl: process.env['ELECTRON_RENDERER_URL']
         ? `${process.env['ELECTRON_RENDERER_URL']}/pet.html`
-        : `file://${path.join(__dirname, '../renderer/pet.html')}`,
+        : pathToFileURL(path.join(__dirname, '../renderer/pet.html')).href,
       sizeControlPreloadFile: path.join(__dirname, '../preload/sizeControl.js'),
       sizeControlRendererUrl: process.env['ELECTRON_RENDERER_URL']
         ? `${process.env['ELECTRON_RENDERER_URL']}/size-control.html`
-        : `file://${path.join(__dirname, '../renderer/size-control.html')}`,
+        : pathToFileURL(path.join(__dirname, '../renderer/size-control.html')).href,
       closeLabel: '关闭预览',
       onInfo: () => {
         void dialog.showMessageBox({
@@ -332,6 +367,9 @@ function registerIpc(): void {
     try {
       const outcome = await exportWindowsZip(meta, store.projectDir(id), picked.filePaths[0]!, {
         repoRoot: path.resolve(__dirname, '..', '..'),
+        runtimeTemplatePath: app.isPackaged
+          ? path.join(process.resourcesPath, 'runtime-template/win-x64.zip')
+          : undefined,
         productVersion: app.getVersion(),
         onProgress: (phase, message) => {
           if (studioWindow && !studioWindow.isDestroyed()) {
@@ -356,6 +394,12 @@ function registerIpc(): void {
     shell.showItemInFolder(target);
   });
 }
+
+app.on('second-instance', () => {
+  if (!app.isReady()) return;
+  studioWindow = handleActivate(studioWindow, createWindow).window;
+  if (studioWindow.isMinimized()) studioWindow.restore();
+});
 
 void app.whenReady().then(async () => {
   registerIpc();

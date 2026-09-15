@@ -1,6 +1,6 @@
 {
   "name": "pet-studio-lite",
-  "version": "0.1.0",
+  "version": "0.2.0-beta.1",
   "description": "Pet Studio Lite — 宠物包导入/检查/预览/配置/导出 Windows 便携桌宠",
   "main": "out/main/index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "electron-vite build",
     "build:pet": "electron-vite build --config electron.vite.pet.config.ts && node scripts/check-pet-runtime-bundle.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:petpack && npm run test:zip && npm run test:petdex && npm run test:runtime && npm run test:export-snapshot && npm run test:runtime-build && npm run test:windows-kit",
+    "test": "npm run test:petpack && npm run test:zip && npm run test:petdex && npm run test:runtime && npm run test:export-snapshot && npm run test:runtime-build && npm run test:windows-kit && npm run test:offline-export && npm run test:petdex-download",
     "test:petpack": "esbuild scripts/test-petpack.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petpack.bundle.mjs --packages=external && node scripts/test-petpack.bundle.mjs",
     "test:zip": "esbuild scripts/test-zip.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-zip.bundle.mjs --packages=external && node scripts/test-zip.bundle.mjs",
     "test:petdex": "esbuild scripts/test-petdex.mts --bundle --platform=node --format=esm --target=node20 --outfile=scripts/test-petdex.bundle.mjs --packages=external && node scripts/test-petdex.bundle.mjs",
@@ -22,10 +22,17 @@
     "test:runtime-build": "esbuild scripts/test-runtime-build.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/test-runtime-build.bundle.mjs && node scripts/test-runtime-build.bundle.mjs",
     "test:windows-kit": "esbuild scripts/test-windows-kit.mts --bundle --platform=node --format=esm --outfile=scripts/test-windows-kit.bundle.mjs && node scripts/test-windows-kit.bundle.mjs",
     "build:windows-kit": "esbuild scripts/build-windows-kit.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/build-windows-kit.bundle.mjs && node scripts/build-windows-kit.bundle.mjs",
-    "typecheck:windows-kit": "tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --allowImportingTsExtensions --skipLibCheck --esModuleInterop scripts/windows-kit/validate.mts scripts/build-windows-kit.mts scripts/test-windows-kit.mts"
+    "typecheck:windows-kit": "tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --allowImportingTsExtensions --skipLibCheck --esModuleInterop scripts/windows-kit/validate.mts scripts/build-windows-kit.mts scripts/test-windows-kit.mts",
+    "prepare:studio": "npm run build:pet && esbuild scripts/prepare-studio-runtime.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/prepare-studio-runtime.bundle.mjs && node scripts/prepare-studio-runtime.bundle.mjs",
+    "predev": "npm run prepare:studio",
+    "test:offline-export": "esbuild scripts/test-offline-export.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/test-offline-export.bundle.mjs && node scripts/test-offline-export.bundle.mjs",
+    "package:win": "npm run build && npm run prepare:studio && esbuild scripts/package-studio.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/package-studio.bundle.mjs && node scripts/package-studio.bundle.mjs win",
+    "package:mac": "npm run build && npm run prepare:studio && esbuild scripts/package-studio.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/package-studio.bundle.mjs && node scripts/package-studio.bundle.mjs mac",
+    "test:petdex-download": "esbuild scripts/test-petdex-download.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/test-petdex-download.bundle.mjs && node scripts/test-petdex-download.bundle.mjs",
+    "package:win:zip": "npm run build && npm run prepare:studio && esbuild scripts/package-studio.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/package-studio.bundle.mjs && node scripts/package-studio.bundle.mjs win-zip"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.18.0"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -40,7 +47,9 @@
     "electron": "^32.0.0",
     "electron-builder": "^25.0.0",
     "electron-vite": "^2.3.0",
+    "resedit": "2.0.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.8"
-  }
+  },
+  "author": "Pet Studio"
 }

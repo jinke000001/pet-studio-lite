@@ -1,5 +1,6 @@
 import { app, dialog } from 'electron';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import fs from 'node:fs/promises';
 import { validatePetPack, petPackToSpriteConfig, readSpritesheetDataUrl } from '../shared/petpack';
 import { validatePetConfig, DEFAULT_PET_CONFIG } from '../shared/config';
@@ -98,9 +99,9 @@ async function main() {
         config: applyPersistedPetState(payload.config, stateStore.current),
       }),
       preloadFile: path.join(__dirname, '../preload/petwin.js'),
-      rendererUrl: `file://${path.join(__dirname, '../renderer/pet.html')}`,
+      rendererUrl: pathToFileURL(path.join(__dirname, '../renderer/pet.html')).href,
       sizeControlPreloadFile: path.join(__dirname, '../preload/sizeControl.js'),
-      sizeControlRendererUrl: `file://${path.join(__dirname, '../renderer/size-control.html')}`,
+      sizeControlRendererUrl: pathToFileURL(path.join(__dirname, '../renderer/size-control.html')).href,
       initialPosition,
       // 只让首只宠物维护下次启动位置，临时召唤的分身不会覆盖主位置。
       onPositionChange: isPrimary ? (pos) => { void stateStore.update({ windowPosition: pos }); } : undefined,
