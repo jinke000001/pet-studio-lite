@@ -32,7 +32,7 @@
     "package:win:zip": "npm run build && npm run prepare:studio && esbuild scripts/package-studio.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/package-studio.bundle.mjs && node scripts/package-studio.bundle.mjs win-zip",
     "test:image-probe": "esbuild scripts/test-image-probe.mts --bundle --platform=node --format=esm --packages=external --outfile=scripts/test-image-probe.bundle.mjs && node scripts/test-image-probe.bundle.mjs",
     "test:windows-studio-report": "node scripts/test-windows-studio-report.mjs",
-    "test:studio-builder-config": "node scripts/test-studio-builder-config.mjs",
+    "test:studio-builder-config": "node scripts/test-studio-builder-config.mjs && node scripts/test-nsis-win-compat.mjs",
     "verify:windows-source": "npm test && npm run test:windows-studio-report && npm run test:studio-builder-config && npm run typecheck"
   },
   "engines": {

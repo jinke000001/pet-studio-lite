@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import { build, Platform, Arch } from 'electron-builder';
 import { readRuntimeTemplate } from '../src/main/runtime-template';
 import { studioBuilderConfig } from './studio-builder-config.mjs';
+import { withNsisWindowsCompatibility } from './nsis-win-compat.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const target = process.argv[2];
@@ -40,12 +41,12 @@ try {
   });
   const nativeModule = path.join(stage, `node_modules/@img/sharp-${platform}-${arch}/package.json`);
   await fs.access(nativeModule);
-  const artifacts = await build({
+  const artifacts = await withNsisWindowsCompatibility(root, target === 'win', async () => build({
     projectDir: root,
     targets: (windows ? Platform.WINDOWS : Platform.MAC).createTarget(target === 'win' ? ['nsis', 'zip'] : target === 'win-zip' ? ['zip'] : ['dmg'], arch === 'x64' ? Arch.x64 : Arch.arm64),
     config: studioBuilderConfig(root, stage, JSON.parse(await fs.readFile(path.join(root, 'node_modules/electron/package.json'), 'utf8')).version),
     publish: 'never',
-  });
+  }));
   const files = [];
   for (const file of artifacts) {
     if (file.endsWith('.blockmap')) continue;
