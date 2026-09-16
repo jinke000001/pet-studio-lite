@@ -6,7 +6,11 @@
 
 **[Step-by-step beginner guide (Chinese): download, install and create your first pet](./docs/guides/从下载到第一只桌宠.md)**
 
-**Installers are not publicly released yet.** A release draft is being prepared. Check [Releases](https://github.com/jinke000001/pet-studio-lite/releases) for published installers; meanwhile, use the trial supplied by the maintainer. GitHub's **Code → Download ZIP** downloads source code, not an installer.
+**The trial is available. Download an installer:**
+
+- **[Windows 11 x64 installer (EXE)](https://github.com/jinke000001/pet-studio-lite/releases/download/v0.2.0-beta.2-trial.1/PetStudio-Lite-0.2.0-beta.2-Windows-x64-Setup.exe)**
+- **[Mac Apple Silicon installer (DMG)](https://github.com/jinke000001/pet-studio-lite/releases/download/v0.2.0-beta.2-trial.1/PetStudio-Lite-0.2.0-beta.2-Mac-arm64.dmg)**
+- [Release notes and checksums](https://github.com/jinke000001/pet-studio-lite/releases/tag/v0.2.0-beta.2-trial.1)
 
 A desktop workbench for **Windows 11 x64 and macOS** that turns Petdex v1/v2 packs into standalone **Windows x64 desktop pets**.
 
@@ -21,7 +25,7 @@ Import → validate → preview → configure → export a ZIP → extract and r
 | Windows 11 x64 | Windows `.exe` installer | Copy to your computer, install, then launch from the desktop or Start menu |
 | Apple Silicon Mac | Mac `.dmg` | Copy to your computer, open, drag the app into Applications and launch |
 
-Trial installers are currently provided by the maintainer. GitHub **Code → Download ZIP contains source code, not an installer**. T7 is only used to transfer the installer; it is not needed after installation. The current Mac trial is for Apple Silicon, not Intel, and is not Developer ID signed or notarized.
+Download the trial installers using the links above. GitHub **Code → Download ZIP contains source code, not an installer**. T7 is only used to transfer the installer; it is not needed after installation. The current Mac trial is for Apple Silicon, not Intel, and is not Developer ID signed or notarized.
 
 ## Quick tutorial
 
@@ -45,7 +49,7 @@ For detailed instructions, see the [Chinese tutorial](./README.zh-CN.md).
 
 ## Current trial status
 
-Version: **0.2.0-beta.2**. Mac source workflow regression passed 71/71 checks; packaged-app regression passed 14/14, including import, preview, export and restart persistence. Windows installation, uninstall, reinstall and user experience evidence is available. Full multi-display, upgrade, DPI, disconnected-network and long-running acceptance remains incomplete. This is an internal trial, not a fully accepted public release.
+Version: **0.2.0-beta.2**. Mac source workflow regression passed 71/71 checks; packaged-app regression passed 14/14, including import, preview, export and restart persistence. Windows installation, uninstall, reinstall and user experience evidence is available. Full multi-display, upgrade, DPI, disconnected-network and long-running acceptance remains incomplete. This is a public preview, not a fully accepted stable release.
 
 ## Develop from source
 

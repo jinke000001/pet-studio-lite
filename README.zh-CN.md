@@ -6,7 +6,11 @@
 
 **[打开新手详细步骤：下载 → 安装 → 导入第一只宠物 → 导出](./docs/guides/从下载到第一只桌宠.md)**
 
-**下载状态：安装包尚未公开发布。** 仓库当前提供源码；EXE/DMG 正在准备发布。拿到维护者提供的体验包后，可直接按上面的教程安装。[查看 Releases 下载区](https://github.com/jinke000001/pet-studio-lite/releases)。
+**体验版已发布，点击即可下载：**
+
+- **[Windows 11 x64 安装程序（EXE）](https://github.com/jinke000001/pet-studio-lite/releases/download/v0.2.0-beta.2-trial.1/PetStudio-Lite-0.2.0-beta.2-Windows-x64-Setup.exe)**
+- **[Mac Apple Silicon 安装包（DMG）](https://github.com/jinke000001/pet-studio-lite/releases/download/v0.2.0-beta.2-trial.1/PetStudio-Lite-0.2.0-beta.2-Mac-arm64.dmg)**
+- [版本说明与校验文件](https://github.com/jinke000001/pet-studio-lite/releases/tag/v0.2.0-beta.2-trial.1)
 
 安装版无需编程或开发环境。请勿把 GitHub 的 **Code → Download ZIP** 当作安装包。
 
@@ -33,7 +37,7 @@ Pet Studio Lite 是一个可在 Windows 11 x64 和 macOS 上运行的桌面工�
 | Windows 11 x64 | Windows 文件夹中的 `.exe` 安装程序 | 复制到本机，双击安装，从桌面或开始菜单启动 |
 | Mac Apple Silicon（M 系列） | Mac-Apple-Silicon 文件夹中的 `.dmg` | 复制到本机，打开 DMG，将应用拖到“应用程序”后启动 |
 
-当前体验包由项目维护者提供，GitHub 的 **Code → Download ZIP 是源码，不是安装包**。安装完成后无需连接 T7。当前 Mac 体验包不适用于 Intel Mac；尚未完成 Developer ID 签名和公证。若 macOS 阻止打开，可在“系统设置 → 隐私与安全性”对本应用选择“仍要打开”。
+当前体验包可通过本页顶部链接下载，GitHub 的 **Code → Download ZIP 是源码，不是安装包**。安装完成后无需连接 T7。当前 Mac 体验包不适用于 Intel Mac；尚未完成 Developer ID 签名和公证。若 macOS 阻止打开，可在“系统设置 → 隐私与安全性”对本应用选择“仍要打开”。
 
 会打开一个窗口，左侧是 5 个步骤：导入 → 检查 → 预览 → 配置 → 导出。跟着走就行。
 
@@ -115,7 +119,7 @@ ZIP 里有 `启动说明.txt`（同样这份说明）和 `manifest.json`（版�
 
 - **素材检查通过，但出现断手、碎片或动作不自然？** 结构检查不代表图像质量合格。先在动作预览中暂停、逐帧检查；原图本身的碎片需要修整素材，工作台不会自动修复图集。
 - **换电脑后看不到项目？** 项目存放在当前电脑的应用用户数据中，不会通过 T7 或 GitHub 自动同步。请保留原始素材。
-- **体验状态？** 当前为 `0.2.0-beta.2` 内部体验版，先正常使用并记录问题。Mac 源码回归 71/71、打包版回归 14/14 已通过；Windows 有安装、卸载、重装及用户体验记录。多屏、覆盖升级、完整 DPI、断网和长稳专项尚未全部完成。
+- **体验状态？** 当前为 `0.2.0-beta.2` 公开体验版，先正常使用并记录问题。Mac 源码回归 71/71、打包版回归 14/14 已通过；Windows 有安装、卸载、重装及用户体验记录。多屏、覆盖升级、完整 DPI、断网和长稳专项尚未全部完成。
 
 ## 开发者
 
