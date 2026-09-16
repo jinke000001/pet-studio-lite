@@ -2,6 +2,14 @@
 
 # Pet Studio Lite
 
+## 第一次使用？从这里开始
+
+**[打开新手详细步骤：下载 → 安装 → 导入第一只宠物 → 导出](./docs/guides/从下载到第一只桌宠.md)**
+
+**下载状态：安装包尚未公开发布。** 仓库当前提供源码；EXE/DMG 正在准备发布。拿到维护者提供的体验包后，可直接按上面的教程安装。[查看 Releases 下载区](https://github.com/jinke000001/pet-studio-lite/releases)。
+
+安装版无需编程或开发环境。请勿把 GitHub 的 **Code → Download ZIP** 当作安装包。
+
 一个把 Petdex 宠物包变成 **Windows 便携桌宠** 的制作台。不需要账号或任何 AI 服务；可按用户操作联网下载 Petdex 宠物，其他制作流程都在本地完成。
 
 **闭环**：导入宠物包 → 自动检查 → 动作预览 → 配置 → 导出 Windows x64 便携 ZIP → 解压双击 EXE 运行桌宠。

@@ -2,6 +2,12 @@
 
 # Pet Studio Lite
 
+## New here? Start with installation
+
+**[Step-by-step beginner guide (Chinese): download, install and create your first pet](./docs/guides/从下载到第一只桌宠.md)**
+
+**Installers are not publicly released yet.** A release draft is being prepared. Check [Releases](https://github.com/jinke000001/pet-studio-lite/releases) for published installers; meanwhile, use the trial supplied by the maintainer. GitHub's **Code → Download ZIP** downloads source code, not an installer.
+
 A desktop workbench for **Windows 11 x64 and macOS** that turns Petdex v1/v2 packs into standalone **Windows x64 desktop pets**.
 
 Import → validate → preview → configure → export a ZIP → extract and run `PetLitePet.exe` on Windows.
